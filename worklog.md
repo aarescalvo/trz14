@@ -38,3 +38,33 @@ Stage Summary:
 - El usuario debe cambiar a rama `main` con: `git checkout main && git pull origin main`
 - Luego ejecutar seed: `bun run db:seed` para generar las 71 listas históricas
 - Historial mejorado con: N° lista, fecha, tropas, cantidad, scroll, click para detalle
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix control de pH - tropas no encontradas + filtros en reportes + productor dropdown
+
+Work Log:
+- Investigado el bug "no se encontraron tropas" en control de pH
+- Causa 1: La API /api/tropas ignoraba el parámetro fechaDesde (no se usaba en la query)
+- Causa 2: La API /api/medias-res requería permiso puedeRomaneo pero los usuarios de Calidad solo tienen puedeCalidad
+- Fix 1: Agregado soporte para fechaDesde/fechaHasta en /api/tropas (filtra por fechaFaena o createdAt)
+- Fix 1b: Refactorizado la construcción del where clause en /api/tropas para combinar correctamente condiciones AND/OR
+- Fix 2: Cambiado permiso de /api/medias-res GET de checkPermission('puedeRomaneo') a checkAnyPermission(['puedeRomaneo', 'puedeCalidad', 'puedeReportes'])
+- Fix 3: Mejorado API /api/calidad-ph/reportes para que los filtros de peso (kg), clasificación pH, tipo animal y rango pH funcionen en TODOS los sub-tabs (resumen, detalle, dfd-productor, control-estadistico)
+- Antes solo funcionaban en el sub-tab "detalle", ahora generanResumen, generarCorrelacionDFD y generarControlEstadistico usan buildCommonWhere
+- Fix 4: Agregado endpoint dedicado /api/calidad-ph/reportes?modo=productores para cargar la lista de productores del dropdown
+- Fix 5: Actualizado el componente ReportesPHTab para enviar todos los filtros a todos los sub-tabs (no solo a detalle)
+- Fix 6: Actualizado la carga de productores para usar el nuevo endpoint dedicado (más eficiente)
+
+Archivos modificados:
+- src/app/api/tropas/route.ts (fechaDesde filter + where clause refactor)
+- src/app/api/medias-res/route.ts (permiso puedeCalidad)
+- src/app/api/calidad-ph/reportes/route.ts (filtros globales + endpoint productores)
+- src/components/calidad-ph/index.tsx (filtros globales + productor endpoint)
+
+Stage Summary:
+- El bug "no se encontraron tropas" debería estar resuelto con los dos fixes (fechaDesde + permisos)
+- Los filtros de reportes (peso, clasificación, tipo animal, pH) ahora funcionan en todos los sub-tabs
+- El dropdown de productores usa un endpoint dedicado más eficiente
+- Pendiente: push a GitHub trz11
