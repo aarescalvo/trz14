@@ -282,8 +282,8 @@ export async function POST(request: NextRequest) {
       { v: 'CARAVANA', c: 2 },
       { v: 'TIPO', c: 3 },
       { v: 'RAZA', c: 4 },
-      { v: 'PESO INDIVIDUAL (kg)', c: 5 },
-      { v: 'PESO VIVO (kg)', c: 6 },
+      { v: 'PESO (kg)', c: 5 },
+      { v: 'CORRAL', c: 6 },
       { v: 'OBSERVACIONES', c: 7 },
     ]
     aHeaders.forEach(h => {
@@ -304,8 +304,8 @@ export async function POST(request: NextRequest) {
       a.caravana || '-',
       TIPOS_ANIMAL[a.tipoAnimal || ''] || a.tipoAnimal || '-',
       a.raza || '-',
-      a.pesajeIndividual?.peso ? a.pesajeIndividual.peso : null,
-      a.pesoVivo || null,
+      a.pesajeIndividual?.peso || a.pesoVivo || null,
+      tropa.corral?.nombre || '-',
       ''
     ])
 
@@ -323,11 +323,10 @@ export async function POST(request: NextRequest) {
           fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } },
           border: thinBorder,
           alignment: colIdx === 0 ? { horizontal: 'center', vertical: 'middle' }
-            : colIdx === 4 || colIdx === 5 ? { horizontal: 'right', vertical: 'middle' }
+            : colIdx === 4 ? { horizontal: 'right', vertical: 'middle' }
             : { horizontal: 'left', vertical: 'middle', indent: 1 }
         })
         if (colIdx === 4 && val !== null) cell.numFmt = '#,##0.0'
-        if (colIdx === 5 && val !== null) cell.numFmt = '#,##0.0'
       })
       r += 1
     })

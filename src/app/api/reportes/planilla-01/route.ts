@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
         animal.raza || '',
         peso ? peso.toFixed(1) : '',
         animal.caravana || '',
-        animal.corralId || tropa.corral?.nombre || ''
+        animal.observaciones || ''
       ]
     })
 
@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
       'Raza',
       'Peso Entrada (kg)',
       'Caravana',
-      'Corral'
+      'Observaciones'
     ]
 
     autoTable(doc, {
