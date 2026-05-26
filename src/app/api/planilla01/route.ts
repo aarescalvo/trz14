@@ -36,10 +36,18 @@ function applyCell(cell: ExcelJS.Cell, opts: {
   alignment?: Partial<ExcelJS.Alignment>
   numFmt?: string
 }) {
-  if (opts.font) Object.assign(cell.font, opts.font)
-  if (opts.fill) Object.assign(cell.fill, opts.fill)
-  if (opts.border) Object.assign(cell.border, opts.border)
-  if (opts.alignment) Object.assign(cell.alignment, opts.alignment)
+  if (opts.font) {
+    cell.font = Object.assign(cell.font || {}, opts.font)
+  }
+  if (opts.fill) {
+    cell.fill = Object.assign(cell.fill || {}, opts.fill)
+  }
+  if (opts.border) {
+    cell.border = Object.assign(cell.border || {}, opts.border)
+  }
+  if (opts.alignment) {
+    cell.alignment = Object.assign(cell.alignment || {}, opts.alignment)
+  }
   if (opts.numFmt) cell.numFmt = opts.numFmt
 }
 
