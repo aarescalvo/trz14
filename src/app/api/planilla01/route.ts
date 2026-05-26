@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     const titleCell = ws.getRow(r).getCell(1)
     titleCell.value = 'PLANILLA 01 - REGISTRO DE INGRESO DE HACIENDA'
     applyCell(titleCell, {
-      font: { bold: true, size: 16, color: { argb: 'FF1A1A1A' } },
+      font: { bold: true, size: 16, color: { argb: 'FF000000' } },
       alignment: { horizontal: 'center', vertical: 'middle' },
       border: noBorder
     })
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       cell.value = d.v
       applyCell(cell, {
         font: { size: 9, bold: !!d.bold, color: { argb: 'FF333333' } },
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F0' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } },
         border: thinBorder,
         alignment: { vertical: 'middle', indent: d.bold ? 1 : 0 }
       })
@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       cell.value = d.v
       applyCell(cell, {
         font: { size: 9, bold: !!d.bold, color: { argb: 'FF333333' } },
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F0' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } },
         border: thinBorder,
         alignment: { vertical: 'middle', indent: d.bold ? 1 : 0 }
       })
@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
       cell.value = d.v
       applyCell(cell, {
         font: { size: 9, bold: !!d.bold, color: { argb: 'FF333333' } },
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F0' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } },
         border: thinBorder,
         alignment: { vertical: 'middle', indent: d.bold ? 1 : 0 }
       })
@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
       cell.value = d.v
       applyCell(cell, {
         font: { size: 9, bold: !!d.bold, color: { argb: 'FF333333' } },
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F0' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } },
         border: thinBorder,
         alignment: { vertical: 'middle', indent: d.bold ? 1 : 0 }
       })
@@ -294,7 +294,7 @@ export async function POST(request: NextRequest) {
     secAnim.value = 'DETALLE DE ANIMALES'
     applyCell(secAnim, {
       font: { bold: true, size: 10, color: { argb: 'FFFFFFFF' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E6B2E' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A4A4A' } },
       border: noBorder,
       alignment: { vertical: 'middle', indent: 1 }
     })
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
       cell.value = h.v
       applyCell(cell, {
         font: { bold: true, size: 9, color: { argb: 'FFFFFFFF' } },
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5A5A5A' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A4A4A' } },
         border: headerBorder,
         alignment: { horizontal: 'center', vertical: 'middle' }
       })
@@ -368,7 +368,7 @@ export async function POST(request: NextRequest) {
     const totalLabel = totalARow.getCell(1)
     totalLabel.value = `TOTALES:  Cabezas: ${totalAnimales}  |  Suma Pesos Indiv.: ${kgNetosIndividuales.toFixed(1)} kg  |  Peso Promedio: ${pesoPromedio.toFixed(1)} kg`
     applyCell(totalLabel, {
-      font: { bold: true, size: 9, color: { argb: 'FF1A1A1A' } },
+      font: { bold: true, size: 9, color: { argb: 'FF000000' } },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } },
       border: { ...thinBorder, top: { style: 'medium', color: { argb: 'FF333333' } } },
       alignment: { vertical: 'middle', indent: 1 }
@@ -383,7 +383,7 @@ export async function POST(request: NextRequest) {
     secPesaje.value = 'COMPARATIVO DE PESAJE'
     applyCell(secPesaje, {
       font: { bold: true, size: 10, color: { argb: 'FFFFFFFF' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A3C6E' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A4A4A' } },
       border: noBorder,
       alignment: { vertical: 'middle', indent: 1 }
     })
@@ -397,16 +397,16 @@ export async function POST(request: NextRequest) {
     ws.mergeCells(r, 1, r, 3)
     pesadaCell.value = 'N° PESADA CAMIÓN:'
     applyCell(pesadaCell, {
-      font: { bold: true, size: 9, color: { argb: 'FF1A3C6E' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBF0FA' } },
+      font: { bold: true, size: 9, color: { argb: 'FF333333' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } },
       border: thinBorder,
       alignment: { vertical: 'middle', indent: 1 }
     })
     const pesadaVal = pesadaR.getCell(4)
     pesadaVal.value = String(tropa.pesajeCamion?.numeroTicket || '-')
     applyCell(pesadaVal, {
-      font: { bold: true, size: 11, color: { argb: 'FF1A3C6E' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBF0FA' } },
+      font: { bold: true, size: 11, color: { argb: 'FF333333' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } },
       border: thinBorder,
       alignment: { vertical: 'middle' }
     })
@@ -422,17 +422,17 @@ export async function POST(request: NextRequest) {
     const box1Title = ws.getRow(boxRow).getCell(1)
     box1Title.value = 'KG NETOS CAMIÓN'
     applyCell(box1Title, {
-      font: { bold: true, size: 8, color: { argb: 'FF000099' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E8FF' } },
-      border: { top: { style: 'medium', color: { argb: 'FF000099' } }, left: { style: 'medium', color: { argb: 'FF000099' } }, right: { style: 'medium', color: { argb: 'FF000099' } }, bottom: { style: 'thin', color: { argb: 'FF000099' } } },
+      font: { bold: true, size: 8, color: { argb: 'FF333333' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } },
+      border: { top: { style: 'medium', color: { argb: 'FF555555' } }, left: { style: 'medium', color: { argb: 'FF555555' } }, right: { style: 'medium', color: { argb: 'FF555555' } }, bottom: { style: 'thin', color: { argb: 'FF555555' } } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     })
     const box1Val = ws.getRow(boxRow + 1).getCell(1)
     box1Val.value = kgNetosCamion !== null ? kgNetosCamion : 'Sin datos'
     applyCell(box1Val, {
-      font: { bold: true, size: 14, color: { argb: 'FF000099' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E8FF' } },
-      border: { top: { style: 'thin', color: { argb: 'FF000099' } }, left: { style: 'medium', color: { argb: 'FF000099' } }, right: { style: 'medium', color: { argb: 'FF000099' } }, bottom: { style: 'medium', color: { argb: 'FF000099' } } },
+      font: { bold: true, size: 14, color: { argb: 'FF333333' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8E8' } },
+      border: { top: { style: 'thin', color: { argb: 'FF555555' } }, left: { style: 'medium', color: { argb: 'FF555555' } }, right: { style: 'medium', color: { argb: 'FF555555' } }, bottom: { style: 'medium', color: { argb: 'FF555555' } } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     })
     if (kgNetosCamion !== null) box1Val.numFmt = '#,##0.0'
@@ -442,17 +442,17 @@ export async function POST(request: NextRequest) {
     const box2Title = ws.getRow(boxRow).getCell(4)
     box2Title.value = 'KG NETOS INDIVIDUALES'
     applyCell(box2Title, {
-      font: { bold: true, size: 8, color: { argb: 'FF006600' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0FFE0' } },
-      border: { top: { style: 'medium', color: { argb: 'FF006600' } }, left: { style: 'medium', color: { argb: 'FF006600' } }, right: { style: 'medium', color: { argb: 'FF006600' } }, bottom: { style: 'thin', color: { argb: 'FF006600' } } },
+      font: { bold: true, size: 8, color: { argb: 'FF333333' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDEDED' } },
+      border: { top: { style: 'medium', color: { argb: 'FF555555' } }, left: { style: 'medium', color: { argb: 'FF555555' } }, right: { style: 'medium', color: { argb: 'FF555555' } }, bottom: { style: 'thin', color: { argb: 'FF555555' } } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     })
     const box2Val = ws.getRow(boxRow + 1).getCell(4)
     box2Val.value = kgNetosIndividuales
     applyCell(box2Val, {
-      font: { bold: true, size: 14, color: { argb: 'FF006600' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0FFE0' } },
-      border: { top: { style: 'thin', color: { argb: 'FF006600' } }, left: { style: 'medium', color: { argb: 'FF006600' } }, right: { style: 'medium', color: { argb: 'FF006600' } }, bottom: { style: 'medium', color: { argb: 'FF006600' } } },
+      font: { bold: true, size: 14, color: { argb: 'FF333333' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDEDED' } },
+      border: { top: { style: 'thin', color: { argb: 'FF555555' } }, left: { style: 'medium', color: { argb: 'FF555555' } }, right: { style: 'medium', color: { argb: 'FF555555' } }, bottom: { style: 'medium', color: { argb: 'FF555555' } } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     })
     box2Val.numFmt = '#,##0.0'
@@ -461,12 +461,12 @@ export async function POST(request: NextRequest) {
     ws.mergeCells(boxRow, 7, boxRow + 1, 9)
     const box3Title = ws.getRow(boxRow).getCell(7)
     box3Title.value = 'DIFERENCIA'
-    const diffColor = diferenciaKg !== null && diferenciaKg < 0 ? 'FFCC0000' : 'FFCC6600'
-    const diffBg = diferenciaKg !== null && diferenciaKg < 0 ? 'FFFFE0E0' : 'FFFFF0D0'
+    const diffColor = 'FF333333'
+    const diffBg = 'FFF2F2F2'
     applyCell(box3Title, {
       font: { bold: true, size: 8, color: { argb: diffColor } },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: diffBg } },
-      border: { top: { style: 'medium', color: { argb: diffColor } }, left: { style: 'medium', color: { argb: diffColor } }, right: { style: 'medium', color: { argb: diffColor } }, bottom: { style: 'thin', color: { argb: diffColor } } },
+      border: { top: { style: 'medium', color: { argb: 'FF555555' } }, left: { style: 'medium', color: { argb: 'FF555555' } }, right: { style: 'medium', color: { argb: 'FF555555' } }, bottom: { style: 'thin', color: { argb: 'FF555555' } } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     })
     const box3Val = ws.getRow(boxRow + 1).getCell(7)
@@ -476,7 +476,7 @@ export async function POST(request: NextRequest) {
     applyCell(box3Val, {
       font: { bold: true, size: 14, color: { argb: diffColor } },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: diffBg } },
-      border: { top: { style: 'thin', color: { argb: diffColor } }, left: { style: 'medium', color: { argb: diffColor } }, right: { style: 'medium', color: { argb: diffColor } }, bottom: { style: 'medium', color: { argb: diffColor } } },
+      border: { top: { style: 'thin', color: { argb: 'FF555555' } }, left: { style: 'medium', color: { argb: 'FF555555' } }, right: { style: 'medium', color: { argb: 'FF555555' } }, bottom: { style: 'medium', color: { argb: 'FF555555' } } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     })
 
@@ -485,17 +485,17 @@ export async function POST(request: NextRequest) {
     const box4Title = ws.getRow(boxRow).getCell(10)
     box4Title.value = 'PROMEDIO KG NETOS'
     applyCell(box4Title, {
-      font: { bold: true, size: 8, color: { argb: 'FF665500' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF5D0' } },
-      border: { top: { style: 'medium', color: { argb: 'FF665500' } }, left: { style: 'medium', color: { argb: 'FF665500' } }, right: { style: 'medium', color: { argb: 'FF665500' } }, bottom: { style: 'thin', color: { argb: 'FF665500' } } },
+      font: { bold: true, size: 8, color: { argb: 'FF333333' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F7F7' } },
+      border: { top: { style: 'medium', color: { argb: 'FF555555' } }, left: { style: 'medium', color: { argb: 'FF555555' } }, right: { style: 'medium', color: { argb: 'FF555555' } }, bottom: { style: 'thin', color: { argb: 'FF555555' } } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     })
     const box4Val = ws.getRow(boxRow + 1).getCell(10)
     box4Val.value = pesoPromedio
     applyCell(box4Val, {
-      font: { bold: true, size: 14, color: { argb: 'FF665500' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF5D0' } },
-      border: { top: { style: 'thin', color: { argb: 'FF665500' } }, left: { style: 'medium', color: { argb: 'FF665500' } }, right: { style: 'medium', color: { argb: 'FF665500' } }, bottom: { style: 'medium', color: { argb: 'FF665500' } } },
+      font: { bold: true, size: 14, color: { argb: 'FF333333' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F7F7' } },
+      border: { top: { style: 'thin', color: { argb: 'FF555555' } }, left: { style: 'medium', color: { argb: 'FF555555' } }, right: { style: 'medium', color: { argb: 'FF555555' } }, bottom: { style: 'medium', color: { argb: 'FF555555' } } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     })
     box4Val.numFmt = '#,##0.0'
@@ -519,7 +519,7 @@ export async function POST(request: NextRequest) {
       ws.mergeCells(r, d.c, r, d.c + 1)
       labelCell.value = d.label
       applyCell(labelCell, {
-        font: { bold: true, size: 8, color: { argb: 'FF666666' } },
+        font: { bold: true, size: 8, color: { argb: 'FF4A4A4A' } },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F8F8' } },
         border: thinBorder,
         alignment: { vertical: 'middle', indent: 1 }
@@ -544,7 +544,7 @@ export async function POST(request: NextRequest) {
     secObs.value = 'OBSERVACIONES'
     applyCell(secObs, {
       font: { bold: true, size: 9, color: { argb: 'FFFFFFFF' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF666666' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A4A4A' } },
       border: noBorder,
       alignment: { vertical: 'middle', indent: 1 }
     })
@@ -556,7 +556,7 @@ export async function POST(request: NextRequest) {
     obsCell.value = tropa.observaciones || ''
     applyCell(obsCell, {
       font: { size: 9, color: { argb: 'FF333333' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFEF5' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } },
       border: thinBorder,
       alignment: { vertical: 'top', wrapText: true, indent: 1 }
     })
