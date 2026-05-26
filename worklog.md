@@ -114,3 +114,32 @@ Stage Summary:
 - Push exitoso a https://github.com/aarescalvo/trz11 (commit 48d9a8f)
 - Si `Romaneo.tropaCodigo` está vacío, ahora la API busca por garrones como fallback
 - Los logs en la terminal del servidor van a mostrar exactamente por qué no encontraba medias reses
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Reconstruir fixes perdidos por reset --hard + agregar filtros en reportes de control de pH
+
+Work Log:
+- El usuario hizo git reset --hard y se perdieron los fixes de sesiones anteriores en su PC
+- .env fue sobrescrito con DATABASE_URL del servidor SQLite en vez de PostgreSQL local
+- Agregado .env y .env.local al .gitignore para evitar que se pise en futuros pulls
+- Reconstruido medias-res/route.ts con: búsqueda por tropaCodigo → fallback por garrones (Romaneo + AsignacionGarron) → autoGenerar medias res desde romaneos con peso
+- Corregido error Prisma: Tropa no tiene campo garron. Ahora busca en Romaneo.garron y AsignacionGarron.garron
+- Corregido error Radix UI Select: no permite value="" en SelectItem. Cambiado a sentinel "__TODOS__"
+- Agregado endpoint modo=listas en calidad-ph/reportes/route.ts para cargar opciones de dropdowns
+- Nuevos filtros en reportes: Usuario Faena, Productor, Tropa (dropdown), Tipo Animal, Clasificación, Rango pH, Rango Peso kg
+- Layout filtros: grid-cols-4 (lg) / grid-cols-2 (sm) / grid-cols-1 para 9 filtros
+- Todos los filtros aplican a todos los sub-tabs (resumen, detalle, dfd-productor, control-estadistico)
+
+Archivos modificados:
+- src/app/api/medias-res/route.ts (búsqueda alternativa + autoGenerar + fix garron)
+- src/app/api/calidad-ph/reportes/route.ts (endpoint listas + filtros usuarioFaena, tipoAnimal, peso)
+- src/components/calidad-ph/index.tsx (9 filtros con dropdowns, autoGenerar en fetch)
+- .gitignore (agregado .env y .env.local)
+
+Stage Summary:
+- Commits: 17db33b (.gitignore), 8e4d731 (medias res + filtros), f785707 (fix prisma + select)
+- Push exitoso a origin/main sin force pushes
+- Todas las tropas ahora muestran medias reses (no solo la 155)
+- Reportes tienen 9 filtros funcionales con dropdowns
