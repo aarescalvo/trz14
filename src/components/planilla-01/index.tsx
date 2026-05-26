@@ -552,7 +552,7 @@ export function Planilla01Module({ operador }: Props) {
                   <TextoEditable id="planilla01-vista-previa" original="Vista Previa" tag="span" />
                   {tropaSeleccionada && (
                     <Badge className="bg-amber-100 text-amber-800 text-base px-4 py-1 ml-auto">
-                      TROPA N\u00b0 {tropaSeleccionada.numero || tropaSeleccionada.codigo}
+                      TROPA N\u00b0 {tropaSeleccionada.numero ?? tropaSeleccionada.codigo?.replace(/\s*-\s*$/, '') ?? '-'}
                     </Badge>
                   )}
                 </CardTitle>

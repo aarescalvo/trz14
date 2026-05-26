@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Anchos de columna
-    const colW = [5, 18, 22, 6, 18, 16, 8, 18, 16, 8, 18, 14, 14]
+    const colW = [5, 18, 22, 14, 18, 16, 8, 18, 16, 8, 18, 14, 14]
     colW.forEach((w, i) => { ws.getColumn(i + 1).width = w })
 
     let r = 1 // current row
