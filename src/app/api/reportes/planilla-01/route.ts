@@ -4,7 +4,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { checkPermission } from '@/lib/auth-helpers'
 
-// GET - Generar PDF Planilla 01 - Bovino
+// GET - Generar PDF Planilla 01 - Bovino (A4 Horizontal)
 export async function GET(request: NextRequest) {
   const authError = await checkPermission(request, 'puedeReportes')
   if (authError) return authError
@@ -35,7 +35,11 @@ export async function GET(request: NextRequest) {
           },
           orderBy: { numero: 'asc' }
         },
-        pesajeCamion: true
+        pesajeCamion: {
+          include: {
+            transportista: true
+          }
+        }
       }
     })
 
@@ -49,300 +53,330 @@ export async function GET(request: NextRequest) {
     // Obtener configuración del frigorífico
     const config = await db.configuracionFrigorifico.findFirst()
 
-    // Crear PDF
+    // ===== CÁLCULOS DE PESAJE =====
+    // Kg netos del camión (peso bruto - peso tara)
+    const kgNetosCamion = tropa.pesajeCamion?.pesoNeto ?? null
+    // Kg netos sumatoria de pesaje individual por animal
+    const kgNetosIndividuales = tropa.animales.reduce((acc, a) => {
+      return acc + (a.pesajeIndividual?.peso || a.pesoVivo || 0)
+    }, 0)
+    // Diferencia (Camión - Individual): positivo = sobra, negativo = falta
+    const diferenciaKg = kgNetosCamion !== null ? kgNetosCamion - kgNetosIndividuales : null
+
+    // Crear PDF A4 Horizontal
     const doc = new jsPDF({
-      orientation: 'portrait',
+      orientation: 'landscape',
       unit: 'mm',
       format: 'a4'
     })
 
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const margin = 10
-    let y = 15
+    const pageWidth = doc.internal.pageSize.getWidth()  // 297mm en landscape
+    const pageHeight = doc.internal.pageSize.getHeight() // 210mm en landscape
+    const margin = 8
+    let y = 10
 
     // ===== ENCABEZADO =====
-    doc.setFontSize(14)
+    doc.setFontSize(16)
     doc.setFont('helvetica', 'bold')
     doc.text('PLANILLA 01 - BOVINO', pageWidth / 2, y, { align: 'center' })
-    y += 6
-    
-    doc.setFontSize(10)
+    y += 5
+
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.text('FORMULARIO DE INGRESO DE HACIENDA', pageWidth / 2, y, { align: 'center' })
-    y += 8
+    y += 6
 
-    // ===== DATOS DEL ESTABLECIMIENTO =====
-    doc.setFontSize(9)
+    // ===== DATOS DEL ESTABLECIMIENTO (fila horizontal) =====
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
     doc.text('ESTABLECIMIENTO:', margin, y)
     doc.setFont('helvetica', 'normal')
-    doc.text(config?.nombre || 'Solemar Alimentaria S.A.', margin + 35, y)
+    doc.text(config?.nombre || 'Solemar Alimentaria S.A.', margin + 30, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('Mat.:', margin + 100, y)
+    doc.text('Mat.:', margin + 90, y)
     doc.setFont('helvetica', 'normal')
-    doc.text(config?.numeroMatricula || '300', margin + 110, y)
+    doc.text(config?.numeroMatricula || '300', margin + 98, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('SENASA:', margin + 130, y)
+    doc.text('SENASA:', margin + 115, y)
     doc.setFont('helvetica', 'normal')
-    doc.text(config?.numeroEstablecimiento || '3986', margin + 148, y)
-    y += 6
+    doc.text(config?.numeroEstablecimiento || '3986', margin + 127, y)
+    // Semana y fecha a la derecha
+    doc.setFont('helvetica', 'bold')
+    doc.text('Sem.:', margin + 155, y)
+    doc.setFont('helvetica', 'normal')
+    const semana = tropa.fechaRecepcion ? getWeekNumber(new Date(tropa.fechaRecepcion)) : ''
+    doc.text(semana.toString(), margin + 163, y)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Fecha:', margin + 178, y)
+    doc.setFont('helvetica', 'normal')
+    const fechaPlanilla = tropa.fechaRecepcion ? new Date(tropa.fechaRecepcion).toLocaleDateString('es-AR') : ''
+    doc.text(fechaPlanilla, margin + 190, y)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Hora:', margin + 215, y)
+    doc.setFont('helvetica', 'normal')
+    const horaIngreso = tropa.fechaRecepcion ? new Date(tropa.fechaRecepcion).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''
+    doc.text(horaIngreso, margin + 226, y)
+    y += 5
 
     // Línea separadora
     doc.setDrawColor(0)
+    doc.setLineWidth(0.5)
     doc.line(margin, y, pageWidth - margin, y)
-    y += 5
+    y += 4
 
-    // ===== FILA 1 - DATOS DE PLANILLA =====
+    // ===== FILA DE DATOS (Productor, Transporte, Documentos) =====
+    const datosRow = 5
     doc.setFontSize(8)
-    const rowHeight = 7
-    
-    // Fecha de Planilla
+
+    // --- Columna izquierda: Productor ---
     doc.setFont('helvetica', 'bold')
-    doc.text('Fecha Planilla:', margin, y)
+    doc.text('PRODUCTOR:', margin, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 25, y - 3.5, 25, rowHeight)
-    const fechaPlanilla = tropa.fechaRecepcion ? new Date(tropa.fechaRecepcion).toLocaleDateString('es-AR') : ''
-    doc.text(fechaPlanilla, margin + 27, y)
-
-    // Nº Registro Entrada
+    doc.text(tropa.productor?.nombre || tropa.usuarioFaena?.nombre || '-', margin + 20, y)
+    y += datosRow
     doc.setFont('helvetica', 'bold')
-    doc.text('Nº Reg. Entrada:', margin + 55, y)
+    doc.text('CUIT:', margin, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 83, y - 3.5, 20, rowHeight)
-    doc.text(tropa.numero.toString(), margin + 85, y)
-
-    // Nº Semana
+    doc.text(tropa.productor?.cuit || tropa.usuarioFaena?.cuit || '-', margin + 20, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('Nº Semana:', margin + 108, y)
+    doc.text('Tropa N°:', margin + 60, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 128, y - 3.5, 15, rowHeight)
-    const semana = tropa.fechaRecepcion ? getWeekNumber(new Date(tropa.fechaRecepcion)) : ''
-    doc.text(semana.toString(), margin + 130, y)
-
-    // Tropa Nº
+    doc.text(tropa.numero.toString(), margin + 75, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('Tropa Nº:', margin + 148, y)
+    doc.text('N° Reg.:', margin + 95, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 165, y - 3.5, 25, rowHeight)
-    doc.text(tropa.numero.toString(), margin + 167, y)
+    doc.text(tropa.numero.toString(), margin + 112, y)
+    y += datosRow
 
-    y += rowHeight + 2
-
-    // ===== FILA 2 - HORA Y TRANSPORTE =====
-    // Hora Ingreso
+    // --- Transporte ---
     doc.setFont('helvetica', 'bold')
-    doc.text('Hora Ingreso:', margin, y)
+    doc.text('TRANSPORTE:', margin, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 23, y - 3.5, 18, rowHeight)
-    const horaIngreso = tropa.fechaRecepcion ? new Date(tropa.fechaRecepcion).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''
-    doc.text(horaIngreso, margin + 25, y)
-
-    // Patente Chasis
+    doc.text(tropa.pesajeCamion?.transportista?.nombre || '-', margin + 24, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('Patente Chasis:', margin + 45, y)
+    doc.text('Chofer:', margin + 85, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 72, y - 3.5, 25, rowHeight)
-    doc.text(tropa.pesajeCamion?.patenteChasis || '', margin + 74, y)
-
-    // Patente Acoplado
+    doc.text(tropa.pesajeCamion?.choferNombre || '-', margin + 100, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('Patente Acoplado:', margin + 102, y)
+    doc.text('DNI:', margin + 140, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 132, y - 3.5, 25, rowHeight)
-    doc.text(tropa.pesajeCamion?.patenteAcoplado || '', margin + 134, y)
+    doc.text(tropa.pesajeCamion?.choferDni || '-', margin + 148, y)
+    y += datosRow
 
-    y += rowHeight + 2
-
-    // ===== FILA 3 - DOCUMENTOS =====
-    // Guía Nº
     doc.setFont('helvetica', 'bold')
-    doc.text('Guía Nº:', margin, y)
+    doc.text('Patente Chasis:', margin, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 15, y - 3.5, 35, rowHeight)
-    doc.text(tropa.guia || '', margin + 17, y)
-
-    // DTA Nº (usamos DTE como DTA)
+    doc.text(tropa.pesajeCamion?.patenteChasis || '-', margin + 28, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('DTA Nº:', margin + 55, y)
+    doc.text('Acoplado:', margin + 55, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 70, y - 3.5, 35, rowHeight)
-    doc.text(tropa.dte || '', margin + 72, y)
-
-    // Precinto Nº
+    doc.text(tropa.pesajeCamion?.patenteAcoplado || '-', margin + 75, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('Precinto Nº:', margin + 110, y)
+    doc.text('Precintos:', margin + 105, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 133, y - 3.5, 35, rowHeight)
-    doc.text(tropa.pesajeCamion?.precintos || '', margin + 135, y)
+    doc.text(tropa.pesajeCamion?.precintos || '-', margin + 125, y)
+    y += datosRow
 
-    y += rowHeight + 2
-
-    // ===== FILA 4 - PRODUCTOR =====
+    // --- Documentación ---
     doc.setFont('helvetica', 'bold')
-    doc.text('Productor:', margin, y)
+    doc.text('Guía:', margin, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 20, y - 3.5, 90, rowHeight)
-    doc.text(tropa.productor?.nombre || tropa.usuarioFaena?.nombre || '', margin + 22, y)
-
-    // CUIT
+    doc.text(tropa.guia || '-', margin + 12, y)
     doc.setFont('helvetica', 'bold')
-    doc.text('CUIT:', margin + 115, y)
+    doc.text('DTE:', margin + 55, y)
     doc.setFont('helvetica', 'normal')
-    doc.rect(margin + 128, y - 3.5, 35, rowHeight)
-    doc.text(tropa.productor?.cuit || tropa.usuarioFaena?.cuit || '', margin + 130, y)
+    doc.text(tropa.dte || '-', margin + 67, y)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Corral:', margin + 100, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(tropa.corral?.nombre || '-', margin + 115, y)
+    y += datosRow + 1
 
-    y += rowHeight + 4
-
-    // Línea separadora
+    // ===== CUADRO DE PESAJE (KPIs) =====
+    doc.setDrawColor(0)
+    doc.setLineWidth(0.5)
     doc.line(margin, y, pageWidth - margin, y)
     y += 3
+
+    // Cajas de pesos
+    const boxHeight = 14
+    const box1X = margin
+    const box1W = 85
+    const box2X = margin + box1W + 5
+    const box2W = 85
+    const box3X = margin + box1W + box2W + 10
+    const box3W = pageWidth - box3X - margin
+
+    // Caja 1: Kg Netos Camión
+    doc.setFillColor(230, 240, 250)
+    doc.rect(box1X, y, box1W, boxHeight, 'FD')
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.text('KG NETOS CAMION', box1X + 5, y + 5)
+    doc.setFontSize(12)
+    doc.text(kgNetosCamion !== null ? kgNetosCamion.toFixed(1) + ' kg' : 'Sin datos', box1X + 5, y + 11)
+
+    // Caja 2: Kg Netos Individuales (suma)
+    doc.setFillColor(230, 250, 230)
+    doc.rect(box2X, y, box2W, boxHeight, 'FD')
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.text('KG NETOS INDIVIDUALES (SUMA)', box2X + 5, y + 5)
+    doc.setFontSize(12)
+    doc.text(kgNetosIndividuales.toFixed(1) + ' kg', box2X + 5, y + 11)
+
+    // Caja 3: Diferencia
+    if (diferenciaKg !== null) {
+      const esPositivo = diferenciaKg >= 0
+      if (esPositivo) {
+        doc.setFillColor(255, 245, 200)
+      } else {
+        doc.setFillColor(255, 220, 220)
+      }
+      doc.rect(box3X, y, box3W, boxHeight, 'FD')
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text('DIFERENCIA (Camión - Indiv.)', box3X + 5, y + 5)
+      doc.setFontSize(12)
+      const signo = esPositivo ? '+' : ''
+      doc.text(signo + diferenciaKg.toFixed(1) + ' kg', box3X + 5, y + 11)
+    } else {
+      doc.setFillColor(245, 245, 245)
+      doc.rect(box3X, y, box3W, boxHeight, 'FD')
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text('DIFERENCIA (Camión - Indiv.)', box3X + 5, y + 5)
+      doc.setFontSize(12)
+      doc.text('Sin datos de camión', box3X + 5, y + 11)
+    }
+
+    y += boxHeight + 4
 
     // ===== TABLA DE ANIMALES =====
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
     doc.text('DETALLE DE ANIMALES', pageWidth / 2, y, { align: 'center' })
-    y += 5
+    y += 3
 
     // Preparar datos de la tabla
     const tableData = tropa.animales.map((animal, index) => {
       const tipoAnimalStr = formatTipoAnimal(animal.tipoAnimal)
       const sexo = getSexoFromTipo(animal.tipoAnimal)
-      const pesoEntrada = animal.pesoVivo || animal.pesajeIndividual?.peso || ''
-      
+      const peso = animal.pesajeIndividual?.peso || animal.pesoVivo || null
+
       return [
         (index + 1).toString(),
         tipoAnimalStr,
         sexo,
-        pesoEntrada ? pesoEntrada.toFixed(0) : '',
-        '', // Tipificación (vacío en planilla de ingreso)
+        peso ? peso.toFixed(1) : '',
+        animal.caravana || '',
+        '', // Tipificación
         animal.corralId || tropa.corral?.nombre || ''
       ]
     })
 
-    // Agregar filas vacías hasta completar 40 (formato oficial)
-    while (tableData.length < 40) {
-      tableData.push([
-        (tableData.length + 1).toString(),
-        '',
-        '',
-        '',
-        '',
-        ''
-      ])
-    }
+    // Headers
+    const headers = [
+      'Nº',
+      'Tipo',
+      'Sexo',
+      'Peso Entrada (kg)',
+      'Caravana',
+      'Tipificación',
+      'Corral'
+    ]
 
+    // Calcular filas por página (espacio disponible ~95mm para la tabla)
+    const startY = y
     autoTable(doc, {
-      startY: y,
-      head: [[
-        'Nº',
-        'Tipo',
-        'Sexo',
-        'Peso Entrada',
-        'Tipificación',
-        'Corral'
-      ]],
-      body: tableData.slice(0, 20), // Primeras 20 filas en la primera página
+      startY: startY,
+      head: [headers],
+      body: tableData,
       theme: 'grid',
       headStyles: {
-        fillColor: [240, 240, 240],
+        fillColor: [200, 200, 200],
         textColor: [0, 0, 0],
         fontStyle: 'bold',
         fontSize: 7
       },
       bodyStyles: {
-        fontSize: 7
+        fontSize: 7,
+        cellPadding: 1.5
       },
       columnStyles: {
-        0: { cellWidth: 10 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 15 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 30 },
-        5: { cellWidth: 20 }
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 22, halign: 'center' },
+        2: { cellWidth: 12, halign: 'center' },
+        3: { cellWidth: 30, halign: 'right' },
+        4: { cellWidth: 35, halign: 'center' },
+        5: { cellWidth: 25 },
+        6: { cellWidth: 20, halign: 'center' }
       },
-      margin: { left: margin, right: margin }
+      margin: { left: margin, right: margin },
+      didDrawPage: (data) => {
+        // Encabezado en cada página (excepto la primera que ya lo tiene)
+        if (data.pageNumber > 1) {
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'bold')
+          doc.text(`PLANILLA 01 - BOVINO | Tropa N° ${tropa.numero}`, pageWidth / 2, 8, { align: 'center' })
+        }
+      }
     })
 
-    // Si hay más de 20 animales, agregar otra tabla en nueva página
-    if (tableData.length > 20) {
+    // ===== TOTALES (debajo de la tabla) =====
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5
+
+    // Verificar si hay espacio, si no, nueva página
+    if (y > pageHeight - 35) {
       doc.addPage()
-      y = 20
-
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.text('DETALLE DE ANIMALES (continuación)', pageWidth / 2, y, { align: 'center' })
-      y += 5
-
-      autoTable(doc, {
-        startY: y,
-        head: [[
-          'Nº',
-          'Tipo',
-          'Sexo',
-          'Peso Entrada',
-          'Tipificación',
-          'Corral'
-        ]],
-        body: tableData.slice(20, 40),
-        theme: 'grid',
-        headStyles: {
-          fillColor: [240, 240, 240],
-          textColor: [0, 0, 0],
-          fontStyle: 'bold',
-          fontSize: 7
-        },
-        bodyStyles: {
-          fontSize: 7
-        },
-        columnStyles: {
-          0: { cellWidth: 10 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 15 },
-          3: { cellWidth: 25 },
-          4: { cellWidth: 30 },
-          5: { cellWidth: 20 }
-        },
-        margin: { left: margin, right: margin }
-      })
+      y = 15
     }
-
-    // ===== TOTALES =====
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10
 
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
     doc.text('TOTALES:', margin, y)
-    
+
     doc.setFont('helvetica', 'normal')
-    doc.text(`Cantidad de Cabezas: ${tropa.cantidadCabezas}`, margin + 25, y)
-    
-    const pesoTotal = tropa.animales.reduce((acc, a) => acc + (a.pesoVivo || a.pesajeIndividual?.peso || 0), 0)
-    doc.text(`Peso Total: ${pesoTotal.toFixed(0)} kg`, margin + 80, y)
-    
-    const pesoPromedio = tropa.animales.length > 0 ? pesoTotal / tropa.animales.length : 0
-    doc.text(`Peso Promedio: ${pesoPromedio.toFixed(0)} kg`, margin + 130, y)
+    doc.text(`Cabezas: ${tropa.cantidadCabezas}`, margin + 20, y)
+    const pesoTotal = tropa.animales.reduce((acc, a) => acc + (a.pesajeIndividual?.peso || a.pesoVivo || 0), 0)
+    doc.text(`Suma Pesos Indiv.: ${pesoTotal.toFixed(1)} kg`, margin + 55, y)
+    if (kgNetosCamion !== null) {
+      doc.text(`Peso Neto Camión: ${kgNetosCamion.toFixed(1)} kg`, margin + 115, y)
+      const signo = diferenciaKg !== null ? (diferenciaKg >= 0 ? '+' : '') : ''
+      doc.text(`Diferencia: ${signo}${diferenciaKg?.toFixed(1)} kg`, margin + 195, y)
+    }
 
-    y += 10
+    const pesoPromedio = tropa.animales.length > 0 ? pesoTotal / tropa.animales.filter(a => (a.pesajeIndividual?.peso || a.pesoVivo || 0) > 0).length : 0
+    y += 5
+    doc.text(`Peso Promedio: ${pesoPromedio.toFixed(1)} kg`, margin + 55, y)
 
-    // ===== FIRMA Y SELLO =====
+    y += 8
+
+    // ===== OBSERVACIONES =====
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
     doc.text('OBSERVACIONES:', margin, y)
-    doc.rect(margin, y + 2, pageWidth - margin * 2, 15)
+    doc.rect(margin, y + 2, pageWidth - margin * 2, 12)
     doc.setFont('helvetica', 'normal')
     if (tropa.observaciones) {
-      doc.text(tropa.observaciones, margin + 2, y + 7)
+      doc.text(tropa.observaciones, margin + 2, y + 7, { maxWidth: pageWidth - margin * 2 - 4 })
     }
 
-    y += 25
+    y += 20
 
-    // Espacio para firmas
+    // ===== FIRMA Y SELLO =====
+    if (y > pageHeight - 20) {
+      doc.addPage()
+      y = 15
+    }
+
     doc.setFont('helvetica', 'bold')
-    doc.text('FIRMA RESPONSABLE:', margin, y)
-    doc.text('SELLO:', pageWidth / 2, y)
+    doc.setFontSize(8)
+    doc.text('FIRMA RESPONSABLE:', margin + 10, y)
+    doc.text('SELLO:', pageWidth / 2 + 30, y)
 
-    doc.rect(margin, y + 5, 60, 20)
-    doc.rect(pageWidth / 2, y + 5, 60, 20)
+    doc.rect(margin + 5, y + 3, 70, 15)
+    doc.rect(pageWidth / 2 + 25, y + 3, 70, 15)
 
     // ===== PIE DE PÁGINA =====
     const pageCount = doc.getNumberOfPages()
@@ -353,14 +387,14 @@ export async function GET(request: NextRequest) {
       doc.text(
         `Página ${i} de ${pageCount}`,
         pageWidth / 2,
-        doc.internal.pageSize.getHeight() - 10,
+        pageHeight - 5,
         { align: 'center' }
       )
     }
 
     // Devolver PDF como blob
     const pdfBytes = doc.output('arraybuffer')
-    
+
     return new NextResponse(pdfBytes, {
       status: 200,
       headers: {
@@ -407,7 +441,7 @@ function formatTipoAnimal(tipo: string): string {
 function getSexoFromTipo(tipo: string): string {
   const machos = ['TO', 'MEJ', 'NO', 'NT', 'PADRILLO', 'POTRILLO', 'CABALLO', 'BURRO']
   const hembras = ['VA', 'VQ', 'YEGUA', 'MULA']
-  
+
   if (machos.includes(tipo)) return 'M'
   if (hembras.includes(tipo)) return 'H'
   return ''
