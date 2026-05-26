@@ -93,3 +93,24 @@ Stage Summary:
 - Push exitoso a https://github.com/aarescalvo/trz11 (commit c5cb66e)
 - El usuario ahora verá mensajes de error claros si hay problemas de permisos
 - POST/PUT de medias-res ya no crashean por falta de import
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Búsqueda alternativa de medias res + diagnóstico por garrones
+
+Work Log:
+- El usuario seguía sin ver medias reses. No aparecía toast de error → API devolvía 200 pero con array vacío
+- Investigado el flujo: dropdown pasa `t.codigo` → API filtra `Romaneo.tropaCodigo = {tropaCodigo}`
+- Descubierto que `Romaneo.tropaCodigo` es `String?` (opcional). Si los romaneos se crearon sin tropaCodigo, la query devuelve vacío
+- Implementada búsqueda alternativa: si la búsqueda directa por tropaCodigo no encuentra resultados, busca la tropa en tabla `Tropa`, obtiene los números de garrón de sus animales, busca romaneos por esos garrones, y luego busca medias res de esos romaneos
+- Agregados logs de diagnóstico en la consola del servidor para identificar qué está pasando (tropa encontrada?, romaneos encontrados?, tropaCodigo en Romaneo vacío?)
+- Commit 48d9a8f pusheado a origin/main de trz11
+
+Archivos modificados:
+- src/app/api/medias-res/route.ts (búsqueda alternativa + logs)
+
+Stage Summary:
+- Push exitoso a https://github.com/aarescalvo/trz11 (commit 48d9a8f)
+- Si `Romaneo.tropaCodigo` está vacío, ahora la API busca por garrones como fallback
+- Los logs en la terminal del servidor van a mostrar exactamente por qué no encontraba medias reses
