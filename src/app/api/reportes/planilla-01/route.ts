@@ -76,9 +76,13 @@ export async function GET(request: NextRequest) {
     let y = 10
 
     // ===== ENCABEZADO =====
-    doc.setFontSize(16)
+    doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
-    doc.text('PLANILLA 01 - BOVINO', pageWidth / 2, y, { align: 'center' })
+    doc.text('PLANILLA 01 - BOVINO', margin, y)
+
+    // Tropa N° GRANDE a la derecha del título
+    doc.setFontSize(20)
+    doc.text(`TROPA N° ${tropa.numero}`, pageWidth - margin, y, { align: 'right' })
     y += 5
 
     doc.setFontSize(9)
@@ -190,67 +194,69 @@ export async function GET(request: NextRequest) {
     doc.text('Corral:', margin + 100, y)
     doc.setFont('helvetica', 'normal')
     doc.text(tropa.corral?.nombre || '-', margin + 115, y)
+    // Ticket de pesada
+    doc.setFont('helvetica', 'bold')
+    doc.text('Ticket Pesada:', margin + 150, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(String(tropa.pesajeCamion?.numeroTicket || '-'), margin + 180, y)
     y += datosRow + 1
 
-    // ===== CUADRO DE PESAJE (KPIs) =====
+    // ===== COMPARATIVO DE PESAJE (fila horizontal compacta) =====
     doc.setDrawColor(0)
     doc.setLineWidth(0.5)
     doc.line(margin, y, pageWidth - margin, y)
-    y += 3
+    y += 2
 
-    // Cajas de pesos
-    const boxHeight = 14
-    const box1X = margin
-    const box1W = 85
-    const box2X = margin + box1W + 5
-    const box2W = 85
-    const box3X = margin + box1W + box2W + 10
-    const box3W = pageWidth - box3X - margin
-
-    // Caja 1: Kg Netos Camión
-    doc.setFillColor(230, 240, 250)
-    doc.rect(box1X, y, box1W, boxHeight, 'FD')
+    // Fila compacta: label + valor horizontal
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
-    doc.text('KG NETOS CAMION', box1X + 5, y + 5)
-    doc.setFontSize(12)
-    doc.text(kgNetosCamion !== null ? kgNetosCamion.toFixed(1) + ' kg' : 'Sin datos', box1X + 5, y + 11)
+    doc.text('PESAJE:', margin, y + 4)
 
-    // Caja 2: Kg Netos Individuales (suma)
-    doc.setFillColor(230, 250, 230)
-    doc.rect(box2X, y, box2W, boxHeight, 'FD')
-    doc.setFontSize(8)
+    // Bruto
+    doc.setFontSize(7)
+    doc.text('Bruto:', margin + 22, y + 2)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(tropa.pesajeCamion?.pesoBruto ? tropa.pesajeCamion.pesoBruto.toFixed(1) : '-', margin + 32, y + 2)
+    // Tara
     doc.setFont('helvetica', 'bold')
-    doc.text('KG NETOS INDIVIDUALES (SUMA)', box2X + 5, y + 5)
-    doc.setFontSize(12)
-    doc.text(kgNetosIndividuales.toFixed(1) + ' kg', box2X + 5, y + 11)
-
-    // Caja 3: Diferencia
+    doc.setFontSize(7)
+    doc.text('Tara:', margin + 60, y + 2)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(tropa.pesajeCamion?.pesoTara ? tropa.pesajeCamion.pesoTara.toFixed(1) : '-', margin + 68, y + 2)
+    // Neto Camión
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.setTextColor(0, 0, 150)
+    doc.text('NETO CAMIÓN:', margin + 98, y + 2)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.text(kgNetosCamion !== null ? kgNetosCamion.toFixed(1) + ' kg' : 'S/D', margin + 125, y + 2)
+    doc.setTextColor(0, 0, 0)
+    // Neto Individuales
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.setTextColor(0, 100, 0)
+    doc.text('NETO INDIVID.:', margin + 165, y + 2)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.text(kgNetosIndividuales.toFixed(1) + ' kg', margin + 195, y + 2)
+    doc.setTextColor(0, 0, 0)
+    // Diferencia
     if (diferenciaKg !== null) {
       const esPositivo = diferenciaKg >= 0
-      if (esPositivo) {
-        doc.setFillColor(255, 245, 200)
-      } else {
-        doc.setFillColor(255, 220, 220)
-      }
-      doc.rect(box3X, y, box3W, boxHeight, 'FD')
-      doc.setFontSize(8)
       doc.setFont('helvetica', 'bold')
-      doc.text('DIFERENCIA (Camión - Indiv.)', box3X + 5, y + 5)
-      doc.setFontSize(12)
-      const signo = esPositivo ? '+' : ''
-      doc.text(signo + diferenciaKg.toFixed(1) + ' kg', box3X + 5, y + 11)
-    } else {
-      doc.setFillColor(245, 245, 245)
-      doc.rect(box3X, y, box3W, boxHeight, 'FD')
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'bold')
-      doc.text('DIFERENCIA (Camión - Indiv.)', box3X + 5, y + 5)
-      doc.setFontSize(12)
-      doc.text('Sin datos de camión', box3X + 5, y + 11)
+      doc.setFontSize(7)
+      doc.setTextColor(esPositivo ? 150 : 200, 0, 0)
+      doc.text('DIFERENCIA:', margin + 230, y + 2)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(11)
+      doc.text((esPositivo ? '+' : '') + diferenciaKg.toFixed(1) + ' kg', margin + 257, y + 2)
+      doc.setTextColor(0, 0, 0)
     }
 
-    y += boxHeight + 4
+    y += 8
 
     // ===== TABLA DE ANIMALES =====
     doc.setFontSize(9)

@@ -40,6 +40,7 @@ interface Tropa {
     pesoBruto?: number | null
     pesoTara?: number | null
     pesoNeto?: number | null
+    numeroTicket?: number
   }
   animales: Array<{
     id: string
@@ -189,9 +190,13 @@ export function Planilla01Module({ operador }: Props) {
       const diferenciaKg = getDiferencia()
 
       // Título principal
-      doc.setFontSize(16)
+      doc.setFontSize(14)
       doc.setFont('helvetica', 'bold')
-      doc.text('PLANILLA 01 - REGISTRO DE INGRESO DE HACIENDA', pageWidth / 2, 12, { align: 'center' })
+      doc.text('PLANILLA 01 - BOVINO', 10, 12)
+
+      // Tropa N° GRANDE a la derecha
+      doc.setFontSize(20)
+      doc.text(`TROPA N° ${tropaSeleccionada.numero}`, pageWidth - 10, 12, { align: 'right' })
 
       // Datos del establecimiento
       doc.setFontSize(8)
@@ -275,68 +280,58 @@ export function Planilla01Module({ operador }: Props) {
 
       y += 6
       doc.line(10, y, pageWidth - 10, y)
-      y += 3
+      y += 2
 
-      // ===== CUADRO DE PESAJE COMPARATIVO =====
-      const boxHeight = 12
-      const box1X = 10
-      const box1W = 88
-      const box2X = box1X + box1W + 4
-      const box2W = 88
-      const box3X = box2X + box2W + 4
-      const box3W = pageWidth - box3X - 10
-
-      // Caja 1: Kg Netos Camión
-      doc.setFillColor(220, 235, 250)
-      doc.rect(box1X, y, box1W, boxHeight, 'FD')
-      doc.setFontSize(7)
+      // ===== COMPARATIVO DE PESAJE (fila horizontal compacta) =====
+      doc.setFontSize(8)
       doc.setFont('helvetica', 'bold')
-      doc.text('KG NETOS CAMIÓN (Bruto - Tara)', box1X + 4, y + 4)
-      doc.setFontSize(11)
-      const camionText = kgNetosCamion !== null ? `${kgNetosCamion.toFixed(1)} kg` : 'Sin datos'
-      doc.text(camionText, box1X + 4, y + 10)
-      if (kgNetosCamion !== null) {
-        doc.setFontSize(6)
-        doc.text(`(Bruto: ${tropaSeleccionada.pesajeCamion?.pesoBruto?.toFixed(1) || '-'} / Tara: ${tropaSeleccionada.pesajeCamion?.pesoTara?.toFixed(1) || '-'})`, box1X + 50, y + 10)
-      }
+      doc.text('PESAJE:', 10, y + 4)
 
-      // Caja 2: Kg Netos Individuales
-      doc.setFillColor(220, 245, 220)
-      doc.rect(box2X, y, box2W, boxHeight, 'FD')
+      // Bruto
       doc.setFontSize(7)
+      doc.text('Bruto:', 32, y + 2)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.text(tropaSeleccionada.pesajeCamion?.pesoBruto ? tropaSeleccionada.pesajeCamion.pesoBruto.toFixed(1) : '-', 42, y + 2)
+      // Tara
       doc.setFont('helvetica', 'bold')
-      doc.text('KG NETOS INDIVIDUALES (Suma por animal)', box2X + 4, y + 4)
+      doc.setFontSize(7)
+      doc.text('Tara:', 70, y + 2)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.text(tropaSeleccionada.pesajeCamion?.pesoTara ? tropaSeleccionada.pesajeCamion.pesoTara.toFixed(1) : '-', 78, y + 2)
+      // Neto Camión
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7)
+      doc.setTextColor(0, 0, 150)
+      doc.text('NETO CAMIÓN:', 108, y + 2)
+      doc.setFont('helvetica', 'normal')
       doc.setFontSize(11)
-      doc.text(`${kgNetosIndividuales.toFixed(1)} kg`, box2X + 4, y + 10)
-
-      // Caja 3: Diferencia
+      doc.text(kgNetosCamion !== null ? kgNetosCamion.toFixed(1) + ' kg' : 'S/D', 135, y + 2)
+      doc.setTextColor(0, 0, 0)
+      // Neto Individuales
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7)
+      doc.setTextColor(0, 100, 0)
+      doc.text('NETO INDIV.:', 175, y + 2)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(11)
+      doc.text(kgNetosIndividuales.toFixed(1) + ' kg', 205, y + 2)
+      doc.setTextColor(0, 0, 0)
+      // Diferencia
       if (diferenciaKg !== null) {
         const esPositivo = diferenciaKg >= 0
-        if (esPositivo) {
-          doc.setFillColor(255, 245, 200)
-        } else {
-          doc.setFillColor(255, 220, 220)
-        }
-        doc.rect(box3X, y, box3W, boxHeight, 'FD')
-        doc.setFontSize(7)
         doc.setFont('helvetica', 'bold')
-        doc.text('DIFERENCIA (Camión - Individuales)', box3X + 4, y + 4)
+        doc.setFontSize(7)
+        doc.setTextColor(esPositivo ? 150 : 200, 0, 0)
+        doc.text('DIFERENCIA:', 240, y + 2)
+        doc.setFont('helvetica', 'normal')
         doc.setFontSize(11)
-        const signo = esPositivo ? '+' : ''
-        doc.setTextColor(esPositivo ? 0 : 180, 0, 0)
-        doc.text(`${signo}${diferenciaKg.toFixed(1)} kg`, box3X + 4, y + 10)
+        doc.text((esPositivo ? '+' : '') + diferenciaKg.toFixed(1) + ' kg', 267, y + 2)
         doc.setTextColor(0, 0, 0)
-      } else {
-        doc.setFillColor(240, 240, 240)
-        doc.rect(box3X, y, box3W, boxHeight, 'FD')
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'bold')
-        doc.text('DIFERENCIA (Camión - Individuales)', box3X + 4, y + 4)
-        doc.setFontSize(11)
-        doc.text('N/D - Sin pesaje camión', box3X + 4, y + 10)
       }
 
-      y += boxHeight + 4
+      y += 8
 
       // Tabla de animales
       const animalesData = (tropaSeleccionada.animales || []).map((a, idx) => [
@@ -532,7 +527,7 @@ export function Planilla01Module({ operador }: Props) {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Encabezado + Badge */}
+                    {/* Encabezado + Tropa grande + Badge */}
                     <div className="border-2 border-stone-300 rounded-lg p-3 bg-white">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -548,6 +543,13 @@ export function Planilla01Module({ operador }: Props) {
                             <TextoEditable id="planilla01-badge" original="PLANILLA 01 - BOVINO" tag="span" />
                           </Badge>
                         </div>
+                      </div>
+                      {/* Tropa N° grande */}
+                      <div className="mt-1 pt-1 border-t border-stone-200">
+                        <span className="text-2xl font-bold text-amber-700">TROPA N° {tropaSeleccionada.numero}</span>
+                        {tropaSeleccionada.pesajeCamion?.numeroTicket && (
+                          <span className="text-sm text-stone-400 ml-4">Ticket Pesada: {tropaSeleccionada.pesajeCamion.numeroTicket}</span>
+                        )}
                       </div>
                     </div>
 
@@ -565,7 +567,7 @@ export function Planilla01Module({ operador }: Props) {
                         <p className="text-xs text-stone-500 mt-0.5">kg</p>
                         {kgNetosCamion !== null && tropaSeleccionada.pesajeCamion && (
                           <p className="text-[10px] text-stone-400 mt-1">
-                            B: {tropaSeleccionada.pesajeCamion.pesoBruto?.toFixed(1) || '-'} / T: {tropaSeleccionada.pesajeCamion.pesoTara?.toFixed(1) || '-'}
+                            B: {tropaSeleccionada.pesajeCamion.pesoBruto?.toFixed(1) || '-'} / T: {tropaSeleccionada.pesajeCamion.pesoTara?.toFixed(1) || '-'}{tropaSeleccionada.pesajeCamion.numeroTicket ? ` | Ticket: ${tropaSeleccionada.pesajeCamion.numeroTicket}` : ''}
                           </p>
                         )}
                       </div>
