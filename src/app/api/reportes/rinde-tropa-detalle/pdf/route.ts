@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { checkPermission } from '@/lib/auth-helpers'
+import reporteConfig from '@/config/reporte-rinde-tropa.json'
 
 // GET - Generar PDF Rinde por Tropa
 export async function GET(request: NextRequest) {
@@ -68,20 +69,25 @@ export async function GET(request: NextRequest) {
       tipoResumen[tipo].cuartos += 2
     }
 
+    const cfg = reporteConfig.pdf
+    const fnt = cfg.fuentes
+    const colors = cfg.colores
+    const sep = cfg.separacion
+
     // ===== GENERAR PDF =====
     const doc = new jsPDF('landscape', 'mm', 'a4')
     const pageWidth = doc.internal.pageSize.getWidth()
-    const mg = 8
+    const mg = cfg.margenes.izquierdo
     let y = 10
 
     // Título
-    doc.setFontSize(14)
+    doc.setFontSize(fnt.tamanoTitulo)
     doc.setFont('helvetica', 'bold')
     doc.text('RINDE POR TROPA', pageWidth / 2, y, { align: 'center' })
     y += 6
 
     // Establecimiento
-    doc.setFontSize(9)
+    doc.setFontSize(fnt.tamanoInfo)
     doc.setFont('helvetica', 'normal')
     doc.text('Estab. Faenador: Solemar Alimentaria S.A.  |  Ruta Nacional N\u00ba 22, km 1043, Chimpay, Rio Negro', mg, y)
     y += 4
@@ -102,7 +108,7 @@ export async function GET(request: NextRequest) {
     y += 4
 
     // Usuario/Matarife y Productor
-    doc.setFontSize(9)
+    doc.setFontSize(fnt.tamanoInfo)
     doc.setFont('helvetica', 'bold')
     doc.text('Usuario/Matarife:', mg, y)
     doc.text(tropa.usuarioFaena?.nombre || '-', mg + 38, y)
@@ -129,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     doc.setFont('helvetica', 'bold')
     doc.text('Fecha Faena:', mg, y)
-    doc.setTextColor(255, 0, 0)
+    doc.setTextColor(...colors.fechaFaena)
     doc.text(fechaFaena ? new Date(fechaFaena).toLocaleDateString('es-AR') : '-', mg + 25, y)
     doc.setTextColor(0)
     doc.text('N\u00ba Tropa:', mg + 155, y)
@@ -161,13 +167,13 @@ export async function GET(request: NextRequest) {
 
     doc.setLineWidth(0.3)
     doc.line(mg, y, pageWidth - mg, y)
-    y += 3
+    y += sep.antesDeTabla
 
     // ===== RESUMEN POR TIPO =====
     const tiposOrden = ['VQ', 'NT', 'NO', 'TO', 'VA', 'MEJ']
     const tiposActivos = tiposOrden.filter(t => tipoResumen[t] && tipoResumen[t].cantidad > 0)
     if (tiposActivos.length > 0) {
-      doc.setFontSize(8)
+      doc.setFontSize(fnt.tamanoInfo)
       doc.setFont('helvetica', 'bold')
       let tipoX = mg + 180
       doc.text('Tipo', tipoX, y)
@@ -228,31 +234,31 @@ export async function GET(request: NextRequest) {
       head: [['N\u00ba Garr\u00f3n', 'N\u00ba Animal', 'Raza', 'Clasificaci\u00f3n', 'Caravana', 'Kg Entrada', 'Kg 1/2 A', 'Kg 1/2 B', 'Total Kg', 'Rinde Faena']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 7 },
-      bodyStyles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: colors.encabezadoTabla, textColor: colors.textoEncabezado, fontStyle: 'bold', fontSize: fnt.tamanoTablaEncabezado },
+      bodyStyles: { fontSize: fnt.tamanoTablaCuerpo, cellPadding: 1.5 },
       columnStyles: {
-        0: { cellWidth: 16, halign: 'center' },
-        1: { cellWidth: 16, halign: 'center' },
-        2: { cellWidth: 18, halign: 'center' },
-        3: { cellWidth: 30, halign: 'center' },
-        4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 20, halign: 'right' },
-        6: { cellWidth: 22, halign: 'right' },
-        7: { cellWidth: 22, halign: 'right' },
-        8: { cellWidth: 22, halign: 'right' },
-        9: { cellWidth: 22, halign: 'right' }
+        0: { cellWidth: cfg.tablaAnimales.anchoColumnas.garron, halign: cfg.tablaAnimales.alineacion.garron },
+        1: { cellWidth: cfg.tablaAnimales.anchoColumnas.animal, halign: cfg.tablaAnimales.alineacion.animal },
+        2: { cellWidth: cfg.tablaAnimales.anchoColumnas.raza, halign: cfg.tablaAnimales.alineacion.raza },
+        3: { cellWidth: cfg.tablaAnimales.anchoColumnas.clasificacion, halign: cfg.tablaAnimales.alineacion.clasificacion },
+        4: { cellWidth: cfg.tablaAnimales.anchoColumnas.caravana, halign: cfg.tablaAnimales.alineacion.caravana },
+        5: { cellWidth: cfg.tablaAnimales.anchoColumnas.kgEntrada, halign: cfg.tablaAnimales.alineacion.kgEntrada },
+        6: { cellWidth: cfg.tablaAnimales.anchoColumnas.mediaA, halign: cfg.tablaAnimales.alineacion.mediaA },
+        7: { cellWidth: cfg.tablaAnimales.anchoColumnas.mediaB, halign: cfg.tablaAnimales.alineacion.mediaB },
+        8: { cellWidth: cfg.tablaAnimales.anchoColumnas.totalKg, halign: cfg.tablaAnimales.alineacion.totalKg },
+        9: { cellWidth: cfg.tablaAnimales.anchoColumnas.rinde, halign: cfg.tablaAnimales.alineacion.rinde }
       },
       didParseCell: (data: any) => {
         if (data.row.index === tableData.length - 1 && data.section === 'body') {
           data.cell.styles.fontStyle = 'bold'
-          data.cell.styles.fillColor = [240, 240, 240]
+          data.cell.styles.fillColor = colors.filaTotales
         }
       },
       margin: { left: mg, right: mg }
     })
 
     // ===== MENUDENCIA =====
-    const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8
+    const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + sep.despuesDeTabla
     let menY: number
     if (finalY + menudencias.length * 5 + 15 > doc.internal.pageSize.getHeight() - 20) {
       doc.addPage()
@@ -261,7 +267,7 @@ export async function GET(request: NextRequest) {
       menY = finalY
     }
 
-    doc.setFontSize(9)
+    doc.setFontSize(fnt.tamanoInfo)
     doc.setFont('helvetica', 'bold')
     doc.text('MENUDENCIA', mg, menY)
     menY += 3
@@ -291,13 +297,19 @@ export async function GET(request: NextRequest) {
         head: [['Tipo', 'Cantidades', 'Kg', 'Unidad', 'Kg Dec.']],
         body: menData,
         theme: 'grid',
-        headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 7 },
-        bodyStyles: { fontSize: 7, cellPadding: 1.5 },
-        columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 25, halign: 'center' }, 2: { cellWidth: 30, halign: 'right' }, 3: { cellWidth: 25, halign: 'center' }, 4: { cellWidth: 30, halign: 'right' } },
+        headStyles: { fillColor: colors.encabezadoTabla, textColor: colors.textoEncabezado, fontStyle: 'bold', fontSize: fnt.tamanoMenudencia },
+        bodyStyles: { fontSize: fnt.tamanoMenudencia, cellPadding: 1.5 },
+        columnStyles: {
+          0: { cellWidth: cfg.tablaMenudencia.anchoColumnas.tipo },
+          1: { cellWidth: cfg.tablaMenudencia.anchoColumnas.cantidades, halign: 'center' },
+          2: { cellWidth: cfg.tablaMenudencia.anchoColumnas.kg, halign: 'right' },
+          3: { cellWidth: cfg.tablaMenudencia.anchoColumnas.unidad, halign: 'center' },
+          4: { cellWidth: cfg.tablaMenudencia.anchoColumnas.kgDec, halign: 'right' }
+        },
         didParseCell: (data: any) => {
           if (data.row.index === menData.length - 1 && data.section === 'body') {
             data.cell.styles.fontStyle = 'bold'
-            data.cell.styles.fillColor = [240, 240, 240]
+            data.cell.styles.fillColor = colors.filaTotales
           }
         },
         margin: { left: mg, right: mg }
@@ -308,7 +320,7 @@ export async function GET(request: NextRequest) {
     const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
-      doc.setFontSize(7)
+      doc.setFontSize(fnt.tamanoPie)
       doc.setFont('helvetica', 'normal')
       doc.text(`P\u00e1gina ${i} de ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' })
     }
