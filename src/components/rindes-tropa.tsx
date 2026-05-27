@@ -337,8 +337,10 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
       a.download = `Rinde_Tropa_${tropaDetalle.tropa.numero || tropaDetalle.tropa.codigo}.xlsx`
       document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 500)
       toast.success('Excel generado correctamente')
     } catch (error) {
       console.error('Error:', error)
@@ -364,8 +366,10 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
       a.download = `Rinde_Tropa_${tropaDetalle.tropa.numero || tropaDetalle.tropa.codigo}.pdf`
       document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 500)
       toast.success('PDF generado correctamente')
     } catch (error) {
       console.error('Error:', error)
