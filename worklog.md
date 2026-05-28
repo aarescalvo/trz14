@@ -68,3 +68,23 @@ Stage Summary:
 - Los filtros de reportes (peso, clasificación, tipo animal, pH) ahora funcionan en todos los sub-tabs
 - El dropdown de productores usa un endpoint dedicado más eficiente
 - Pendiente: push a GitHub trz11
+---
+Task ID: 1
+Agent: main
+Task: Revision completa, corregir .env, arreglar build, y push a GitHub
+
+Work Log:
+- Descubierto que .env estaba cometido en git con config SQLite del servidor, sobrescribiendo la config PostgreSQL del usuario
+- .env.example no tenia JWT_SECRET ni otras variables necesarias
+- stocks-corrales/index.tsx tenia error TypeScript (null no asignable a Partial<Fill>)
+- Removido .env del tracking de git (git rm --cached)
+- Actualizado .env.example con todas las variables: DATABASE_URL, JWT_SECRET, COOKIE_SECURE, NEXT_PUBLIC_APP_URL, ENCRYPTION_KEY, BACKUP_DIR
+- Corregido stocks-corrales: null->undefined en setCell, parametros opcionales
+- Build compila exitosamente
+- Commit 198c3cf push a GitHub
+
+Stage Summary:
+- .env removido del tracking git (ya no sobrescribe al usuario)
+- .env.example actualizado con todas las variables necesarias
+- stocks-corrales TypeScript fix aplicado
+- Build exitoso, subido a GitHub
