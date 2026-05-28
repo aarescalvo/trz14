@@ -88,3 +88,27 @@ Stage Summary:
 - .env.example actualizado con todas las variables necesarias
 - stocks-corrales TypeScript fix aplicado
 - Build exitoso, subido a GitHub
+
+
+## $(date -u '+%Y-%m-%d %H:%M UTC') - feat: editor formato reportes con pestañas y logo
+
+### Archivos creados:
+- **`src/app/api/config/[reporte]/route.ts`** - API dinámica GET/PUT para configs de reporte (rinde-tropa, planilla-01, stock-corrales)
+- **`src/config/reporte-planilla-01.json`** - Config por defecto para Planilla 01
+- **`src/config/reporte-stock-corrales.json`** - Config por defecto para Stock Corrales
+- **`src/app/api/config/logo-upload/route.ts`** - API POST para subir logo (png/jpg/svg, max 5MB)
+
+### Archivos modificados:
+- **`src/app/(app)/diseno/formato-reportes/page.tsx`** - Reescritura completa (~1200 líneas)
+  - Tabs con shadcn/ui: Rinde por Tropa, Planilla 01, Stock Corrales
+  - Cada tab tiene su propio canvas y config
+  - Panel de propiedades adaptativo según tab activo
+  - Sección de Logo en panel (switch, selector archivo, tamaño, upload, preview)
+  - Funcionalidad Rinde por Tropa mantenida exactamente como estaba
+  - Canvas Planilla 01: encabezado, tabla datos (N°, Caravana, Tipo, Raza, Peso, Corral, Obs), totales
+  - Canvas Stock Corrales: encabezado, tabla datos (Fecha, Hora, Corral, Tropa, Guía, DTE, UE, Cant), totales
+  - Configuración de página colapsable en panel inferior
+  - Estado por tab para config, selectedZone, hoveredZone
+
+### Build: ✅ Compilación exitosa
+### Push: ✅ 74112fb pushed to origin/main
