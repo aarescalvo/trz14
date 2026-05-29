@@ -1,12 +1,8 @@
 /**
- * Seed script: Carga 203 tropas del DETALLE a la DB
- * Uso: npx prisma db seed (o node prisma/seed-detalle.ts desde la raíz del proyecto)
- * 
- * Este script:
- * 1. Lee el JSON de /download/detalle_tropas.json
- * 2. Busca cada tropa por código "B 2026 XXXX" en la tabla Tropa
- * 3. Crea el registro DetalleTropaFaena vinculado
- * 4. Registra precios históricos en PrecioHistorial
+ * Seed script: Carga datos del DETALLE a la DB (hasta tropa 203)
+ * Uso: npx tsx prisma/seed-detalle.ts
+ *
+ * Lee download/detalle_tropas.json, crea tropas faltantes, y carga DetalleTropaFaena + PreciosHistorial
  */
 
 import { PrismaClient } from '@prisma/client'
@@ -18,7 +14,7 @@ const prisma = new PrismaClient()
 interface TropaData {
   tropa: number
   mes: string | null
-  usuario: string
+  usuario: string | null
   cantAnimales: number
   precioServicio: number
   kgGancho: number
@@ -35,9 +31,18 @@ interface TropaData {
   montoGrasaDreasin: number
 }
 
-// Convertir número de tropa a código: 1 → "B 2026 0001"
 function tropaNumToCodigo(num: number): string {
   return `B 2026 ${String(num).padStart(4, '0')}`
+}
+
+function mesToNum(mes: string | null): number {
+  if (!mes) return 1
+  const meses: Record<string, number> = {
+    'ENERO': 1, 'FEBRERO': 2, 'MARZO': 3, 'ABRIL': 4,
+    'MAYO': 5, 'JUNIO': 6, 'JULIO': 7, 'AGOSTO': 8,
+    'SEPTIEMBRE': 9, 'OCTUBRE': 10, 'NOVIEMBRE': 11, 'DICIEMBRE': 12
+  }
+  return meses[mes.toUpperCase().trim()] || 1
 }
 
 async function main() {
@@ -47,34 +52,93 @@ async function main() {
   const jsonPath = path.resolve(process.cwd(), 'download/detalle_tropas.json')
   if (!fs.existsSync(jsonPath)) {
     console.error(`ERROR: No se encontró ${jsonPath}`)
-    console.error('Primero ejecutá el script de extracción de Excel')
+    console.error('Asegurate de que el archivo exista en ./download/detalle_tropas.json')
     process.exit(1)
   }
 
   const rawData: TropaData[] = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'))
-  console.log(`Leídas ${rawData.length} tropas del JSON`)
+  console.log(`Leídas ${rawData.length} registros del JSON`)
 
-  // 2. Buscar tropas en la DB
-  let encontradas = 0
-  let noEncontradas = 0
-  let creadas = 0
+  // 2. Build cache de clientes (usuario de faena)
+  const allUsuarios = [...new Set(rawData.map(d => (d.usuario || '').trim()).filter(Boolean))]
+  const clienteCache: Record<string, string> = {}
+
+  for (const nombre of allUsuarios) {
+    const cliente = await prisma.cliente.findFirst({
+      where: { nombre: { equals: nombre, mode: 'insensitive' } }
+    })
+    if (cliente) {
+      clienteCache[nombre] = cliente.id
+    } else {
+      // Crear cliente como usuario de faena
+      console.log(`  + Creando cliente "${nombre}" (usuarioFaena)`)
+      const nuevo = await prisma.cliente.create({
+        data: {
+          nombre: nombre,
+          esUsuarioFaena: true,
+          activo: true,
+        }
+      })
+      clienteCache[nombre] = nuevo.id
+    }
+  }
+
+  console.log(`\nClientes mapeados: ${Object.keys(clienteCache).length}`)
+
+  // 3. Procesar cada registro
+  let detallesCreados = 0
+  let tropasCreadas = 0
   let existentes = 0
+  let errores = 0
 
   for (const item of rawData) {
+    const usuarioNombre = (item.usuario || '').trim()
+    if (!usuarioNombre) continue
+
     const codigo = tropaNumToCodigo(item.tropa)
-    
+    const clienteId = clienteCache[usuarioNombre]
+    if (!clienteId) {
+      console.log(`  ⚠ Sin cliente para "${usuarioNombre}" (tropa ${item.tropa})`)
+      errores++
+      continue
+    }
+
     // Buscar tropa por código
-    const tropa = await prisma.tropa.findUnique({
+    let tropa = await prisma.tropa.findUnique({
       where: { codigo },
       select: { id: true, codigo: true, numero: true }
     })
 
+    // Si no existe, crearla automáticamente
     if (!tropa) {
-      if (noEncontradas < 10) {
-        console.log(`  ⚠ Tropa ${item.tropa} (${codigo}) NO encontrada en DB`)
+      try {
+        const mesNum = mesToNum(item.mes)
+        const fechaFaena = new Date(2026, mesNum - 1, 15)
+        tropa = await prisma.tropa.create({
+          data: {
+            numero: item.tropa,
+            codigo: codigo,
+            codigoSimplificado: `B${String(item.tropa).padStart(4, '0')}`,
+            usuarioFaenaId: clienteId,
+            especie: 'BOVINO',
+            dte: `DTE-${item.tropa}`,
+            guia: `GUIA-${item.tropa}`,
+            cantidadCabezas: item.cantAnimales,
+            estado: 'FAENADO',
+            pesoNeto: item.kgGancho || null,
+            fechaFaena: fechaFaena,
+          },
+          select: { id: true, codigo: true, numero: true }
+        })
+        tropasCreadas++
+        if (tropasCreadas <= 30) {
+          console.log(`  + Tropa ${item.tropa} creada (${usuarioNombre}, ${item.cantAnimales} cabezas)`)
+        }
+      } catch (err: any) {
+        console.log(`  ✗ Error creando tropa ${item.tropa}: ${err.message}`)
+        errores++
+        continue
       }
-      noEncontradas++
-      continue
     }
 
     // Verificar si ya existe detalle
@@ -94,7 +158,7 @@ async function main() {
           tropaId: tropa.id,
           numeroTropa: item.tropa,
           mes: item.mes || undefined,
-          usuario: item.usuario.trim(),
+          usuario: usuarioNombre,
           cantidadAnimales: item.cantAnimales,
           precioServicio: item.precioServicio,
           kgGancho: item.kgGancho,
@@ -110,23 +174,22 @@ async function main() {
           montoGrasaDressing: item.montoGrasaDreasin || 0,
         }
       })
-      creadas++
-      encontradas++
+      detallesCreados++
     } catch (err: any) {
-      console.error(`  ✗ Error creando detalle para tropa ${item.tropa}: ${err.message}`)
+      console.error(`  ✗ Error detalle tropa ${item.tropa}: ${err.message}`)
+      errores++
     }
   }
 
   console.log(`\n=== RESULTADO ===`)
-  console.log(`  Tropas encontradas en DB: ${encontradas}`)
-  console.log(`  Detalles creados: ${creadas}`)
+  console.log(`  Tropas nuevas creadas: ${tropasCreadas}`)
+  console.log(`  Detalles creados: ${detallesCreados}`)
   console.log(`  Ya existían: ${existentes}`)
-  console.log(`  Tropas NO encontradas en DB: ${noEncontradas}`)
+  console.log(`  Errores: ${errores}`)
 
-  // 3. Registrar precios históricos
+  // 4. Registrar precios históricos
   console.log(`\n=== PRECIOS HISTÓRICOS ===`)
 
-  // Determinar los tiers y sus períodos según la data
   const precios: { monto: number; desde: string }[] = [
     { monto: 335, desde: '2025-01-01' },
     { monto: 420, desde: '2025-05-01' },
@@ -134,7 +197,6 @@ async function main() {
     { monto: 500, desde: '2025-09-01' },
   ]
 
-  // Buscar TipoServicio FAENA o crear
   let tipoServicioFaena = await prisma.tipoServicio.findFirst({ where: { codigo: 'FAENA' } })
   if (!tipoServicioFaena) {
     tipoServicioFaena = await prisma.tipoServicio.create({
@@ -148,10 +210,9 @@ async function main() {
         orden: 1,
       }
     })
-    console.log(`  TipoServicio FAENA creado: ${tipoServicioFaena.id}`)
+    console.log(`  TipoServicio FAENA creado`)
   }
 
-  // Buscar TipoServicio DESPOSTADA o crear
   let tipoServicioDespostada = await prisma.tipoServicio.findFirst({ where: { codigo: 'DESPOSTADA' } })
   if (!tipoServicioDespostada) {
     tipoServicioDespostada = await prisma.tipoServicio.create({
@@ -165,48 +226,36 @@ async function main() {
         orden: 2,
       }
     })
-    console.log(`  TipoServicio DESPOSTADA creado: ${tipoServicioDespostada.id}`)
+    console.log(`  TipoServicio DESPOSTADA creado`)
   }
 
-  // Registrar precios para cada usuario que tenga tropas
-  const usuarios = [...new Set(rawData.map(d => d.usuario.trim()))]
+  // Registrar precios para cada usuario
+  for (const usuarioNombre of allUsuarios) {
+    const clienteId = clienteCache[usuarioNombre]
+    if (!clienteId) continue
 
-  for (const usuarioNombre of usuarios) {
-    const cliente = await prisma.cliente.findFirst({
-      where: { nombre: { contains: usuarioNombre, mode: 'insensitive' } }
-    })
-
-    if (!cliente) {
-      console.log(`  ⚠ Cliente "${usuarioNombre}" no encontrado en DB`)
-      continue
-    }
-
-    // Obtener los distintos precios que tuvo este usuario
     const preciosUsuario = [...new Set(
-      rawData.filter(d => d.usuario.trim() === usuarioNombre).map(d => d.precioServicio)
+      rawData.filter(d => (d.usuario || '').trim() === usuarioNombre).map(d => d.precioServicio)
     )].filter(p => p > 0).sort()
 
     for (const precio of preciosUsuario) {
-      // Verificar si ya existe un PrecioServicio vigente para este cliente+tipo
       const existente = await prisma.precioServicio.findFirst({
         where: {
-          clienteId: cliente.id,
+          clienteId: clienteId,
           tipoServicioId: tipoServicioFaena.id,
           precio: precio,
           fechaHasta: null,
         }
       })
-
       if (existente) continue
 
-      // Determinar fecha desde según el tier
       const tierInfo = precios.find(p => p.monto === precio)
       const fechaDesde = tierInfo ? new Date(tierInfo.desde) : new Date('2025-01-01')
 
-      // Si hay un precio anterior vigente, cerrarlo
+      // Cerrar precio anterior vigente
       await prisma.precioServicio.updateMany({
         where: {
-          clienteId: cliente.id,
+          clienteId: clienteId,
           tipoServicioId: tipoServicioFaena.id,
           fechaHasta: null,
           precio: { not: precio },
@@ -216,7 +265,7 @@ async function main() {
 
       await prisma.precioServicio.create({
         data: {
-          clienteId: cliente.id,
+          clienteId: clienteId,
           tipoServicioId: tipoServicioFaena.id,
           precio: precio,
           fechaDesde: fechaDesde,
@@ -224,13 +273,12 @@ async function main() {
         }
       })
 
-      // Registrar en historial
       await prisma.precioHistorial.create({
         data: {
           tipoServicioId: tipoServicioFaena.id,
           tipoServicioNombre: tipoServicioFaena.nombre,
-          clienteId: cliente.id,
-          clienteNombre: cliente.nombre,
+          clienteId: clienteId,
+          clienteNombre: usuarioNombre,
           precioNuevo: precio,
           precioAnterior: precio === 335 ? 0 : precios[precios.findIndex(p => p.monto === precio) - 1]?.monto || 0,
           fechaDesde: fechaDesde,
@@ -239,7 +287,7 @@ async function main() {
         }
       })
 
-      console.log(`  ✓ ${cliente.nombre}: $${precio}/kg desde ${fechaDesde.toISOString().split('T')[0]}`)
+      console.log(`  ✓ ${usuarioNombre}: $${precio}/kg desde ${fechaDesde.toISOString().split('T')[0]}`)
     }
   }
 
