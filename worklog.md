@@ -23,3 +23,50 @@ Stage Summary:
 - Precios: $335 (ene-abr), $420 (may-jun), $440 (jul-ago), $500 (sep-dic)
 - Seed script: `npx tsx prisma/seed-detalle.ts` (ejecutar en máquina del usuario)
 - Migration: `npx prisma db push` (ejecutar en máquina del usuario)
+
+---
+Task ID: 2
+Agent: Sub Agent (general-purpose)
+Task: Delete old files and API routes no longer needed after restructure
+
+Work Log:
+- Read 4 candidate files to understand their purpose
+- Searched entire codebase for references to each file/API route
+- FactServFaenaTab.tsx: confirmed unused (only self-references). DELETED.
+- historial-precios/route.ts: confirmed unused (only referenced in install/modules-pending docs, not active code). DELETED + empty dir removed.
+- servicio-faena/facturar/route.ts: FOUND ACTIVE at facturacion/index.tsx:557 (handleFacturarSeleccionadas). KEPT.
+- servicio-faena/route.ts: FOUND ACTIVE at facturacion/index.tsx:370,601,2185 (fetchServicioFaena GET, handleUpdateTropaBilling PUT, price edit PUT). KEPT.
+
+Stage Summary:
+- Files deleted:
+  1. `src/components/facturacion/FactServFaenaTab.tsx` — old tab component replaced by new VB/Carga flow
+  2. `src/app/api/historial-precios/route.ts` — old standalone API route, functionality now in facturacion module
+- Files kept (still actively referenced):
+  3. `src/app/api/facturacion/servicio-faena/facturar/route.ts` — used by handleFacturarSeleccionadas()
+  4. `src/app/api/facturacion/servicio-faena/route.ts` — used by fetchServicioFaena() and handleUpdateTropaBilling()
+
+---
+Task ID: 3
+Agent: Super Z (main)
+Task: Clean up dead code from facturacion/index.tsx + add supervisor password invoice editing
+
+Work Log:
+- Read full 2421-line facturacion/index.tsx file to understand structure
+- Verified all dead code references are self-contained (no external usage)
+- Removed 19 dead state variables (Servicio Faena + Liquidaciones states)
+- Removed 8 dead functions (fetchServicioFaena, fetchLiquidaciones, fetchPendientes, handleCrearLiquidacion, handleFacturarSeleccionadas, handleToggleTropa, handleToggleAllTropas, handleUpdateTropaBilling, handleExportExcelFaena)
+- Removed entire Dialog Editar Precios Tropa (~140 lines)
+- Added Lock import from lucide-react
+- Added 4 supervisor edit state variables
+- Added handleSupervisorEdit handler function (PUT /api/facturacion/:id with supervisorPassword)
+- Added Pencil edit button in Facturas tab table actions column (before Anular button)
+- Added Supervisor Edit dialog with password field, editable numero/observaciones fields
+- Cleaned up extra blank lines left by removals
+- ESLint passes with zero warnings/errors
+
+Stage Summary:
+- File reduced from 2421 lines → 2206 lines (215 lines removed)
+- All dead code references confirmed removed (grep verification passed)
+- No dangling references to removed state/functions
+- New feature: Supervisor password invoice editing via lock-protected dialog
+- Lint: clean
