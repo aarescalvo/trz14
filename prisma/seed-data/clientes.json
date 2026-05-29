@@ -129,6 +129,13 @@
     "activo": true
   },
   {
+    "cuit": "20-07393573-4",
+    "nombre": "LLORENTE ARSENIO FERNANDO",
+    "esProductor": true,
+    "esUsuarioFaena": false,
+    "activo": true
+  },
+  {
     "cuit": "20-08210169-2",
     "nombre": "LAMA MIGUEL ANGEL",
     "esProductor": true,
