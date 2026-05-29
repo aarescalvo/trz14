@@ -345,51 +345,51 @@ export function CargaServFaenaTab({ operador }: Props) {
       {/* ==================== KPI CARDS ==================== */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Total Aprobados */}
-        <Card className="border-0 shadow-sm bg-slate-800">
+        <Card className="border-0 shadow-sm bg-white">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-500/20 rounded-lg">
-                <Clock className="w-5 h-5 text-amber-400" />
+                <Clock className="w-5 h-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">
                   Aprobados Pendientes
                 </p>
-                <p className="text-xl font-bold text-amber-400">{kpis.totalAprobados}</p>
+                <p className="text-xl font-bold text-amber-600">{kpis.totalAprobados}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Facturadas Hoy */}
-        <Card className="border-0 shadow-sm bg-slate-800">
+        <Card className="border-0 shadow-sm bg-white">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <FileCheck className="w-5 h-5 text-emerald-400" />
+                <FileCheck className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">
                   Facturadas Hoy
                 </p>
-                <p className="text-xl font-bold text-emerald-400">{kpis.facturadasHoy}</p>
+                <p className="text-xl font-bold text-emerald-600">{kpis.facturadasHoy}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Monto Pendiente */}
-        <Card className="border-0 shadow-sm bg-slate-800">
+        <Card className="border-0 shadow-sm bg-white">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
-                <DollarSign className="w-5 h-5 text-blue-400" />
+                <DollarSign className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                <p className="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">
                   Monto Pendiente
                 </p>
-                <p className="text-xl font-bold text-blue-400">
+                <p className="text-xl font-bold text-blue-600">
                   {currencyFmt(kpis.montoPendienteEstimado)}
                 </p>
               </div>
@@ -401,12 +401,12 @@ export function CargaServFaenaTab({ operador }: Props) {
       {/* ==================== FILTER BAR ==================== */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
           <Input
             placeholder="Buscar por cliente o N° tropa..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-9 bg-slate-800 border-slate-600 text-white text-sm placeholder:text-slate-500"
+            className="pl-9 h-9 bg-white border-stone-200 text-stone-800 text-sm placeholder:text-stone-400"
           />
         </div>
         <Button
@@ -414,74 +414,74 @@ export function CargaServFaenaTab({ operador }: Props) {
           size="sm"
           onClick={fetchData}
           disabled={loading}
-          className="text-slate-300 hover:text-white hover:bg-slate-700"
+          className="text-stone-600 hover:text-stone-800 hover:bg-stone-100"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 
       {/* ==================== DATA TABLE ==================== */}
-      <Card className="border-0 shadow-md bg-slate-800 overflow-hidden">
+      <Card className="border-0 shadow-md bg-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-700 bg-slate-900/50">
+              <tr className="border-b border-stone-200 bg-stone-50">
                 <th className="w-9 px-2 py-2.5"></th>
-                <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[70px]">
+                <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[70px]">
                   N° Tropa
                 </th>
-                <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[130px]">
+                <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[130px]">
                   Cliente
                 </th>
-                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[60px]">
+                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[60px]">
                   Cabezas
                 </th>
-                <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[80px]">
+                <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[80px]">
                   KG Gancho
                 </th>
-                <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[65px]">
+                <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[65px]">
                   Rinde %
                 </th>
-                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[100px]">
+                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[100px]">
                   Precio/kg
                 </th>
-                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[90px]">
+                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[90px]">
                   Tasa Vet.
                 </th>
-                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[90px]">
+                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[90px]">
                   IPCVA
                 </th>
-                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[65px]">
+                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[65px]">
                   Plazo
                 </th>
-                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[60px]">
+                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[60px]">
                   Items
                 </th>
-                <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[100px]">
+                <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[100px]">
                   Subtotal
                 </th>
-                <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[110px]">
+                <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[110px]">
                   Total
                 </th>
-                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider min-w-[90px]">
+                <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-stone-500 uppercase tracking-wider min-w-[90px]">
                   Acciones
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/50">
+            <tbody className="divide-y divide-stone-200">
               {loading ? (
                 <tr>
                   <td colSpan={14} className="text-center py-12">
                     <Loader2 className="w-8 h-8 mx-auto animate-spin text-amber-500" />
-                    <p className="mt-2 text-slate-400 text-sm">Cargando planillas aprobadas...</p>
+                    <p className="mt-2 text-stone-500 text-sm">Cargando planillas aprobadas...</p>
                   </td>
                 </tr>
               ) : planillas.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="text-center py-16 text-slate-500">
-                    <Package className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+                  <td colSpan={14} className="text-center py-16 text-stone-400">
+                    <Package className="w-12 h-12 mx-auto mb-3 text-stone-400" />
                     <p className="text-sm font-medium">No hay planillas aprobadas pendientes de facturar</p>
-                    <p className="text-xs text-slate-600 mt-1">
+                    <p className="text-xs text-stone-400 mt-1">
                       Las planillas aprobadas en el paso de Visto Bueno aparecerán aquí para su facturación.
                     </p>
                   </td>
@@ -500,13 +500,13 @@ export function CargaServFaenaTab({ operador }: Props) {
                   return (
                     <>
                       {/* Main Row */}
-                      <tr key={planilla.id} className="hover:bg-slate-700/30 transition-colors">
+                      <tr key={planilla.id} className="hover:bg-stone-50 transition-colors">
                         {/* Expand toggle */}
                         <td className="px-2 py-2.5 text-center">
                           {hasItems ? (
                             <button
                               onClick={() => toggleExpand(planilla.id)}
-                              className="p-0.5 rounded hover:bg-slate-600 text-slate-400 hover:text-slate-200 transition-colors"
+                              className="p-0.5 rounded hover:bg-stone-100 text-stone-500 hover:text-stone-700 transition-colors"
                               title={isExpanded ? 'Colapsar' : 'Ver items extra'}
                             >
                               {isExpanded ? (
@@ -520,33 +520,33 @@ export function CargaServFaenaTab({ operador }: Props) {
 
                         {/* N° Tropa */}
                         <td className="px-3 py-2.5">
-                          <span className="font-mono font-bold text-white text-sm">
+                          <span className="font-mono font-bold text-stone-800 text-sm">
                             {planilla.numeroTropa}
                           </span>
                         </td>
 
                         {/* Cliente */}
                         <td className="px-3 py-2.5 min-w-0">
-                          <p className="text-sm text-slate-200 truncate">{clienteNombre}</p>
+                          <p className="text-sm text-stone-700 truncate">{clienteNombre}</p>
                           {planilla.usuarioFaena?.cuit && (
-                            <p className="text-[10px] text-slate-500">
+                            <p className="text-[10px] text-stone-400">
                               CUIT: {planilla.usuarioFaena.cuit}
                             </p>
                           )}
                         </td>
 
                         {/* Cabezas */}
-                        <td className="px-3 py-2.5 text-center text-sm text-slate-300">
+                        <td className="px-3 py-2.5 text-center text-sm text-stone-600">
                           {planilla.cantidadAnimales || '-'}
                         </td>
 
                         {/* KG Gancho */}
-                        <td className="px-3 py-2.5 text-right text-sm text-slate-300 font-mono">
+                        <td className="px-3 py-2.5 text-right text-sm text-stone-600 font-mono">
                           {numberFmt(planilla.kgGancho, 1)}
                         </td>
 
                         {/* Rinde % */}
-                        <td className="px-3 py-2.5 text-right text-sm text-slate-300 font-mono">
+                        <td className="px-3 py-2.5 text-right text-sm text-stone-600 font-mono">
                           {planilla.rindePorcentaje?.toFixed(1)}%
                         </td>
 
@@ -559,10 +559,10 @@ export function CargaServFaenaTab({ operador }: Props) {
                               placeholder="0"
                               value={edit.precioKg}
                               onChange={(e) => updateRowEdit(planilla.id, 'precioKg', e.target.value)}
-                              className="w-[90px] h-7 text-xs text-center bg-slate-700 border-slate-600 text-white rounded px-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500"
+                              className="w-[90px] h-7 text-xs text-center bg-stone-100 border-stone-200 text-stone-800 rounded px-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-stone-400"
                             />
                             {planilla.precioSugerido != null && !edit.precioKg && (
-                              <p className="text-[9px] text-blue-400 italic mt-0.5 truncate">
+                              <p className="text-[9px] text-blue-600 italic mt-0.5 truncate">
                                 Sugerido: ${numberFmt(planilla.precioSugerido)}
                               </p>
                             )}
@@ -578,10 +578,10 @@ export function CargaServFaenaTab({ operador }: Props) {
                               placeholder="x cab"
                               value={edit.tasaVet}
                               onChange={(e) => updateRowEdit(planilla.id, 'tasaVet', e.target.value)}
-                              className="w-[80px] h-7 text-xs text-center bg-slate-700 border-slate-600 text-white rounded px-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500"
+                              className="w-[80px] h-7 text-xs text-center bg-stone-100 border-stone-200 text-stone-800 rounded px-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-stone-400"
                             />
                             {planilla.tasaSugerida != null && !edit.tasaVet && (
-                              <p className="text-[9px] text-blue-400 italic mt-0.5 truncate">
+                              <p className="text-[9px] text-blue-600 italic mt-0.5 truncate">
                                 Sugerido: ${numberFmt(planilla.tasaSugerida)}
                               </p>
                             )}
@@ -596,7 +596,7 @@ export function CargaServFaenaTab({ operador }: Props) {
                             placeholder="x cab"
                             value={edit.arancelIpcva}
                             onChange={(e) => updateRowEdit(planilla.id, 'arancelIpcva', e.target.value)}
-                            className="w-[80px] h-7 text-xs text-center bg-slate-700 border-slate-600 text-white rounded px-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500"
+                            className="w-[80px] h-7 text-xs text-center bg-stone-100 border-stone-200 text-stone-800 rounded px-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-stone-400"
                           />
                         </td>
 
@@ -608,35 +608,35 @@ export function CargaServFaenaTab({ operador }: Props) {
                               placeholder="30"
                               value={edit.plazoPago}
                               onChange={(e) => updateRowEdit(planilla.id, 'plazoPago', e.target.value)}
-                              className="w-[50px] h-7 text-xs text-center bg-slate-700 border-slate-600 text-white rounded px-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500"
+                              className="w-[50px] h-7 text-xs text-center bg-stone-100 border-stone-200 text-stone-800 rounded px-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-stone-400"
                             />
-                            <span className="text-[10px] text-slate-500">d</span>
+                            <span className="text-[10px] text-stone-400">d</span>
                           </div>
                         </td>
 
                         {/* Items Extra badge */}
                         <td className="px-3 py-2.5 text-center">
                           {hasItems ? (
-                            <Badge className="bg-purple-500/20 text-purple-300 border-0 text-[10px] py-0 px-1.5 cursor-pointer hover:bg-purple-500/30"
+                            <Badge className="bg-purple-500/20 text-purple-600 border-0 text-[10px] py-0 px-1.5 cursor-pointer hover:bg-purple-500/30"
                               onClick={() => toggleExpand(planilla.id)}>
                               <Package className="w-3 h-3 mr-0.5" />
                               {planilla.itemsExtras.length}
                             </Badge>
                           ) : (
-                            <span className="text-slate-600 text-xs">-</span>
+                            <span className="text-stone-400 text-xs">-</span>
                           )}
                         </td>
 
                         {/* Subtotal — auto-calculated */}
                         <td className="px-3 py-2.5 text-right">
-                          <span className={`text-sm font-mono ${calc.precioKg > 0 ? 'text-slate-200' : 'text-slate-500'}`}>
+                          <span className={`text-sm font-mono ${calc.precioKg > 0 ? 'text-stone-700' : 'text-stone-400'}`}>
                             {calc.precioKg > 0 ? currencyFmt(calc.subtotal) : '-'}
                           </span>
                         </td>
 
                         {/* Total — auto-calculated */}
                         <td className="px-3 py-2.5 text-right">
-                          <span className={`text-sm font-mono font-semibold ${calc.precioKg > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          <span className={`text-sm font-mono font-semibold ${calc.precioKg > 0 ? 'text-emerald-600' : 'text-stone-400'}`}>
                             {calc.precioKg > 0 ? currencyFmt(calc.total) : '-'}
                           </span>
                         </td>
@@ -658,44 +658,44 @@ export function CargaServFaenaTab({ operador }: Props) {
                       {/* ==================== EXPANDED ROW — Items Extras ==================== */}
                       {isExpanded && hasItems && (
                         <tr key={`${planilla.id}-expanded`}>
-                          <td colSpan={14} className="bg-slate-900/40 px-0 py-0">
+                          <td colSpan={14} className="bg-stone-100/80 px-0 py-0">
                             <div className="px-6 py-3 border-l-4 border-purple-500/40">
-                              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                              <h4 className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">
                                 Items Extras — Tropa N° {planilla.numeroTropa}
                               </h4>
                               <table className="w-full text-xs max-w-2xl">
                                 <thead>
-                                  <tr className="border-b border-slate-700/50">
-                                    <th className="px-2 py-1.5 text-left text-slate-500 font-medium">Tipo</th>
-                                    <th className="px-2 py-1.5 text-left text-slate-500 font-medium">Descripción</th>
-                                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">KG</th>
-                                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Precio/u</th>
-                                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Subtotal</th>
+                                  <tr className="border-b border-stone-200">
+                                    <th className="px-2 py-1.5 text-left text-stone-400 font-medium">Tipo</th>
+                                    <th className="px-2 py-1.5 text-left text-stone-400 font-medium">Descripción</th>
+                                    <th className="px-2 py-1.5 text-right text-stone-400 font-medium">KG</th>
+                                    <th className="px-2 py-1.5 text-right text-stone-400 font-medium">Precio/u</th>
+                                    <th className="px-2 py-1.5 text-right text-stone-400 font-medium">Subtotal</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-700/30">
+                                <tbody className="divide-y divide-stone-200">
                                   {planilla.itemsExtras.map((item) => {
                                     const itemPrecio = parseFloat(edit.itemExtrasEdit[item.id]) || 0
                                     const itemSubtotal = item.cantidadKg * itemPrecio
                                     return (
-                                      <tr key={item.id} className="hover:bg-slate-800/50">
+                                      <tr key={item.id} className="hover:bg-stone-100">
                                         <td className="px-2 py-2">
                                           <Badge className={`text-[9px] py-0 px-1.5 border-0 ${
                                             item.tipoItem === 'CHINCHULIN'
-                                              ? 'bg-red-500/15 text-red-300'
+                                              ? 'bg-red-500/15 text-red-600'
                                               : item.tipoItem === 'CUARTEO'
-                                                ? 'bg-orange-500/15 text-orange-300'
+                                                ? 'bg-orange-500/15 text-orange-600'
                                                 : item.tipoItem === 'DESPOSTADA'
-                                                  ? 'bg-teal-500/15 text-teal-300'
-                                                  : 'bg-slate-500/15 text-slate-300'
+                                                  ? 'bg-teal-500/15 text-teal-600'
+                                                  : 'bg-stone-200 text-stone-600'
                                           }`}>
                                             {item.tipoItem}
                                           </Badge>
                                         </td>
-                                        <td className="px-2 py-2 text-slate-300 truncate max-w-[150px]">
+                                        <td className="px-2 py-2 text-stone-600 truncate max-w-[150px]">
                                           {item.descripcion || '-'}
                                         </td>
-                                        <td className="px-2 py-2 text-right text-slate-300 font-mono">
+                                        <td className="px-2 py-2 text-right text-stone-600 font-mono">
                                           {numberFmt(item.cantidadKg, 1)}
                                         </td>
                                         <td className="px-2 py-2 text-right">
@@ -705,10 +705,10 @@ export function CargaServFaenaTab({ operador }: Props) {
                                             placeholder="$"
                                             value={edit.itemExtrasEdit[item.id] || ''}
                                             onChange={(e) => updateItemExtraPrecio(planilla.id, item.id, e.target.value)}
-                                            className="w-[80px] h-6 text-[11px] text-right bg-slate-700 border-slate-600 text-white rounded px-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500"
+                                            className="w-[80px] h-6 text-[11px] text-right bg-stone-100 border-stone-200 text-stone-800 rounded px-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-stone-400"
                                           />
                                         </td>
-                                        <td className="px-2 py-2 text-right text-slate-300 font-mono">
+                                        <td className="px-2 py-2 text-right text-stone-600 font-mono">
                                           {itemPrecio > 0 ? currencyFmt(itemSubtotal) : '-'}
                                         </td>
                                       </tr>
@@ -730,8 +730,8 @@ export function CargaServFaenaTab({ operador }: Props) {
 
         {/* Pagination */}
         {!loading && planillas.length > 0 && totalPaginas > 1 && (
-          <div className="flex items-center justify-between px-4 py-2 border-t border-slate-700">
-            <span className="text-xs text-slate-400">
+          <div className="flex items-center justify-between px-4 py-2 border-t border-stone-200">
+            <span className="text-xs text-stone-500">
               Página {pagina} de {totalPaginas}
             </span>
             <div className="flex gap-1">
@@ -740,7 +740,7 @@ export function CargaServFaenaTab({ operador }: Props) {
                 size="sm"
                 onClick={() => setPagina((p) => Math.max(1, p - 1))}
                 disabled={pagina <= 1}
-                className="h-7 px-2 text-xs text-slate-300 hover:bg-slate-700"
+                className="h-7 px-2 text-xs text-stone-600 hover:bg-stone-100"
               >
                 Anterior
               </Button>
@@ -749,7 +749,7 @@ export function CargaServFaenaTab({ operador }: Props) {
                 size="sm"
                 onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
                 disabled={pagina >= totalPaginas}
-                className="h-7 px-2 text-xs text-slate-300 hover:bg-slate-700"
+                className="h-7 px-2 text-xs text-stone-600 hover:bg-stone-100"
               >
                 Siguiente
               </Button>
@@ -759,20 +759,20 @@ export function CargaServFaenaTab({ operador }: Props) {
 
         {/* Footer totals */}
         {!loading && planillas.length > 0 && (
-          <div className="border-t border-slate-700 px-4 py-2 bg-slate-900/30 text-xs">
+          <div className="border-t border-stone-200 px-4 py-2 bg-stone-100/50 text-xs">
             <div className="flex flex-wrap gap-4 items-center">
-              <span className="text-slate-400">
+              <span className="text-stone-500">
                 {planillas.length} planilla(s)
               </span>
-              <span className="text-slate-400">
+              <span className="text-stone-500">
                 KG Gancho:{' '}
-                <strong className="text-slate-200">
+                <strong className="text-stone-700">
                   {numberFmt(planillas.reduce((s, p) => s + p.kgGancho, 0), 1)}
                 </strong>
               </span>
-              <span className="text-slate-400">
+              <span className="text-stone-500">
                 Cabezas:{' '}
-                <strong className="text-slate-200">
+                <strong className="text-stone-700">
                   {planillas.reduce((s, p) => s + p.cantidadAnimales, 0)}
                 </strong>
               </span>
@@ -783,13 +783,13 @@ export function CargaServFaenaTab({ operador }: Props) {
 
       {/* ==================== FACTURAR DIALOG ==================== */}
       <Dialog open={facturarOpen} onOpenChange={setFacturarOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+        <DialogContent className="bg-white border-stone-200 text-stone-800 max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <FileText className="w-5 h-5 text-emerald-400" />
+              <FileText className="w-5 h-5 text-emerald-600" />
               Confirmar Facturación
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-stone-500">
               Revise los datos antes de generar la factura
             </DialogDescription>
           </DialogHeader>
@@ -805,49 +805,49 @@ export function CargaServFaenaTab({ operador }: Props) {
             return (
               <div className="space-y-4">
                 {/* Summary */}
-                <div className="rounded-lg bg-slate-900/50 border border-slate-700 p-4 space-y-2">
+                <div className="rounded-lg bg-stone-50 border border-stone-200 p-4 space-y-2">
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
                     <div className="flex justify-between col-span-2">
-                      <span className="text-slate-400">Cliente:</span>
-                      <span className="text-slate-100 font-medium">{clienteNombre}</span>
+                      <span className="text-stone-500">Cliente:</span>
+                      <span className="text-stone-800 font-medium">{clienteNombre}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Tropa:</span>
-                      <span className="text-white font-mono font-bold">N° {facturarTarget.numeroTropa}</span>
+                      <span className="text-stone-500">Tropa:</span>
+                      <span className="text-stone-800 font-mono font-bold">N° {facturarTarget.numeroTropa}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Fecha Faena:</span>
-                      <span className="text-slate-200">{dateFmt(facturarTarget.fechaFaena)}</span>
+                      <span className="text-stone-500">Fecha Faena:</span>
+                      <span className="text-stone-700">{dateFmt(facturarTarget.fechaFaena)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Cabezas:</span>
-                      <span className="text-slate-200">{facturarTarget.cantidadAnimales}</span>
+                      <span className="text-stone-500">Cabezas:</span>
+                      <span className="text-stone-700">{facturarTarget.cantidadAnimales}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">KG Gancho:</span>
-                      <span className="text-slate-200 font-mono">{numberFmt(facturarTarget.kgGancho, 1)}</span>
+                      <span className="text-stone-500">KG Gancho:</span>
+                      <span className="text-stone-700 font-mono">{numberFmt(facturarTarget.kgGancho, 1)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Precio/kg:</span>
-                      <span className="text-blue-300 font-mono">{currencyFmt(calc.precioKg)}</span>
+                      <span className="text-stone-500">Precio/kg:</span>
+                      <span className="text-blue-600 font-mono">{currencyFmt(calc.precioKg)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Tasa Vet. x cab:</span>
-                      <span className="text-slate-200 font-mono">{currencyFmt(calc.tasaVet)}</span>
+                      <span className="text-stone-500">Tasa Vet. x cab:</span>
+                      <span className="text-stone-700 font-mono">{currencyFmt(calc.tasaVet)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">IPCVA x cab:</span>
-                      <span className="text-slate-200 font-mono">{currencyFmt(calc.arancel)}</span>
+                      <span className="text-stone-500">IPCVA x cab:</span>
+                      <span className="text-stone-700 font-mono">{currencyFmt(calc.arancel)}</span>
                     </div>
                     {calc.itemsTotal > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Items Extra:</span>
-                        <span className="text-purple-300 font-mono">{currencyFmt(calc.itemsTotal)}</span>
+                        <span className="text-stone-500">Items Extra:</span>
+                        <span className="text-purple-600 font-mono">{currencyFmt(calc.itemsTotal)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between col-span-2 border-t border-slate-600 pt-2 mt-1">
-                      <span className="text-emerald-400 font-semibold text-base">Total:</span>
-                      <span className="text-emerald-300 font-bold text-lg font-mono">
+                    <div className="flex justify-between col-span-2 border-t border-stone-200 pt-2 mt-1">
+                      <span className="text-emerald-600 font-semibold text-base">Total:</span>
+                      <span className="text-emerald-600 font-bold text-lg font-mono">
                         {currencyFmt(calc.total)}
                       </span>
                     </div>
@@ -856,18 +856,18 @@ export function CargaServFaenaTab({ operador }: Props) {
 
                 {/* Items extras summary */}
                 {facturarTarget.itemsExtras.length > 0 && (
-                  <div className="rounded-lg bg-slate-900/30 border border-slate-700 p-3">
-                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  <div className="rounded-lg bg-stone-100/50 border border-stone-200 p-3">
+                    <h4 className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">
                       Items Extras
                     </h4>
                     {facturarTarget.itemsExtras.map((item) => {
                       const precio = parseFloat(edit.itemExtrasEdit[item.id]) || 0
                       return (
                         <div key={item.id} className="flex justify-between text-xs py-0.5">
-                          <span className="text-slate-400">
+                          <span className="text-stone-500">
                             {item.descripcion || item.tipoItem} ({numberFmt(item.cantidadKg, 1)} kg)
                           </span>
-                          <span className="text-slate-200 font-mono">
+                          <span className="text-stone-700 font-mono">
                             {precio > 0 ? currencyFmt(item.cantidadKg * precio) : 'Sin precio'}
                           </span>
                         </div>
@@ -878,40 +878,40 @@ export function CargaServFaenaTab({ operador }: Props) {
 
                 {/* N° Factura */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">
-                    N° Factura <span className="text-red-400">*</span>
+                  <Label className="text-xs font-semibold text-stone-600">
+                    N° Factura <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     placeholder="Ej: 0004-00001234"
                     value={facturaNumero}
                     onChange={(e) => setFacturaNumero(e.target.value)}
-                    className="h-9 bg-slate-700 border-slate-600 text-white text-sm focus:ring-blue-500"
+                    className="h-9 bg-stone-100 border-stone-200 text-stone-800 text-sm focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Fecha Factura */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">
+                  <Label className="text-xs font-semibold text-stone-600">
                     Fecha Factura
                   </Label>
                   <Input
                     type="date"
                     value={facturaFecha}
                     onChange={(e) => setFacturaFecha(e.target.value)}
-                    className="h-9 bg-slate-700 border-slate-600 text-white text-sm focus:ring-blue-500"
+                    className="h-9 bg-stone-100 border-stone-200 text-stone-800 text-sm focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Observaciones */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">
+                  <Label className="text-xs font-semibold text-stone-600">
                     Observaciones
                   </Label>
                   <Textarea
                     placeholder="Notas adicionales..."
                     value={facturaObs}
                     onChange={(e) => setFacturaObs(e.target.value)}
-                    className="min-h-[60px] bg-slate-700 border-slate-600 text-white text-sm focus:ring-blue-500"
+                    className="min-h-[60px] bg-stone-100 border-stone-200 text-stone-800 text-sm focus:ring-blue-500"
                     rows={2}
                   />
                 </div>
@@ -924,7 +924,7 @@ export function CargaServFaenaTab({ operador }: Props) {
               variant="ghost"
               onClick={() => setFacturarOpen(false)}
               disabled={saving}
-              className="text-slate-300 hover:text-white hover:bg-slate-700"
+              className="text-stone-600 hover:text-stone-800 hover:bg-stone-100"
             >
               Cancelar
             </Button>
