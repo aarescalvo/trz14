@@ -135,7 +135,7 @@ export async function PUT(
     // Campos booleanos
     const camposBooleanos = [
       'tieneTipificacion', 'productoGeneral', 'productoReporteRinde',
-      'activo', 'requiereTrazabilidad'
+      'activo', 'requiereTrazabilidad', 'esVendible'
     ]
 
     camposBooleanos.forEach(campo => {

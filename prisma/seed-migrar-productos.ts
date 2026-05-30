@@ -25,7 +25,6 @@ async function main() {
   // 2. Migrar desde Producto (Configuración)
   const productos = await db.producto.findMany({
     where: { activo: true },
-    include: { _count: { select: { stockProductoRegistros: true, cajasEmpaque: true } } }
   })
   console.log(`Productos (Configuración) a migrar: ${productos.length}`)
 
@@ -97,8 +96,7 @@ async function main() {
     where: { activo: true },
     include: {
       rubro: { select: { nombre: true } },
-      _count: { select: { stockProductos: true, cajas: true, bomItems: true } }
-    }
+    },
   })
   console.log(`Productos Desposte (Ciclo II) a migrar: ${productosC2.length}`)
 

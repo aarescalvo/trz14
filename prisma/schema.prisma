@@ -5310,6 +5310,7 @@ model ProductoVendible {
   tipoCarne             String?
   activo                Boolean  @default(true)
   requiereTrazabilidad  Boolean  @default(false)
+  esVendible            Boolean  @default(true)
   precioActual          Float    @default(0)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

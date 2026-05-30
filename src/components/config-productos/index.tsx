@@ -5,7 +5,7 @@ import {
   Package, Plus, Search, Pencil, Trash2, Loader2, X, Save,
   DollarSign, Box, Tag, CheckCircle2, XCircle,
   ShieldCheck, FileText, Globe, Settings,
-  Beef, BarChart3
+  Beef, BarChart3, Maximize2, Minimize2, ShoppingCart
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -73,6 +73,7 @@ interface ProductoVendible {
   tipoCarne?: string | null
   activo: boolean
   requiereTrazabilidad: boolean
+  esVendible: boolean
   precioActual?: number
   // Relations from API (not used directly but included for typing)
   _count?: { preciosCliente: number; preciosHistorico: number }
@@ -114,6 +115,7 @@ interface FormData {
   productoGeneral: boolean
   productoReporteRinde: boolean
   requiereTrazabilidad: boolean
+  esVendible: boolean
 }
 
 const DEFAULT_FORM_DATA: FormData = {
@@ -152,6 +154,7 @@ const DEFAULT_FORM_DATA: FormData = {
   productoGeneral: false,
   productoReporteRinde: false,
   requiereTrazabilidad: false,
+  esVendible: true,
 }
 
 // ─── Options for selects ──────────────────────────────────────────────────────
@@ -178,6 +181,7 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<FormData>({ ...DEFAULT_FORM_DATA })
+  const [dialogExpanded, setDialogExpanded] = useState(false)
 
   // ─── CRUD: Fetch ─────────────────────────────────────────────────────────
 
@@ -256,6 +260,7 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
           productoGeneral: formData.productoGeneral,
           productoReporteRinde: formData.productoReporteRinde,
           requiereTrazabilidad: formData.requiereTrazabilidad,
+          esVendible: formData.esVendible,
         }),
       })
       const json = await res.json()
@@ -323,6 +328,7 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
           productoGeneral: formData.productoGeneral,
           productoReporteRinde: formData.productoReporteRinde,
           requiereTrazabilidad: formData.requiereTrazabilidad,
+          esVendible: formData.esVendible,
           operadorId: operador?.id,
         }),
       })
@@ -369,6 +375,7 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
   const openCreateDialog = () => {
     setEditingId(null)
     setFormData({ ...DEFAULT_FORM_DATA })
+    setDialogExpanded(false)
     setDialogOpen(true)
   }
 
@@ -410,6 +417,7 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
       productoGeneral: p.productoGeneral ?? false,
       productoReporteRinde: p.productoReporteRinde ?? false,
       requiereTrazabilidad: p.requiereTrazabilidad ?? false,
+      esVendible: p.esVendible ?? true,
     })
     setDialogOpen(true)
   }
@@ -595,6 +603,7 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
                     <TableHead className="text-stone-500 text-xs uppercase tracking-wider font-semibold px-3 py-2">Unidad</TableHead>
                     <TableHead className="text-stone-500 text-xs uppercase tracking-wider font-semibold px-3 py-2 text-center">Etiquetas</TableHead>
                     <TableHead className="text-stone-500 text-xs uppercase tracking-wider font-semibold px-3 py-2">Tipificación</TableHead>
+                    <TableHead className="text-stone-500 text-xs uppercase tracking-wider font-semibold px-3 py-2 text-center">Vendible</TableHead>
                     <TableHead className="text-stone-500 text-xs uppercase tracking-wider font-semibold px-3 py-2">Tipo</TableHead>
                     <TableHead className="text-stone-500 text-xs uppercase tracking-wider font-semibold px-3 py-2">Cuarto</TableHead>
                     <TableHead className="text-stone-500 text-xs uppercase tracking-wider font-semibold px-3 py-2">Cat.</TableHead>
@@ -626,6 +635,13 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
                           <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px] px-1.5 py-0">
                             SI{p.tipificacion ? `: ${p.tipificacion}` : ''}
                           </Badge>
+                        ) : (
+                          <Badge className="bg-stone-100 text-stone-500 hover:bg-stone-100 text-[10px] px-1.5 py-0">NO</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-center">
+                        {p.esVendible !== false ? (
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px] px-1.5 py-0">SI</Badge>
                         ) : (
                           <Badge className="bg-stone-100 text-stone-500 hover:bg-stone-100 text-[10px] px-1.5 py-0">NO</Badge>
                         )}
@@ -680,15 +696,26 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
       </Card>
 
       {/* ─── CREATE / EDIT DIALOG ──────────────────────────────────────── */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setDialogOpen(false); setEditingId(null) } }}>
-        <DialogContent className="sm:max-w-3xl p-0 flex flex-col max-h-[85vh]" showCloseButton>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setDialogOpen(false); setDialogOpen(false); setDialogExpanded(false); setEditingId(null) } }}>
+        <DialogContent className={`${dialogExpanded ? 'sm:max-w-[95vw] lg:max-w-[90vw] max-h-[95vh]' : 'sm:max-w-3xl max-h-[85vh]'} p-0 flex flex-col transition-all duration-300`} showCloseButton>
           <div className="overflow-y-auto flex-1 p-6 space-y-0">
             {/* Dialog Header */}
             <DialogHeader className="mb-5">
-              <DialogTitle className="flex items-center gap-2 text-stone-800">
-                <Package className="w-5 h-5 text-amber-500" />
-                {editingId ? 'Editar Producto' : 'Nuevo Producto'}
-              </DialogTitle>
+              <div className="flex items-center justify-between pr-8">
+                <DialogTitle className="flex items-center gap-2 text-stone-800">
+                  <Package className="w-5 h-5 text-amber-500" />
+                  {editingId ? 'Editar Producto' : 'Nuevo Producto'}
+                </DialogTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-stone-400 hover:text-stone-600 hover:bg-stone-100"
+                  onClick={() => setDialogExpanded(!dialogExpanded)}
+                  title={dialogExpanded ? 'Reducir' : 'Expandir'}
+                >
+                  {dialogExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </Button>
+              </div>
               <DialogDescription className="text-stone-500">
                 {editingId
                   ? 'Modifique los campos deseados y presione ACEPTAR para guardar los cambios.'
@@ -806,7 +833,7 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
                 <ShieldCheck className="w-4 h-4 text-amber-500" />
                 Tipificación
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-stone-600">Tiene Tipificación</Label>
                   <div className="flex items-center gap-3">
@@ -816,6 +843,18 @@ export function ConfigProductosModule({ operador }: { operador: Operador }) {
                     />
                     <span className="text-sm text-stone-700">
                       {formData.tieneTipificacion ? 'SI' : 'NO'}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-stone-600">Es Producto Vendible</Label>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={formData.esVendible}
+                      onCheckedChange={(checked) => updateField('esVendible', checked)}
+                    />
+                    <span className="text-sm text-stone-700">
+                      {formData.esVendible ? 'SI' : 'NO'}
                     </span>
                   </div>
                 </div>

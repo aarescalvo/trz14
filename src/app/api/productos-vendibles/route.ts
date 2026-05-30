@@ -148,7 +148,8 @@ export async function POST(request: NextRequest) {
       tipoCarne,
       // Control
       activo,
-      requiereTrazabilidad
+      requiereTrazabilidad,
+      esVendible
     } = body
 
     // Verificar que el código no exista
@@ -220,6 +221,7 @@ export async function POST(request: NextRequest) {
         // Control
         activo: activo !== undefined ? activo : true,
         requiereTrazabilidad: requiereTrazabilidad || false,
+        esVendible: esVendible !== undefined ? esVendible : true,
         precioActual: precioArs ? parseFloat(precioArs) : (precioBase ? parseFloat(precioBase) : 0)
       }
     })
