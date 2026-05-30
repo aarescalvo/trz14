@@ -136,6 +136,7 @@ interface Factura {
   tributos?: FacturaTributo[]
   notas?: NotaCreditoDebito[]
   operador?: { id: string; nombre: string }
+  planillasFactura?: { numeroTropa: number; tropaId?: string }[]
 }
 
 interface Props { operador: Operador }
@@ -865,18 +866,14 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
       f.clienteNombre?.toLowerCase().includes(searchTerm.toLowerCase())
     return matchEstado && matchSearch
   }).sort((a, b) => {
-    // Ordenar por número de tropa (extraído del primer detalle)
-    const tropaA = a.detalles?.[0]?.tropaCodigo
-    const tropaB = b.detalles?.[0]?.tropaCodigo
-    if (tropaA && tropaB) {
-      const numA = parseInt(tropaA.replace(/\D/g, ''), 10)
-      const numB = parseInt(tropaB.replace(/\D/g, ''), 10)
-      if (!isNaN(numA) && !isNaN(numB)) return numA - numB
-      return tropaA.localeCompare(tropaB)
-    }
-    if (tropaA) return -1
-    if (tropaB) return 1
-    return 0
+    // Ordenar por número de tropa (desde planilla de servicio faena)
+    const tropaA = a.planillasFactura?.[0]?.numeroTropa
+    const tropaB = b.planillasFactura?.[0]?.numeroTropa
+    if (tropaA != null && tropaB != null) return tropaA - tropaB
+    if (tropaA != null) return -1
+    if (tropaB != null) return 1
+    // Sin tropa: ordenar por fecha descendente
+    return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
   })
 
   const totalFacturas = facturas.length
@@ -1128,6 +1125,7 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="font-semibold">Tropa</TableHead>
                           <TableHead className="font-semibold">Número</TableHead>
                           <TableHead className="font-semibold">Fecha</TableHead>
                           <TableHead className="font-semibold">Cliente</TableHead>
@@ -1141,6 +1139,7 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
                       <TableBody>
                         {facturasFiltradas.map((factura) => (
                           <TableRow key={factura.id} className={factura.estado === 'ANULADA' ? 'opacity-50' : ''}>
+                            <TableCell className="font-mono font-medium text-stone-600">{factura.planillasFactura?.[0]?.numeroTropa ?? '-'}</TableCell>
                             <TableCell className="font-mono font-medium">{factura.numero}</TableCell>
                             <TableCell>{new Date(factura.fecha).toLocaleDateString('es-AR')}</TableCell>
                             <TableCell>

@@ -107,7 +107,13 @@ export async function GET(request: NextRequest) {
               nombre: true
             }
           },
-          tributos: true
+          tributos: true,
+          planillasFactura: {
+            select: {
+              numeroTropa: true,
+              tropaId: true,
+            }
+          }
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
