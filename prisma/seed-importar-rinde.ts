@@ -333,6 +333,12 @@ function parseTropaSheet(sheetName: string, sheet: XLSX.WorkSheet): TropaExcelDa
       })
     }
 
+    // En formatos 2/3, kgVivoTotal y kgMedioRes son fórmulas (=+I75) que xlsx no evalúa.
+    // Calcularlos a partir de la suma de animales
+    kgVivoTotal = animales.reduce((sum, a) => sum + a.kgEntrada, 0)
+    kgMedioRes = animales.reduce((sum, a) => sum + (a.kgTotal || 0), 0)
+    cantidadAnimales = animales.length || cantidadAnimales
+
     return { numeroTropa, fechaFaena, kgVivoTotal, kgMedioRes, rindePromedio, cantidadAnimales, matarife, dte, animales, formato }
   }
 }
@@ -368,7 +374,7 @@ async function main() {
 
   // 2. Estado actual BD
   const tropasExistentes = await db.tropa.findMany({
-    select: { id: true, numero: true, fechaFaena: true, kgGancho: true, dte: true, codigo: true },
+    select: { id: true, numero: true, fechaFaena: true, kgGancho: true, dte: true, codigo: true, estado: true },
   })
   const tropaByNumero = new Map(tropasExistentes.map(t => [t.numero, t]))
 
@@ -410,6 +416,7 @@ async function main() {
   // 4. Actualizar Tropa (fechaFaena, kgGancho, DTE) — solo si están vacíos
   let tropasActualizadas = 0
   let tropasNoEncontradas = 0
+  let estadosActualizados = 0
 
   for (const td of tropasData) {
     const tropa = tropaByNumero.get(td.numeroTropa)
@@ -431,17 +438,28 @@ async function main() {
     }
 
     // Solo actualizar DTE si está como "PENDIENTE" o vacío
-    if (tropa.dte === 'PENDIENTE' && td.dte) {
+    if ((tropa.dte === 'PENDIENTE' || !tropa.dte) && td.dte) {
       updates.dte = td.dte
     }
 
+    // Actualizar estado a FAENADO si tiene fecha de faena y estaba en RECIBIDO/EN_CORRAL/LISTO_FAENA/EN_FAENA
+    if ((updates.fechaFaena || tropa.fechaFaena) &&
+        ['RECIBIDO', 'EN_CORRAL', 'EN_PESAJE', 'PESADO', 'LISTO_FAENA', 'EN_FAENA'].includes(tropa.estado)) {
+      updates.estado = 'FAENADO'
+    }
+
     if (Object.keys(updates).length > 0) {
+      const prevEstado = tropa.estado
       await db.tropa.update({ where: { id: tropa.id }, data: updates })
       tropasActualizadas++
+      if (updates.estado && updates.estado !== prevEstado) {
+        estadosActualizados++
+      }
     }
   }
 
   console.log(`Tropas actualizadas: ${tropasActualizadas}`)
+  console.log(`Estados → FAENADO: ${estadosActualizados}`)
   if (tropasNoEncontradas > 0) {
     console.log(`Tropas no encontradas en BD: ${tropasNoEncontradas}`)
   }
