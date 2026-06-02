@@ -24,7 +24,8 @@ import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Progress } from '@/components/ui/progress'
 import { BalanzaConfigButton } from '@/components/balanza-config-button'
-import { imprimirTicketPesajeA4 } from './pesaje-individual/rotuloPrint'
+import { imprimirTicketPesajeA4, imprimirResumenTipo } from './pesaje-individual/rotuloPrint'
+import { TiposProgress } from './pesaje-individual/TiposProgress'
 
 const TIPOS_ANIMALES: Record<string, { codigo: string; label: string }[]> = {
   BOVINO: [
@@ -261,6 +262,7 @@ interface Tropa {
   usuarioFaena?: { nombre: string }
   tiposAnimales?: { tipoAnimal: string; cantidad: number }[]
   observaciones?: string
+  updatedAt?: string
 }
 
 interface Animal {
@@ -344,6 +346,12 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
   const [flashFeedback, setFlashFeedback] = useState(false)
   const [productionMode, setProductionMode] = useState(false)
 
+  // Diálogo de confirmación de finalización
+  const [finalizacionDialogOpen, setFinalizacionDialogOpen] = useState(false)
+  const [diferenciasDTE, setDiferenciasDTE] = useState<{ tipo: string; dte: number; pesado: number; diferencia: number }[]>([])
+
+
+
   const isAdmin = operador.rol === 'ADMINISTRADOR' || (operador.permisos?.puedeAdminSistema ?? false)
 
   // Computed: progress for PI2
@@ -422,6 +430,8 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     ))
     setTropasPesado(tropas.filter(t => t.estado === 'PESADO'))
   }, [tropas])
+
+
 
   const fetchLayout = async () => {
     try {
@@ -570,7 +580,18 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     
     setTropaSeleccionada(tropa)
     resetFormFields()
-    setValidacionDialogOpen(true)
+    
+    // If corral already assigned, start weighing directly (skip validation dialog)
+    if (corralDestinoId || tropa.corralId || (typeof tropa.corral === 'object' && tropa.corral?.id)) {
+      // Small delay to ensure state is set before calling handleIniciarPesaje
+      const assignedCorralId = tropa.corralId || (typeof tropa.corral === 'object' && tropa.corral?.id) || corralDestinoId
+      setCorralDestinoId(assignedCorralId)
+      // Use setTimeout to ensure state updates are applied
+      setTimeout(() => handleIniciarPesaje(), 100)
+    } else {
+      // No corral assigned - show dialog for corral selection only
+      setValidacionDialogOpen(true)
+    }
   }
 
   const resetFormFields = () => {
@@ -854,9 +875,43 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     }
   }
 
+  const handleSolicitarFinalizacion = () => {
+    // Compare weighed tipos with DTE
+    const diffs: { tipo: string; dte: number; pesado: number; diferencia: number }[] = []
+    
+    for (const tc of tiposConfirmados) {
+      const pesados = conteoPesadosPorTipo[tc.tipoAnimal] || 0
+      if (pesados !== tc.cantidadDTE) {
+        diffs.push({
+          tipo: tc.tipoAnimal,
+          dte: tc.cantidadDTE,
+          pesado: pesados,
+          diferencia: pesados - tc.cantidadDTE
+        })
+      }
+    }
+    
+    // Check for tipos pesados that weren't in DTE
+    const tiposDTE = tiposConfirmados.map(tc => tc.tipoAnimal)
+    for (const [tipo, count] of Object.entries(conteoPesadosPorTipo)) {
+      if (!tiposDTE.includes(tipo)) {
+        diffs.push({
+          tipo,
+          dte: 0,
+          pesado: count,
+          diferencia: count
+        })
+      }
+    }
+    
+    setDiferenciasDTE(diffs)
+    setFinalizacionDialogOpen(true)
+  }
+
   const handleFinalizarPesaje = async () => {
     if (!tropaSeleccionada) return
     
+    setFinalizacionDialogOpen(false)
     setSaving(true)
     try {
       const pesoTotal = animales.reduce((acc, a) => acc + (a.pesoVivo || 0), 0)
@@ -875,6 +930,18 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       
       if (res.ok && data.success) {
         toast.success('Tropa pesada completamente')
+        
+        // Print summary rótulo (tipo + kg totals)
+        try {
+          imprimirResumenTipo({
+            tropaCodigo: tropaSeleccionada.codigo,
+            animales: animales.filter(a => a.estado === 'PESADO'),
+            tiposDTE: tiposConfirmados.map(tc => ({ tipoAnimal: tc.tipoAnimal, cantidad: tc.cantidadDTE }))
+          })
+        } catch (printError) {
+          console.error('Error al imprimir resumen:', printError)
+        }
+        
         setTropaSeleccionada(null)
         setAnimales([])
         setAnimalActual(0)
@@ -1839,6 +1906,16 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                 </div>
               </CardHeader>
               <CardContent className="flex-1 p-3 overflow-hidden flex flex-col">
+                {/* Contador de tipos pesados vs DTE */}
+                {animales.length > 0 && (
+                  <div className="mb-2 flex-shrink-0">
+                    <TiposProgress
+                      tiposConfirmados={tiposConfirmados.map(tc => ({ tipoAnimal: tc.tipoAnimal, cantidad: tc.cantidadConfirmada }))}
+                      animales={animales}
+                      especie={tropaSeleccionada?.especie || 'BOVINO'}
+                    />
+                  </div>
+                )}
                 {animales.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center text-center">
                     <div>
@@ -1856,7 +1933,7 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                       {getBoton('finalizar')?.visible && (
                         <Button 
                           className="mt-4" 
-                          onClick={() => handleFinalizarPesaje()}
+                          onClick={() => handleSolicitarFinalizacion()}
                         >
                           {getBoton('finalizar')?.texto}
                         </Button>
@@ -2701,6 +2778,95 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
           </div>
         </div>
       )}
+
+      {/* Diálogo de confirmación de finalización */}
+      <Dialog open={finalizacionDialogOpen} onOpenChange={setFinalizacionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <ClipboardCheck className="w-5 h-5 text-green-600" />
+              ¿Pesaje finalizado?
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            {/* Resumen de pesaje */}
+            <div className="bg-stone-50 p-3 rounded-lg">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-stone-500">Tropa:</span>
+                <span className="font-mono font-bold">{tropaSeleccionada?.codigo}</span>
+              </div>
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-stone-500">Animales pesados:</span>
+                <span className="font-bold">{animalesPesados}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-stone-500">Peso total:</span>
+                <span className="font-bold">{animales.reduce((acc, a) => acc + (a.pesoVivo || 0), 0).toLocaleString('es-AR')} kg</span>
+              </div>
+            </div>
+
+            {/* Diferencias con DTE */}
+            {diferenciasDTE.length > 0 ? (
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                <div className="flex items-center gap-2 text-amber-700 text-sm font-semibold mb-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Diferencias con DTE
+                </div>
+                <div className="space-y-1">
+                  {diferenciasDTE.map((d) => (
+                    <div key={d.tipo} className="flex justify-between text-sm">
+                      <span className="font-mono font-bold">{d.tipo}</span>
+                      <span className="text-amber-700">
+                        DTE: {d.dte} → Pesado: {d.pesado}
+                        <span className="ml-1 font-bold">
+                          ({d.diferencia > 0 ? '+' : ''}{d.diferencia})
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-amber-600 mt-2">
+                  Se imprimirá un rótulo resumen con los datos actuales.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700 text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  Sin diferencias con DTE — la clasificación coincide.
+                </div>
+              </div>
+            )}
+
+            {/* Resumen por tipo para el rótulo */}
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-xs font-semibold text-blue-800 mb-2">Resumen por tipo (se imprimirá en rótulo):</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(
+                  animales.filter(a => a.estado === 'PESADO').reduce((acc: Record<string, number>, a) => {
+                    acc[a.tipoAnimal] = (acc[a.tipoAnimal] || 0) + (a.pesoVivo || 0)
+                    return acc
+                  }, {})
+                ).map(([tipo, kg]) => (
+                  <span key={tipo} className="text-sm font-mono font-bold bg-white px-2 py-1 rounded border">
+                    {tipo}: {Math.round(kg).toLocaleString('es-AR')}kg
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFinalizacionDialogOpen(false)} size="sm">
+              Cancelar
+            </Button>
+            <Button onClick={() => handleFinalizarPesaje()} disabled={saving} className="bg-green-600 hover:bg-green-700" size="sm">
+              {saving ? 'Finalizando...' : 'Confirmar Finalización'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm Delete / Repesar Dialog */}
       <ConfirmDeleteDialog

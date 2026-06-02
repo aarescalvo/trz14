@@ -144,6 +144,76 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
   const [pesoProduccion, setPesoProduccion] = useState<number | null>(null)
   const [flashExito, setFlashExito] = useState(false)
 
+  // Modo Balanza vs Manual (siempre arranca en MANUAL)
+  const [modoBalanza, setModoBalanza] = useState(false)
+  const [pesoBalanzaLive, setPesoBalanzaLive] = useState<number | null>(null)
+  const [balanzaConectando, setBalanzaConectando] = useState(false)
+  const [balanzaError, setBalanzaError] = useState('')
+  const balanzaIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Recordar preferencia Manual/Balanza por operador
+  useEffect(() => {
+    const pref = localStorage.getItem(`romaneo-modo-balanza-${operador?.id}`)
+    if (pref === 'balanza') {
+      setModoBalanza(true)
+    }
+  }, [operador?.id])
+
+  // Cambiar modo y guardar preferencia
+  const toggleModoBalanza = useCallback((activo: boolean) => {
+    setModoBalanza(activo)
+    setBalanzaError('')
+    setPesoBalanzaLive(null)
+    if (operador?.id) {
+      localStorage.setItem(`romaneo-modo-balanza-${operador.id}`, activo ? 'balanza' : 'manual')
+    }
+  }, [operador?.id])
+
+  // Polling de balanza cuando está en modo balanza (solo en vista normal, no en Modo Producción)
+  useEffect(() => {
+    if (!modoBalanza || modoProduccion) {
+      if (balanzaIntervalRef.current) {
+        clearInterval(balanzaIntervalRef.current)
+        balanzaIntervalRef.current = null
+      }
+      return
+    }
+    setBalanzaConectando(true)
+    const fetchPeso = async () => {
+      try {
+        const res = await fetch('/api/balanza/lectura')
+        const data = await res.json()
+        if (data.success) {
+          setPesoBalanzaLive(data.data?.peso ?? null)
+          setBalanzaError('')
+          setBalanzaConectando(false)
+        } else {
+          setBalanzaError(data.error || 'Error de balanza')
+          setBalanzaConectando(false)
+        }
+      } catch {
+        setBalanzaError('Sin conexión')
+        setBalanzaConectando(false)
+      }
+    }
+    fetchPeso()
+    balanzaIntervalRef.current = setInterval(fetchPeso, 1500)
+    return () => {
+      if (balanzaIntervalRef.current) {
+        clearInterval(balanzaIntervalRef.current)
+        balanzaIntervalRef.current = null
+      }
+    }
+  }, [modoBalanza, modoProduccion])
+
+  // Capturar peso de la balanza al input
+  const handleCapturarDeBalanza = useCallback(() => {
+    if (pesoBalanzaLive !== null && pesoBalanzaLive > 0) {
+      setPesoBalanza(pesoBalanzaLive.toFixed(1))
+      toast.success(`Peso capturado: ${pesoBalanzaLive.toFixed(1)} kg`)
+    }
+  }, [pesoBalanzaLive])
+
   // UI
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1267,9 +1337,44 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                 <div className="text-center flex-shrink-0 my-0.5">
                   <Label className="text-[10px]">Peso (kg)</Label>
                   <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                    <Input type="number" value={pesoBalanza} onChange={(e) => setPesoBalanza(e.target.value)} className="text-xl font-bold text-center h-10 w-28" placeholder="0" step="0.1" />
-                    <Button variant="outline" size="icon" onClick={handleCapturarPeso} className="h-9 w-9"><Scale className="w-4 h-4" /></Button>
+                    {modoBalanza ? (
+                      <>
+                        <div className={cn(
+                          "text-xl font-bold text-center h-10 w-28 flex items-center justify-center rounded-md border",
+                          balanzaError ? "border-red-300 bg-red-50 text-red-600" :
+                          balanzaConectando ? "border-amber-300 bg-amber-50 text-amber-600" :
+                          "border-green-300 bg-green-50 text-green-700"
+                        )}>
+                          {balanzaConectando ? "..." : pesoBalanzaLive !== null ? pesoBalanzaLive.toFixed(1) : balanzaError ? "ERR" : "---.-"}
+                        </div>
+                        <Button variant="outline" size="sm" onClick={handleCapturarDeBalanza} disabled={pesoBalanzaLive === null || pesoBalanzaLive <= 0} className="h-9 px-2 text-xs bg-green-600 text-white border-green-500 hover:bg-green-700">
+                          <Scale className="w-3.5 h-3.5 mr-0.5" />
+                          Capturar
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Input type="number" value={pesoBalanza} onChange={(e) => setPesoBalanza(e.target.value)} className="text-xl font-bold text-center h-10 w-28" placeholder="0" step="0.1" />
+                        <Button variant="outline" size="icon" onClick={handleCapturarPeso} className="h-9 w-9"><Scale className="w-4 h-4" /></Button>
+                      </>
+                    )}
+                    <Button
+                      variant={modoBalanza ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleModoBalanza(!modoBalanza)}
+                      className={cn(
+                        "h-9 px-2 text-[10px] font-medium",
+                        modoBalanza ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-blue-300 text-blue-600 hover:bg-blue-50"
+                      )}
+                      title={modoBalanza ? "Cambiar a Manual" : "Cambiar a Balanza"}
+                    >
+                      <Scale className="w-3.5 h-3.5 mr-0.5" />
+                      {modoBalanza ? "BALANZA" : "BALANZA"}
+                    </Button>
                   </div>
+                  {modoBalanza && balanzaError && (
+                    <p className="text-[9px] text-red-500 mt-0.5">{balanzaError}</p>
+                  )}
                 </div>
 
                 {/* Dentición */}

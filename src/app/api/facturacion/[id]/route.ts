@@ -69,8 +69,27 @@ export async function PUT(
       remito,
       observaciones,
       detalles,
+      numero,
+      supervisorPassword,
       tipoIva = 21 // Porcentaje de IVA, default 21%
     } = body
+
+    // Si se proporciona supervisorPassword, validar antes de permitir edición
+    if (supervisorPassword) {
+      const supervisor = await db.operador.findFirst({
+        where: {
+          pinSupervisor: supervisorPassword,
+          rol: { in: ['SUPERVISOR', 'ADMINISTRADOR'] },
+          activo: true,
+        },
+      })
+      if (!supervisor) {
+        return NextResponse.json(
+          { success: false, error: 'Clave de supervisor incorrecta' },
+          { status: 403 }
+        )
+      }
+    }
 
     // Verificar que la factura existe y no está pagada
     const facturaExistente = await db.factura.findUnique({
@@ -97,6 +116,17 @@ export async function PUT(
         { success: false, error: 'No se puede modificar una factura anulada' },
         { status: 400 }
       )
+    }
+
+    // Si se envía numero (supervisor edit), verificar unicidad
+    if (numero && numero !== facturaExistente.numero) {
+      const existingNum = await db.factura.findUnique({ where: { numero } })
+      if (existingNum) {
+        return NextResponse.json(
+          { success: false, error: 'Ya existe una factura con ese número' },
+          { status: 400 }
+        )
+      }
     }
 
     // Si hay detalles, recalcular y actualizar
@@ -155,14 +185,15 @@ export async function PUT(
         }
       })
     } else {
-      // Solo actualizar campos básicos
+      // Solo actualizar campos básicos (incluido numero si viene)
+      const updateData: any = {}
+      if (condicionVenta !== undefined) updateData.condicionVenta = condicionVenta
+      if (remito !== undefined) updateData.remito = remito
+      if (observaciones !== undefined) updateData.observaciones = observaciones
+      if (numero !== undefined) updateData.numero = numero
       await db.factura.update({
         where: { id },
-        data: {
-          condicionVenta,
-          remito,
-          observaciones
-        }
+        data: updateData
       })
     }
 

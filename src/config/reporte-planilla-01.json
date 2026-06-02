@@ -1,0 +1,16 @@
+{
+  "excel": {
+    "pagina": { "orientacion": "landscape", "ajustarAncho": true },
+    "margenes": { "izquierdo": 0.5, "derecho": 0.5, "superior": 0.4, "inferior": 0.4 },
+    "fuentes": { "familia": "Arial", "tamanoTitulo": 14, "tamanoSubtitulo": 10, "tamanoDatos": 9, "tamanoEncabezado": 8 },
+    "logo": { "visible": false, "posicion": "izquierda", "ancho": 80, "alto": 40, "archivo": "logo.png" },
+    "bordes": { "encabezado": true, "datos": true, "totales": true },
+    "separadores": { "despuesEncabezado": "simple", "despuesDatos": "doble" }
+  },
+  "pdf": {
+    "pagina": { "orientacion": "landscape", "tamano": "a4" },
+    "margenes": { "izquierdo": 8, "derecho": 8, "superior": 8, "inferior": 5 },
+    "fuentes": { "tamanoTitulo": 14, "tamanoSubtitulo": 9, "tamanoTablaEncabezado": 7, "tamanoTablaCuerpo": 7, "tamanoPie": 7 },
+    "logo": { "visible": false, "posicion": "izquierda", "ancho": 30, "alto": 15, "archivo": "logo.png" }
+  }
+}

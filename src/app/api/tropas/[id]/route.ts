@@ -18,10 +18,21 @@ export async function GET(
       include: {
         productor: true,
         usuarioFaena: true,
+        corral: true,
         tiposAnimales: true,
+        pesajeCamion: {
+          select: {
+            id: true, numeroTicket: true, tipo: true, patenteChasis: true, patenteAcoplado: true,
+            choferNombre: true, choferDni: true, transportista: { select: { id: true, nombre: true, cuit: true } },
+            precintos: true, pesoBruto: true, pesoTara: true, pesoNeto: true, estado: true
+          }
+        },
         animales: {
           orderBy: { numero: 'asc' },
-          include: { corral: { select: { id: true, nombre: true } } }
+          include: {
+            corral: { select: { id: true, nombre: true } },
+            pesajeIndividual: { select: { id: true, peso: true, fecha: true } }
+          }
         }
       }
     })
@@ -48,8 +59,25 @@ export async function GET(
           estado: a.estado,
           corral: a.corral ? { id: a.corral.id, nombre: a.corral.nombre } : null,
           fechaBaja: a.fechaBaja,
-          motivoBaja: a.motivoBaja
-        }))
+          motivoBaja: a.motivoBaja,
+          pesajeIndividual: a.pesajeIndividual ? { peso: a.pesajeIndividual.peso, fecha: a.pesajeIndividual.fecha } : null
+        })),
+        pesajeCamion: tropa.pesajeCamion ? {
+          id: tropa.pesajeCamion.id,
+          patenteChasis: tropa.pesajeCamion.patenteChasis,
+          patenteAcoplado: tropa.pesajeCamion.patenteAcoplado,
+          choferNombre: tropa.pesajeCamion.choferNombre,
+          choferDni: tropa.pesajeCamion.choferDni,
+          transportista: tropa.pesajeCamion.transportista ? {
+            id: tropa.pesajeCamion.transportista.id,
+            nombre: tropa.pesajeCamion.transportista.nombre,
+            cuit: tropa.pesajeCamion.transportista.cuit
+          } : null,
+          precintos: tropa.pesajeCamion.precintos,
+          pesoBruto: tropa.pesajeCamion.pesoBruto,
+          pesoTara: tropa.pesajeCamion.pesoTara,
+          pesoNeto: tropa.pesajeCamion.pesoNeto
+        } : null
       }
     })
   } catch (error) {

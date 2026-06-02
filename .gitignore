@@ -91,4 +91,5 @@ backups/
 
 # Analysis/temp files from audits
 *-analysis.txt
-test_results.txt
+test_results.txt.env
+.env.local

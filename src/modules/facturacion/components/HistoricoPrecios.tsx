@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { 
-  History, DollarSign, Plus, Loader2, RefreshCw, TrendingUp, TrendingDown, 
-  Tag, Building2, Beaker, Shield
+import {
+  History, DollarSign, Plus, Loader2, RefreshCw, TrendingUp, TrendingDown,
+  Tag, Building2, Beaker, Shield, ChevronDown, ChevronUp
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,12 +14,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 
 interface TipoTarifa { id: string; codigo: string; descripcion: string; unidad: string; activo: boolean }
-interface HistoricoTarifa { 
-  id: string; tipoTarifaId: string; tipoTarifa?: TipoTarifa; clienteId?: string | null; 
+interface HistoricoTarifa {
+  id: string; tipoTarifaId: string; tipoTarifa?: TipoTarifa; clienteId?: string | null;
   especie?: string | null; categoria?: string | null; valor: number; moneda: string;
   vigenciaDesde: string; vigenciaHasta?: string | null; operadorId?: string | null;
   motivo?: string | null; createdAt: string;
@@ -36,15 +35,15 @@ export function HistoricoPrecios({ operador }: Props) {
   const [tipos, setTipos] = useState<TipoTarifa[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('vigentes')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+
   // Filters
   const [filtroTipo, setFiltroTipo] = useState('TODOS')
   const [filtroCliente, setFiltroCliente] = useState('TODOS')
   const [filtroEspecie, setFiltroEspecie] = useState('TODOS')
-  
+
   // New tarifa form
   const [form, setForm] = useState({
     tipoTarifaCodigo: '',
@@ -95,13 +94,13 @@ export function HistoricoPrecios({ operador }: Props) {
 
   useEffect(() => { fetchAll() }, [fetchAll])
   useEffect(() => { fetchVigentes() }, [fetchVigentes])
-  useEffect(() => { if (tab === 'historico') fetchHistorico() }, [tab, fetchHistorico])
+  useEffect(() => { fetchHistorico() }, [fetchHistorico])
 
   const handleSeed = async () => {
     try {
       const res = await fetch('/api/tarifas?modo=seed')
       const data = await res.json()
-      if (data.success) { toast.success(data.message); fetchAll(); fetchVigentes(); }
+      if (data.success) { toast.success(data.message); fetchAll(); fetchVigentes(); fetchHistorico() }
     } catch { toast.error('Error al inicializar') }
   }
 
@@ -123,7 +122,7 @@ export function HistoricoPrecios({ operador }: Props) {
         setDialogOpen(false)
         setForm({ tipoTarifaCodigo: '', valor: 0, vigenciaDesde: new Date().toISOString().split('T')[0], clienteId: null, especie: null, categoria: null, motivo: '' })
         fetchVigentes()
-        if (tab === 'historico') fetchHistorico()
+        fetchHistorico()
       } else {
         toast.error(data.error || 'Error al crear tarifa')
       }
@@ -131,27 +130,37 @@ export function HistoricoPrecios({ operador }: Props) {
   }
 
   const calcularVariacion = (tarifa: HistoricoTarifa, lista: HistoricoTarifa[]) => {
-    const anteriores = lista.filter(t => 
-      t.tipoTarifaId === tarifa.tipoTarifaId && 
+    const anteriores = lista.filter(t =>
+      t.tipoTarifaId === tarifa.tipoTarifaId &&
       t.clienteId === tarifa.clienteId &&
       t.especie === tarifa.especie &&
       new Date(t.vigenciaDesde) < new Date(tarifa.vigenciaDesde)
     ).sort((a, b) => new Date(b.vigenciaDesde).getTime() - new Date(a.vigenciaDesde).getTime())
-    
+
     if (anteriores.length === 0) return null
     const anterior = anteriores[0].valor
     if (anterior === 0) return null
     return ((tarifa.valor - anterior) / anterior * 100)
   }
 
-  const datosFiltrados = (tab === 'vigentes' ? tarifas : historico).filter(t => {
+  // Unified list: show vigentes with their history grouped underneath
+  // Group historico by tipo+cliente+especie
+  const getHistorialForTarifa = (tarifa: HistoricoTarifa) => {
+    return historico
+      .filter(h =>
+        h.tipoTarifaId === tarifa.tipoTarifaId &&
+        h.clienteId === tarifa.clienteId &&
+        h.especie === tarifa.especie
+      )
+      .sort((a, b) => new Date(b.vigenciaDesde).getTime() - new Date(a.vigenciaDesde).getTime())
+  }
+
+  const filteredTarifas = tarifas.filter(t => {
     if (filtroTipo !== 'TODOS' && t.tipoTarifa?.codigo !== filtroTipo) return false
     if (filtroCliente !== 'TODOS' && t.clienteId !== filtroCliente) return false
     if (filtroEspecie !== 'TODOS' && t.especie !== filtroEspecie) return false
     return true
   })
-
-  const listaCompleta = tab === 'vigentes' ? tarifas : historico
 
   return (
     <div className="space-y-4">
@@ -174,7 +183,7 @@ export function HistoricoPrecios({ operador }: Props) {
         </Card>
         <Card className="border-0 shadow-sm bg-blue-50">
           <CardContent className="p-3">
-            <div className="flex items-center gap-2"><History className="w-5 h-5 text-blue-600" /><div><p className="text-xs text-stone-500">Tipos de Tarifa</p><p className="text-xl font-bold text-blue-700">{tipos.length}</p></div></div>
+            <div className="flex items-center gap-2"><History className="w-5 h-5 text-blue-600" /><div><p className="text-xs text-stone-500">Historial</p><p className="text-xl font-bold text-blue-700">{historico.length}</p></div></div>
           </CardContent>
         </Card>
       </div>
@@ -220,78 +229,110 @@ export function HistoricoPrecios({ operador }: Props) {
             <div className="flex gap-2">
               {tipos.length === 0 && <Button size="sm" variant="outline" className="h-9" onClick={handleSeed}><Beaker className="w-4 h-4 mr-1" />Inicializar</Button>}
               {esAdmin && <Button size="sm" className="h-9 bg-amber-500 hover:bg-amber-600" onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-1" />Nueva Tarifa</Button>}
-              <Button size="sm" variant="outline" className="h-9" onClick={() => { fetchVigentes(); if (tab === 'historico') fetchHistorico(); }}><RefreshCw className="w-4 h-4" /></Button>
+              <Button size="sm" variant="outline" className="h-9" onClick={() => { fetchVigentes(); fetchHistorico(); }}><RefreshCw className="w-4 h-4" /></Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tabs */}
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="vigentes">Vigentes</TabsTrigger>
-          <TabsTrigger value="historico">Historial Completo</TabsTrigger>
-        </TabsList>
+      {/* Unified Table: Vigentes with expandable history */}
+      <Card className="border-0 shadow-md">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
+          ) : filteredTarifas.length === 0 ? (
+            <div className="py-12 text-center text-stone-400"><Tag className="w-16 h-16 mx-auto mb-4 opacity-50" /><p>No hay tarifas vigentes</p></div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-stone-50">
+                  <TableHead className="text-xs font-semibold w-8"></TableHead>
+                  <TableHead className="text-xs font-semibold">Tipo</TableHead>
+                  <TableHead className="text-xs font-semibold">Especie</TableHead>
+                  <TableHead className="text-xs font-semibold">Cliente</TableHead>
+                  <TableHead className="text-xs font-semibold text-right">Valor Actual</TableHead>
+                  <TableHead className="text-xs font-semibold">Unidad</TableHead>
+                  <TableHead className="text-xs font-semibold">Vigencia</TableHead>
+                  <TableHead className="text-xs font-semibold text-right">Var.</TableHead>
+                  <TableHead className="text-xs font-semibold">Motivo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTarifas.map((t) => {
+                  const isExpanded = expandedRow === `${t.tipoTarifaId}-${t.clienteId || 'general'}-${t.especie || 'all'}`
+                  const historialForTarifa = getHistorialForTarifa(t)
+                  const variacion = calcularVariacion(t, historico)
 
-        {[{ tabVal: 'vigentes', data: datosFiltrados }, { tabVal: 'historico', data: datosFiltrados }].map(({ tabVal, data: datos }) => (
-          <TabsContent key={tabVal} value={tabVal}>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-0">
-                {loading ? (
-                  <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
-                ) : datos.length === 0 ? (
-                  <div className="py-12 text-center text-stone-400"><Tag className="w-16 h-16 mx-auto mb-4 opacity-50" /><p>No hay tarifas {tabVal === 'vigentes' ? 'vigentes' : 'en el historial'}</p></div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-stone-50">
-                        <TableHead className="text-xs font-semibold">Tipo</TableHead>
-                        <TableHead className="text-xs font-semibold">Especie</TableHead>
-                        <TableHead className="text-xs font-semibold">Cliente</TableHead>
-                        <TableHead className="text-xs font-semibold text-right">Valor</TableHead>
-                        <TableHead className="text-xs font-semibold">Unidad</TableHead>
-                        <TableHead className="text-xs font-semibold">Vigencia</TableHead>
-                        <TableHead className="text-xs font-semibold text-right">Variación</TableHead>
-                        <TableHead className="text-xs font-semibold">Operador</TableHead>
-                        <TableHead className="text-xs font-semibold">Motivo</TableHead>
+                  return (
+                    <tbody key={t.id}>
+                      <TableRow
+                        className="text-xs cursor-pointer hover:bg-stone-50"
+                        onClick={() => {
+                          const key = `${t.tipoTarifaId}-${t.clienteId || 'general'}-${t.especie || 'all'}`
+                          setExpandedRow(isExpanded ? null : key)
+                        }}
+                      >
+                        <TableCell className="w-8">
+                          {historialForTarifa.length > 0 && (
+                            isExpanded ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{t.tipoTarifa?.descripcion || '-'}</TableCell>
+                        <TableCell>{t.especie || <span className="text-stone-400">General</span>}</TableCell>
+                        <TableCell>{t.cliente?.nombre || <span className="text-stone-400">General</span>}</TableCell>
+                        <TableCell className="text-right font-mono font-bold">{formatCurrency(t.valor)}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{t.tipoTarifa?.unidad || 'POR_KG'}</Badge></TableCell>
+                        <TableCell>
+                          <p>{new Date(t.vigenciaDesde).toLocaleDateString('es-AR')}</p>
+                          {t.vigenciaHasta && <p className="text-stone-400">hasta {new Date(t.vigenciaHasta).toLocaleDateString('es-AR')}</p>}
+                          {!t.vigenciaHasta && <Badge className="bg-emerald-100 text-emerald-700 text-xs mt-1">Vigente</Badge>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {variacion !== null ? (
+                            <Badge className={`text-xs ${variacion > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {variacion > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                              {variacion > 0 ? '+' : ''}{variacion.toFixed(1)}%
+                            </Badge>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell className="max-w-[150px] truncate" title={t.motivo || ''}>{t.motivo || '-'}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {datos.map((t) => {
-                        const variacion = calcularVariacion(t, listaCompleta)
-                        return (
-                          <TableRow key={t.id} className="text-xs">
-                            <TableCell className="font-medium">{t.tipoTarifa?.descripcion || '-'}</TableCell>
-                            <TableCell>{t.especie || <span className="text-stone-400">General</span>}</TableCell>
-                            <TableCell>{t.cliente?.nombre || <span className="text-stone-400">General</span>}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(t.valor)}</TableCell>
-                            <TableCell><Badge variant="outline" className="text-xs">{t.tipoTarifa?.unidad || 'POR_KG'}</Badge></TableCell>
-                            <TableCell>
-                              <p>{new Date(t.vigenciaDesde).toLocaleDateString('es-AR')}</p>
-                              {t.vigenciaHasta && <p className="text-stone-400">→ {new Date(t.vigenciaHasta).toLocaleDateString('es-AR')}</p>}
-                              {!t.vigenciaHasta && <Badge className="bg-emerald-100 text-emerald-700 text-xs mt-1">Vigente</Badge>}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {variacion !== null ? (
-                                <Badge className={`text-xs ${variacion > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                  {variacion > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                                  {variacion > 0 ? '+' : ''}{variacion.toFixed(1)}%
-                                </Badge>
-                              ) : '-'}
-                            </TableCell>
-                            <TableCell>{t.operador?.nombre || '-'}</TableCell>
-                            <TableCell className="max-w-[150px] truncate" title={t.motivo || ''}>{t.motivo || '-'}</TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
+                      {/* Expandable history rows */}
+                      {isExpanded && historialForTarifa.length > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={9} className="bg-stone-50/50 px-6 py-2">
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold text-stone-500 mb-2">Historial de cambios ({historialForTarifa.length})</p>
+                              {historialForTarifa.map((h) => {
+                                const varH = calcularVariacion(h, historialForTarifa)
+                                return (
+                                  <div key={h.id} className="flex items-center gap-4 text-xs py-1 border-b border-stone-100 last:border-0">
+                                    <span className="text-stone-400 w-24">{new Date(h.vigenciaDesde).toLocaleDateString('es-AR')}</span>
+                                    {h.vigenciaHasta && <span className="text-stone-400 w-24">hasta {new Date(h.vigenciaHasta).toLocaleDateString('es-AR')}</span>}
+                                    {!h.vigenciaHasta && <span className="w-24"></span>}
+                                    <span className="font-mono">{formatCurrency(h.valor)}</span>
+                                    {varH !== null && (
+                                      <Badge className={`text-xs ${varH > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                        {varH > 0 ? '+' : ''}{varH.toFixed(1)}%
+                                      </Badge>
+                                    )}
+                                    <span className="text-stone-500">{h.operador?.nombre || '-'}</span>
+                                    <span className="text-stone-400 truncate max-w-[200px]" title={h.motivo || ''}>{h.motivo || ''}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </tbody>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Nueva Tarifa Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

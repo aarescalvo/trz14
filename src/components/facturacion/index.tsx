@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react'
 import { 
   FileText, DollarSign, CheckCircle, XCircle, Eye, 
   Plus, Search, Loader2, Printer, RefreshCw, CreditCard,
-  Building2, Receipt, Package, Beef,
+  Building2, Receipt, Package,
   FileSpreadsheet, History, Pencil,
+  Upload,
   ArrowLeftRight, Trash2, FileDown, Ban,
-  TrendingUp, Clock, AlertCircle, AlertTriangle
+  TrendingUp, Clock, AlertCircle, AlertTriangle, BarChart3,
+  Lock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,10 +22,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { HistoricoPrecios } from '@/modules/facturacion/components/HistoricoPrecios'
-import { LiquidacionForm } from '@/modules/facturacion/components/LiquidacionForm'
-import { ComprobantesTable } from '@/modules/facturacion/components/ComprobantesTable'
-import { CtaCteCliente } from '@/modules/facturacion/components/CtaCteCliente'
+import { PreciosPage } from '@/modules/facturacion/components/PreciosPage'
+import { DetalleTropaTab } from '@/components/facturacion/DetalleTropaTab'
+import { VBServFaenaTab } from '@/components/facturacion/VBServFaenaTab'
+import { CargaServFaenaTab } from '@/components/facturacion/CargaServFaenaTab'
+import { PagosSaldosTab } from '@/components/facturacion/PagosSaldosTab'
 import { FacturaPreview } from '@/modules/facturacion/components/FacturaPreview'
 import { Separator } from '@/components/ui/separator'
 // HistorialPreciosModule removed — was importing from @/components/historial-precios which fails at runtime
@@ -58,6 +61,7 @@ interface DetalleFactura {
   precioUnitario: number
   subtotal: number
   tipoServicio?: TipoServicio
+  tropaCodigo?: string
 }
 
 interface PagoFactura {
@@ -132,6 +136,7 @@ interface Factura {
   tributos?: FacturaTributo[]
   notas?: NotaCreditoDebito[]
   operador?: { id: string; nombre: string }
+  planillasFactura?: { numeroTropa: number; tropaId?: string }[]
 }
 
 interface Props { operador: Operador }
@@ -163,28 +168,16 @@ export function FacturacionModule({ operador }: Props) {
   const [facturaSeleccionada, setFacturaSeleccionada] = useState<Factura | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<'TODOS' | 'PENDIENTE' | 'EMITIDA' | 'PAGADA' | 'ANULADA'>('TODOS')
   const [searchTerm, setSearchTerm] = useState('')
-  const [tabActivo, setTabActivo] = useState('servicioFaena')
+  const [tabActivo, setTabActivo] = useState('vbServFaena')
 
-  // Servicio Faena state
-  const [tropasFaena, setTropasFaena] = useState<any[]>([])
-  const [resumenFaena, setResumenFaena] = useState<any>(null)
-  const [porClienteFaena, setPorClienteFaena] = useState<any[]>([])
-  const [loadingFaena, setLoadingFaena] = useState(false)
-  const [filtroFaenaDesde, setFiltroFaenaDesde] = useState('')
-  const [filtroFaenaHasta, setFiltroFaenaHasta] = useState('')
-  const [filtroFaenaCliente, setFiltroFaenaCliente] = useState('')
-  const [filtroFaenaEstado, setFiltroFaenaEstado] = useState('TODOS')
-  const [tropasSeleccionadas, setTropasSeleccionadas] = useState<Set<string>>(new Set())
-  const [editTropaId, setEditTropaId] = useState<string | null>(null)
-  const [editTropaData, setEditTropaData] = useState<any>({})
-  const [precioEditOpen, setPrecioEditOpen] = useState(false)
-  const [precioEditData, setPrecioEditData] = useState<any>(null)
+  // Badge counts for tabs
+  const [badgeCounts, setBadgeCounts] = useState({ borrador: 0, aprobado: 0, facturado: 0, vencidas: 0 })
 
-  // Liquidaciones state
-  const [liquidaciones, setLiquidaciones] = useState<any[]>([])
-  const [tropasPendientes, setTropasPendientes] = useState<any[]>([])
-  const [loadingLiquidaciones, setLoadingLiquidaciones] = useState(false)
-  const [selectedLiquidacionId, setSelectedLiquidacionId] = useState<string | null>(null)
+  // Supervisor Edit state
+  const [supervisorEditOpen, setSupervisorEditOpen] = useState(false)
+  const [supervisorPassword, setSupervisorPassword] = useState('')
+  const [supervisorPasswordError, setSupervisorPasswordError] = useState('')
+  const [editFacturaData, setEditFacturaData] = useState<any>(null)
 
   const [formData, setFormData] = useState({
     clienteId: '',
@@ -289,33 +282,68 @@ export function FacturacionModule({ operador }: Props) {
     }
   }, [formData.clienteId, clientes])
 
-  // Cargar servicio faena cuando se cambia al tab
+  // Fetch badge counts
   useEffect(() => {
-    if (tabActivo === 'servicioFaena') {
-      fetchServicioFaena()
-    } else if (tabActivo === 'notas') {
+    const fetchBadges = async () => {
+      try {
+        const [vbRes, pagosRes] = await Promise.all([
+          fetch('/api/facturacion/planilla-servicio-faena/vb?estado=BORRADOR&limite=1'),
+          fetch('/api/facturacion/pagos-saldos?limite=1'),
+        ])
+        const vbData = await vbRes.json()
+        const pagosData = await pagosRes.json()
+        if (vbData.success) {
+          setBadgeCounts(prev => ({
+            ...prev,
+            borrador: vbData.counts?.BORRADOR || 0,
+            aprobado: vbData.counts?.APROBADO || 0,
+            facturado: vbData.counts?.FACTURADO || 0,
+          }))
+        }
+        if (pagosData.success) {
+          setBadgeCounts(prev => ({
+            ...prev,
+            vencidas: pagosData.kpis?.facturasVencidas || 0,
+          }))
+        }
+      } catch { /* ignore */ }
+    }
+    fetchBadges()
+  }, [])
+
+  // Cargar datos cuando se cambia al tab
+  useEffect(() => {
+    if (tabActivo === 'notas') {
       fetchNotas()
     } else if (tabActivo === 'informes') {
       fetchInforme()
     }
-  }, [tabActivo, filtroFaenaDesde, filtroFaenaHasta, filtroFaenaCliente, filtroFaenaEstado, filtroNotasTipo, filtroNotasEstado, filtroNotasDesde, filtroNotasHasta, filtroInformeTipo, filtroInformeDesde, filtroInformeHasta])
+  }, [tabActivo, filtroNotasTipo, filtroNotasEstado, filtroNotasDesde, filtroNotasHasta, filtroInformeTipo, filtroInformeDesde, filtroInformeHasta])
 
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [facturasRes, clientesRes, tiposRes] = await Promise.all([
+      const [facturasRes, planillasRes, clientesRes, tiposRes] = await Promise.all([
         fetch('/api/facturacion'),
+        fetch('/api/facturacion?source=planillas'),
         fetch('/api/clientes'),
         fetch('/api/tipos-servicio?activo=true&seFactura=true')
       ])
 
-      const [facturasData, clientesData, tiposData] = await Promise.all([
+      const [facturasData, planillasData, clientesData, tiposData] = await Promise.all([
         facturasRes.json(),
+        planillasRes.json(),
         clientesRes.json(),
         tiposRes.json()
       ])
 
-      if (facturasData.success) setFacturas(facturasData.data)
+      // Combinar facturas generales + planillas facturadas
+      const facturasGeneral: Factura[] = facturasData.success ? facturasData.data : []
+      const facturasDesdePlanillas: Factura[] = planillasData.success ? planillasData.data : []
+      
+      // Marcar planillas para diferenciación
+      const todas = [...facturasDesdePlanillas, ...facturasGeneral]
+      setFacturas(todas)
       if (clientesData.success) setClientes(clientesData.data)
       if (tiposData.success) setTiposServicio(tiposData.data)
     } catch (error) {
@@ -323,30 +351,6 @@ export function FacturacionModule({ operador }: Props) {
       toast.error('Error al cargar datos')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchServicioFaena = async () => {
-    setLoadingFaena(true)
-    try {
-      const params = new URLSearchParams()
-      if (filtroFaenaDesde) params.set('desde', filtroFaenaDesde)
-      if (filtroFaenaHasta) params.set('hasta', filtroFaenaHasta)
-      if (filtroFaenaCliente && filtroFaenaCliente !== 'TODOS') params.set('usuarioId', filtroFaenaCliente)
-      if (filtroFaenaEstado !== 'TODOS') params.set('estadoPago', filtroFaenaEstado)
-
-      const res = await fetch(`/api/facturacion/servicio-faena?${params.toString()}`)
-      const data = await res.json()
-      if (data.success) {
-        setTropasFaena(data.data.tropas)
-        setResumenFaena(data.data.resumen)
-        setPorClienteFaena(data.data.porCliente)
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      toast.error('Error al cargar servicio faena')
-    } finally {
-      setLoadingFaena(false)
     }
   }
 
@@ -469,42 +473,6 @@ export function FacturacionModule({ operador }: Props) {
     toast.success('Informe descargado')
   }
 
-  const fetchLiquidaciones = async () => {
-    setLoadingLiquidaciones(true)
-    try {
-      const res = await fetch('/api/liquidaciones')
-      const data = await res.json()
-      if (data.success) setLiquidaciones(data.data)
-    } catch (error) { console.error(error) } finally { setLoadingLiquidaciones(false) }
-  }
-
-  const fetchPendientes = async () => {
-    try {
-      const res = await fetch('/api/liquidaciones?modo=pendientes')
-      const data = await res.json()
-      if (data.success) setTropasPendientes(data.data)
-    } catch (error) { console.error(error) }
-  }
-
-  const handleCrearLiquidacion = async (tropaId: string) => {
-    setSaving(true)
-    try {
-      const res = await fetch('/api/liquidaciones', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tropaId, operadorId: operador.id })
-      })
-      const data = await res.json()
-      if (data.success) {
-        toast.success('Liquidación creada exitosamente')
-        fetchLiquidaciones()
-        fetchPendientes()
-      } else {
-        toast.error(data.error || 'Error al crear liquidación')
-      }
-    } catch { toast.error('Error de conexión') } finally { setSaving(false) }
-  }
-
   const fetchTributosFactura = async (facturaId: string) => {
     try {
       const res = await fetch(`/api/facturacion/tributos?facturaId=${facturaId}`)
@@ -515,100 +483,39 @@ export function FacturacionModule({ operador }: Props) {
     }
   }
 
-  const handleFacturarSeleccionadas = async () => {
-    if (tropasSeleccionadas.size === 0) {
-      toast.error('Seleccione al menos una tropa para facturar')
+  const handleSupervisorEdit = async () => {
+    if (!supervisorPassword) {
+      setSupervisorPasswordError('Ingrese la clave de supervisor')
       return
     }
+    if (!facturaSeleccionada || !editFacturaData) return
+
     setSaving(true)
     try {
-      const res = await fetch('/api/facturacion/servicio-faena/facturar', {
-        method: 'POST',
+      const res = await fetch(`/api/facturacion/${facturaSeleccionada.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tropaIds: Array.from(tropasSeleccionadas),
-          operadorId: operador.id,
+          supervisorPassword,
+          numero: editFacturaData.numero,
+          observaciones: editFacturaData.observaciones,
         })
       })
       const data = await res.json()
       if (data.success) {
-        toast.success(data.message)
-        setTropasSeleccionadas(new Set())
-        fetchServicioFaena()
+        toast.success(`Factura ${editFacturaData.numero} actualizada exitosamente`)
+        setSupervisorEditOpen(false)
+        setSupervisorPassword('')
+        setEditFacturaData(null)
         fetchAll()
       } else {
-        toast.error(data.error || 'Error al facturar')
+        setSupervisorPasswordError(data.error || 'Clave de supervisor incorrecta')
       }
     } catch {
-      toast.error('Error al generar facturas')
+      toast.error('Error al actualizar factura')
     } finally {
       setSaving(false)
     }
-  }
-
-  const handleToggleTropa = (tropaId: string) => {
-    setTropasSeleccionadas(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(tropaId)) newSet.delete(tropaId)
-      else newSet.add(tropaId)
-      return newSet
-    })
-  }
-
-  const handleToggleAllTropas = () => {
-    if (tropasSeleccionadas.size === tropasFaena.length) {
-      setTropasSeleccionadas(new Set())
-    } else {
-      setTropasSeleccionadas(new Set(tropasFaena.map(t => t.id)))
-    }
-  }
-
-  const handleUpdateTropaBilling = async (tropaId: string) => {
-    setSaving(true)
-    try {
-      const res = await fetch('/api/facturacion/servicio-faena', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tropaId, ...editTropaData })
-      })
-      const data = await res.json()
-      if (data.success) {
-        toast.success('Datos actualizados')
-        setEditTropaId(null)
-        setEditTropaData({})
-        fetchServicioFaena()
-      } else {
-        toast.error(data.error || 'Error al actualizar')
-      }
-    } catch {
-      toast.error('Error al actualizar')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleExportExcelFaena = () => {
-    if (!tropasFaena.length) return
-    const headers = ['N° Tropa', 'Usuario', 'Cant. Animales', 'Kg Pie', 'Fecha Faena', 'Kg Gancho', 'Rinde %', '$/kg Servicio', 'Total Serv + IVA', 'Total Factura', 'N° Factura', 'Fecha Factura', 'Fecha Pago', 'Monto Depositado', 'Estado Pago']
-    const rows = tropasFaena.map(t => [
-      t.numero, t.usuarioFaena?.nombre || '', t.cantidadCabezas, t.pesoTotalIndividual || '',
-      t.fechaFaena ? new Date(t.fechaFaena).toLocaleDateString('es-AR') : '',
-      t.kgGancho || '', t.rinde ? t.rinde.toFixed(2) : '',
-      t.precioServicioKg || '', t.montoServicioFaena || '', t.montoFactura || '',
-      t.numeroFactura || '',
-      t.fechaFactura ? new Date(t.fechaFactura).toLocaleDateString('es-AR') : '',
-      t.fechaPago ? new Date(t.fechaPago).toLocaleDateString('es-AR') : '',
-      t.montoDepositado || '', t.estadoPago || ''
-    ])
-    const csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n')
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `servicio_faena_bovino_${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('Archivo descargado')
   }
 
   const handleNuevaFactura = () => {
@@ -966,6 +873,15 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
       f.cliente?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       f.clienteNombre?.toLowerCase().includes(searchTerm.toLowerCase())
     return matchEstado && matchSearch
+  }).sort((a, b) => {
+    // Ordenar por número de tropa (desde planilla de servicio faena)
+    const tropaA = a.planillasFactura?.[0]?.numeroTropa
+    const tropaB = b.planillasFactura?.[0]?.numeroTropa
+    if (tropaA != null && tropaB != null) return tropaA - tropaB
+    if (tropaA != null) return -1
+    if (tropaB != null) return 1
+    // Sin tropa: ordenar por fecha descendente
+    return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
   })
 
   const totalFacturas = facturas.length
@@ -1080,276 +996,45 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
 
         {/* Tabs */}
         <Tabs value={tabActivo} onValueChange={setTabActivo} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 max-w-3xl">
-            <TabsTrigger value="servicioFaena" className="gap-1">
-              <Beef className="w-4 h-4" />Servicio Faena
+          <TabsList className="grid w-full grid-cols-8 max-w-6xl">
+            <TabsTrigger value="vbServFaena" className="gap-1 text-xs">
+              <Eye className="w-4 h-4" />VB Datos
+              {badgeCounts.borrador > 0 && <span className="ml-1 bg-amber-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-bold">{badgeCounts.borrador}</span>}
             </TabsTrigger>
-            <TabsTrigger value="facturas">Facturas</TabsTrigger>
-            <TabsTrigger value="cuentas">Cta. Cte.</TabsTrigger>
-            <TabsTrigger value="notas" className="gap-1">
-              <ArrowLeftRight className="w-4 h-4" />Notas C/D
+            <TabsTrigger value="cargaServFaena" className="gap-1 text-xs">
+              <Upload className="w-4 h-4" />Carga
+              {badgeCounts.aprobado > 0 && <span className="ml-1 bg-emerald-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-bold">{badgeCounts.aprobado}</span>}
             </TabsTrigger>
-            <TabsTrigger value="informes" className="gap-1">
-              <FileSpreadsheet className="w-4 h-4" />Informes
+            <TabsTrigger value="facturas" className="gap-1 text-xs">Facturas</TabsTrigger>
+            <TabsTrigger value="notas" className="gap-1 text-xs">
+              <ArrowLeftRight className="w-4 h-4" />Notas
             </TabsTrigger>
-            <TabsTrigger value="historialPrecios" className="gap-1">
+            <TabsTrigger value="pagosSaldos" className="gap-1 text-xs">
+              <CreditCard className="w-4 h-4" />Pagos y Saldos
+              {badgeCounts.vencidas > 0 && <span className="ml-1 bg-red-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-bold animate-pulse">{badgeCounts.vencidas}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="detalle" className="gap-1 text-xs">
+              <FileSpreadsheet className="w-4 h-4" />Detalle
+            </TabsTrigger>
+            <TabsTrigger value="informes" className="gap-1 text-xs">
+              <BarChart3 className="w-4 h-4" />Informes
+            </TabsTrigger>
+            <TabsTrigger value="historialPrecios" className="gap-1 text-xs">
               <History className="w-4 h-4" />Precios
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB SERVICIO FAENA BOVINO */}
-          <TabsContent value="servicioFaena" className="space-y-4">
-            {/* Resumen KPIs */}
-            {resumenFaena && (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <Card className="border-0 shadow-sm bg-amber-50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2"><Beef className="w-5 h-5 text-amber-600" /><div><p className="text-xs text-stone-500">Tropas</p><p className="text-xl font-bold text-amber-700">{resumenFaena.totalTropas}</p></div></div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm bg-blue-50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2"><Package className="w-5 h-5 text-blue-600" /><div><p className="text-xs text-stone-500">Kg Gancho</p><p className="text-lg font-bold text-blue-700">{resumenFaena.totalKgGancho?.toLocaleString('es-AR', {maximumFractionDigits:0})}</p></div></div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm bg-emerald-50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-emerald-600" /><div><p className="text-xs text-stone-500">Total Facturado</p><p className="text-lg font-bold text-emerald-700">{formatCurrency(resumenFaena.totalFacturado)}</p></div></div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm bg-red-50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2"><FileText className="w-5 h-5 text-red-600" /><div><p className="text-xs text-stone-500">Pend. Facturar</p><p className="text-xl font-bold text-red-700">{resumenFaena.pendienteFacturar}</p></div></div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm bg-orange-50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-orange-600" /><div><p className="text-xs text-stone-500">Pend. Cobrar</p><p className="text-xl font-bold text-orange-700">{resumenFaena.pendienteCobrar}</p></div></div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Filtros */}
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-3">
-                <div className="flex flex-wrap gap-2 items-end">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Desde</Label>
-                    <Input type="date" value={filtroFaenaDesde} onChange={e => setFiltroFaenaDesde(e.target.value)} className="h-9 w-36" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Hasta</Label>
-                    <Input type="date" value={filtroFaenaHasta} onChange={e => setFiltroFaenaHasta(e.target.value)} className="h-9 w-36" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Cliente</Label>
-                    <Select value={filtroFaenaCliente} onValueChange={setFiltroFaenaCliente}>
-                      <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Todos" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="TODOS">Todos</SelectItem>
-                        {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Estado Pago</Label>
-                    <Select value={filtroFaenaEstado} onValueChange={setFiltroFaenaEstado}>
-                      <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="TODOS">Todos</SelectItem>
-                        <SelectItem value="PENDIENTE">Pendiente</SelectItem>
-                        <SelectItem value="PAGADO">Pagado</SelectItem>
-                        <SelectItem value="PAGO PARCIAL">Pago Parcial</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button variant="outline" size="sm" className="h-9" onClick={() => { setFiltroFaenaDesde(''); setFiltroFaenaHasta(''); setFiltroFaenaCliente(''); setFiltroFaenaEstado('TODOS') }}>Limpiar</Button>
-                  <Button size="sm" className="h-9 bg-amber-500 hover:bg-amber-600" onClick={fetchServicioFaena}><RefreshCw className="w-4 h-4" /></Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Acciones masivas */}
-            {tropasSeleccionadas.size > 0 && (
-              <Card className="border-0 shadow-md bg-amber-50">
-                <CardContent className="p-3 flex items-center justify-between">
-                  <p className="text-sm font-medium text-amber-800">{tropasSeleccionadas.size} tropa(s) seleccionada(s)</p>
-                  <div className="flex gap-2">
-                    <Button size="sm" className="bg-amber-500 hover:bg-amber-600" onClick={handleFacturarSeleccionadas} disabled={saving}>
-                      {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileText className="w-4 h-4 mr-1" />}
-                      Facturar Seleccionadas
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setTropasSeleccionadas(new Set())}>Cancelar</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Grilla tipo Planilla Servicio Faena */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="bg-stone-50 rounded-t-lg py-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Beef className="w-5 h-5 text-amber-500" />
-                    Planilla Servicio Faena Bovino
-                  </CardTitle>
-                  <Button size="sm" variant="outline" onClick={handleExportExcelFaena}>
-                    <FileSpreadsheet className="w-4 h-4 mr-1" /> Exportar
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {loadingFaena ? (
-                  <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
-                ) : tropasFaena.length === 0 ? (
-                  <div className="py-12 text-center text-stone-400">
-                    <Beef className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <p>No hay tropas faenadas</p>
-                    <p className="text-sm mt-1">Las tropas aparecerán aquí cuando se complete el proceso de faena</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-stone-50">
-                          <TableHead className="w-10">
-                            <input type="checkbox" checked={tropasSeleccionadas.size === tropasFaena.length && tropasFaena.length > 0} onChange={handleToggleAllTropas} className="rounded" />
-                          </TableHead>
-                          <TableHead className="font-semibold text-xs">N° Tropa</TableHead>
-                          <TableHead className="font-semibold text-xs">Usuario</TableHead>
-                          <TableHead className="font-semibold text-xs text-right">Cant.</TableHead>
-                          <TableHead className="font-semibold text-xs text-right">Kg Pie</TableHead>
-                          <TableHead className="font-semibold text-xs">Fecha Faena</TableHead>
-                          <TableHead className="font-semibold text-xs text-right">Kg Gancho</TableHead>
-                          <TableHead className="font-semibold text-xs text-right">Rinde %</TableHead>
-                          <TableHead className="font-semibold text-xs text-right">$/kg Serv.</TableHead>
-                          <TableHead className="font-semibold text-xs text-right">Total Serv+IVA</TableHead>
-                          <TableHead className="font-semibold text-xs text-right">Total Factura</TableHead>
-                          <TableHead className="font-semibold text-xs">N° Factura</TableHead>
-                          <TableHead className="font-semibold text-xs">Fecha Fact.</TableHead>
-                          <TableHead className="font-semibold text-xs">Fecha Pago</TableHead>
-                          <TableHead className="font-semibold text-xs text-right">Monto Dep.</TableHead>
-                          <TableHead className="font-semibold text-xs">Estado</TableHead>
-                          <TableHead className="font-semibold text-xs text-center">Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {tropasFaena.map((tropa) => {
-                          const isEditing = editTropaId === tropa.id
-                          return (
-                            <TableRow key={tropa.id} className={`text-xs ${!tropa.numeroFactura ? 'bg-red-50/50' : ''} ${isEditing ? 'bg-amber-50' : ''}`}>
-                              <TableCell>
-                                <input type="checkbox" checked={tropasSeleccionadas.has(tropa.id)} onChange={() => handleToggleTropa(tropa.id)} className="rounded" />
-                              </TableCell>
-                              <TableCell className="font-mono font-medium">{tropa.codigo}</TableCell>
-                              <TableCell>
-                                <p className="font-medium truncate max-w-[120px]">{tropa.usuarioFaena?.nombre || '-'}</p>
-                              </TableCell>
-                              <TableCell className="text-right">{tropa.cantidadCabezas}</TableCell>
-                              <TableCell className="text-right">{tropa.pesoTotalIndividual?.toLocaleString('es-AR', {maximumFractionDigits:0}) || '-'}</TableCell>
-                              <TableCell>{tropa.fechaFaena ? new Date(tropa.fechaFaena).toLocaleDateString('es-AR') : '-'}</TableCell>
-                              <TableCell className="text-right font-medium">{tropa.kgGancho?.toLocaleString('es-AR', {maximumFractionDigits:1}) || '-'}</TableCell>
-                              <TableCell className="text-right">{tropa.rinde ? tropa.rinde.toFixed(2) : '-'}</TableCell>
-                              <TableCell className="text-right">
-                                {tropa.precioServicioKg ? formatCurrency(tropa.precioServicioKg) : (
-                                  tropa.precioSugerido ? (
-                                    <span className="text-amber-500" title="Precio sugerido">{formatCurrency(tropa.precioSugerido)}*</span>
-                                  ) : '-'
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right font-medium">{tropa.montoServicioFaena ? formatCurrency(tropa.montoServicioFaena) : '-'}</TableCell>
-                              <TableCell className="text-right font-medium">{tropa.montoFactura ? formatCurrency(tropa.montoFactura) : '-'}</TableCell>
-                              <TableCell className="font-mono">{tropa.numeroFactura || <span className="text-red-400">Sin facturar</span>}</TableCell>
-                              <TableCell>{tropa.fechaFactura ? new Date(tropa.fechaFactura).toLocaleDateString('es-AR') : '-'}</TableCell>
-                              <TableCell>{tropa.fechaPago ? new Date(tropa.fechaPago).toLocaleDateString('es-AR') : '-'}</TableCell>
-                              <TableCell className="text-right">{tropa.montoDepositado ? formatCurrency(tropa.montoDepositado) : '-'}</TableCell>
-                              <TableCell>
-                                {tropa.estadoPago === 'PAGADO' ? (
-                                  <Badge className="bg-emerald-100 text-emerald-700 text-xs">Pagado</Badge>
-                                ) : tropa.estadoPago === 'PAGO PARCIAL' ? (
-                                  <Badge className="bg-orange-100 text-orange-700 text-xs">Parcial</Badge>
-                                ) : tropa.numeroFactura ? (
-                                  <Badge className="bg-amber-100 text-amber-700 text-xs">Pendiente</Badge>
-                                ) : (
-                                  <Badge className="bg-stone-100 text-stone-500 text-xs">-</Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  title="Editar precios"
-                                  onClick={() => {
-                                    setPrecioEditData({
-                                      id: tropa.id,
-                                      codigo: tropa.codigo,
-                                      usuario: tropa.usuarioFaena?.nombre || '-',
-                                      kgGancho: tropa.kgGancho || 0,
-                                      precioServicioKg: tropa.precioServicioKg || tropa.precioSugerido || 0,
-                                      precioServicioKgConRecupero: tropa.precioServicioKgConRecupero || 0,
-                                      tasaInspVet: tropa.tasaInspVet || 0,
-                                      arancelIpcva: tropa.arancelIpcva || 0,
-                                    })
-                                    setPrecioEditOpen(true)
-                                  }}
-                                >
-                                  <Pencil className="w-3.5 h-3.5 text-amber-600" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Resumen por Cliente */}
-            {porClienteFaena.length > 0 && (
-              <Card className="border-0 shadow-md">
-                <CardHeader className="bg-stone-50 rounded-t-lg py-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-amber-500" />
-                    Resumen por Cliente
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead className="text-right">Tropas</TableHead>
-                        <TableHead className="text-right">Cabezas</TableHead>
-                        <TableHead className="text-right">Kg Gancho</TableHead>
-                        <TableHead className="text-right">Total Factura</TableHead>
-                        <TableHead className="text-right">Pagado</TableHead>
-                        <TableHead className="text-right">Pendiente</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {porClienteFaena.map((c: any) => (
-                        <TableRow key={c.clienteId}>
-                          <TableCell className="font-medium">{c.cliente}</TableCell>
-                          <TableCell className="text-right">{c.tropas}</TableCell>
-                          <TableCell className="text-right">{c.cabezas}</TableCell>
-                          <TableCell className="text-right">{c.kgGancho?.toLocaleString('es-AR', {maximumFractionDigits:0})}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(c.totalFactura)}</TableCell>
-                          <TableCell className="text-right text-emerald-600">{formatCurrency(c.totalPagado)}</TableCell>
-                          <TableCell className="text-right text-amber-600">{formatCurrency(c.pendiente)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
+          {/* TAB 1: VB DATOS SERVICIO FAENA */}
+          <TabsContent value="vbServFaena" className="space-y-4">
+            <VBServFaenaTab operador={operador} />
           </TabsContent>
 
-          {/* TAB FACTURAS */}
+          {/* TAB 2: CARGA DATOS FAENA */}
+          <TabsContent value="cargaServFaena" className="space-y-4">
+            <CargaServFaenaTab operador={operador} />
+          </TabsContent>
+
+          {/* TAB 3: FACTURAS */}
           <TabsContent value="facturas" className="space-y-6">
             {/* Financial Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1448,6 +1133,7 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="font-semibold">Tropa</TableHead>
                           <TableHead className="font-semibold">Número</TableHead>
                           <TableHead className="font-semibold">Fecha</TableHead>
                           <TableHead className="font-semibold">Cliente</TableHead>
@@ -1461,6 +1147,7 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
                       <TableBody>
                         {facturasFiltradas.map((factura) => (
                           <TableRow key={factura.id} className={factura.estado === 'ANULADA' ? 'opacity-50' : ''}>
+                            <TableCell className="font-mono font-medium text-stone-600">{factura.planillasFactura?.[0]?.numeroTropa ?? '-'}</TableCell>
                             <TableCell className="font-mono font-medium">{factura.numero}</TableCell>
                             <TableCell>{new Date(factura.fecha).toLocaleDateString('es-AR')}</TableCell>
                             <TableCell>
@@ -1487,6 +1174,18 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
                                     <Button variant="ghost" size="icon" onClick={() => handleMarcarPagada(factura)} title="Marcar pagada" className="text-emerald-600"><CheckCircle className="w-4 h-4" /></Button>
                                   </>
                                 )}
+                                {factura.estado !== 'ANULADA' && (
+                                  <Button variant="ghost" size="icon" onClick={() => {
+                                    setFacturaSeleccionada(factura)
+                                    setEditFacturaData({
+                                      numero: factura.numero,
+                                      observaciones: factura.observaciones || ''
+                                    })
+                                    setSupervisorPassword('')
+                                    setSupervisorPasswordError('')
+                                    setSupervisorEditOpen(true)
+                                  }} title="Editar" className="text-blue-500"><Pencil className="w-4 h-4" /></Button>
+                                )}
                                 {factura.estado !== 'ANULADA' && factura.estado !== 'PAGADA' && (
                                   <Button variant="ghost" size="icon" onClick={() => { setFacturaSeleccionada(factura); setDeleteOpen(true) }} title="Anular" className="text-red-500"><XCircle className="w-4 h-4" /></Button>
                                 )}
@@ -1502,107 +1201,12 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
             </Card>
           </TabsContent>
 
-          {/* TAB CUENTA CORRIENTE */}
-          <TabsContent value="cuentas" className="space-y-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Building2 className="w-5 h-5 text-amber-500" />Cuenta Corriente por Cliente</CardTitle>
-                <CardDescription>Seleccione un cliente para ver su estado de cuenta con tributos</CardDescription>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  <Select onValueChange={async (clienteId) => {
-                    const facturasCliente = facturas.filter(f => f.clienteId === clienteId && f.estado !== 'ANULADA')
-                    if (facturasCliente.length > 0) {
-                      setFacturaSeleccionada(facturasCliente[0])
-                    }
-                  }}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar cliente para ver cuenta corriente" /></SelectTrigger>
-                    <SelectContent>
-                      {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre} {c.razonSocial ? `(${c.razonSocial})` : ''}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-
-                  {facturas.filter(f => f.clienteId === facturaSeleccionada?.clienteId && f.estado !== 'ANULADA').length > 0 && (
-                    <div className="space-y-4 mt-4">
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="font-semibold text-xs">Número</TableHead>
-                              <TableHead className="font-semibold text-xs">Fecha</TableHead>
-                              <TableHead className="font-semibold text-xs">Tipo</TableHead>
-                              <TableHead className="font-semibold text-xs text-right">Subtotal</TableHead>
-                              <TableHead className="font-semibold text-xs text-right">IVA</TableHead>
-                              <TableHead className="font-semibold text-xs text-right">Tributos</TableHead>
-                              <TableHead className="font-semibold text-xs text-right">Total</TableHead>
-                              <TableHead className="font-semibold text-xs text-right">Saldo</TableHead>
-                              <TableHead className="font-semibold text-xs">CAE</TableHead>
-                              <TableHead className="font-semibold text-xs text-center">Acciones</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {facturas.filter(f => f.clienteId === facturaSeleccionada?.clienteId && f.estado !== 'ANULADA').map((f) => (
-                              <TableRow key={f.id} className="text-xs">
-                                <TableCell className="font-mono">{f.numero}</TableCell>
-                                <TableCell>{new Date(f.fecha).toLocaleDateString('es-AR')}</TableCell>
-                                <TableCell><Badge variant="outline" className="text-xs">{TIPOS_COMPROBANTE.find(t => t.value === f.tipoComprobante)?.label || f.tipoComprobante}</Badge></TableCell>
-                                <TableCell className="text-right">{formatCurrency(f.subtotal)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(f.iva)}</TableCell>
-                                <TableCell className="text-right">{f.importeTributos > 0 ? <span className="text-orange-600">{formatCurrency(f.importeTributos)}</span> : '-'}</TableCell>
-                                <TableCell className="text-right font-medium">{formatCurrency(f.total)}</TableCell>
-                                <TableCell className={`text-right ${f.saldo > 0 ? 'text-amber-600 font-medium' : 'text-emerald-600'}`}>{formatCurrency(f.saldo)}</TableCell>
-                                <TableCell>
-                                  {f.cae ? (
-                                    <Badge className="bg-emerald-100 text-emerald-700 text-xs">CAE: {f.cae}</Badge>
-                                  ) : (
-                                    <Badge className="bg-stone-100 text-stone-400 text-xs">Sin CAE</Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Vista previa profesional" onClick={() => { setFacturaSeleccionada(f); fetchTributosFactura(f.id); setPreviewOpen(true) }}><FileText className="w-3.5 h-3.5 text-amber-600" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver detalle rápido" onClick={() => { setFacturaSeleccionada(f); setViewOpen(true); fetchTributosFactura(f.id) }}><Eye className="w-3.5 h-3.5" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Agregar tributo" onClick={() => { setTributoFormData({ ...tributoFormData, facturaId: f.id }); setTributoDialogOpen(true) }}><Plus className="w-3.5 h-3.5 text-orange-500" /></Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                      {/* Total con tributos */}
-                      <div className="bg-stone-50 rounded-lg p-4">
-                        {(() => {
-                          const factCliente = facturas.filter(f => f.clienteId === facturaSeleccionada?.clienteId && f.estado !== 'ANULADA')
-                          const totalSubtotal = factCliente.reduce((s, f) => s + f.subtotal, 0)
-                          const totalIva = factCliente.reduce((s, f) => s + f.iva, 0)
-                          const totalTributos = factCliente.reduce((s, f) => s + (f.importeTributos || 0), 0)
-                          const totalTotal = factCliente.reduce((s, f) => s + f.total, 0)
-                          const totalSaldo = factCliente.reduce((s, f) => s + f.saldo, 0)
-                          return (
-                            <div className="space-y-1 text-sm">
-                              <div className="flex justify-between"><span className="text-stone-600">Subtotal:</span><span>{formatCurrency(totalSubtotal)}</span></div>
-                              <div className="flex justify-between"><span className="text-stone-600">IVA:</span><span>{formatCurrency(totalIva)}</span></div>
-                              {totalTributos > 0 && <div className="flex justify-between"><span className="text-orange-600">Tributos:</span><span className="text-orange-600">{formatCurrency(totalTributos)}</span></div>}
-                              <div className="flex justify-between font-bold border-t pt-1"><span>Total con Tributos:</span><span>{formatCurrency(totalTotal)}</span></div>
-                              {totalSaldo > 0 && <div className="flex justify-between text-amber-600 font-medium"><span>Saldo Pendiente:</span><span>{formatCurrency(totalSaldo)}</span></div>}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </div>
-                  )}
-
-                  {!facturaSeleccionada && (
-                    <p className="text-stone-500 text-center py-8">Seleccione un cliente del listado para ver su estado de cuenta detallado</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          {/* TAB 5: PAGOS Y SALDOS */}
+          <TabsContent value="pagosSaldos" className="space-y-4">
+            <PagosSaldosTab operador={operador} />
           </TabsContent>
 
-          {/* TAB NOTAS CRÉDITO/DÉBITO */}
+          {/* TAB 4: NOTAS */}
           <TabsContent value="notas" className="space-y-4">
             {/* KPIs Notas */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -1841,7 +1445,12 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
             </Card>
           </TabsContent>
 
-          {/* TAB INFORMES FISCALES */}
+          {/* TAB 6: DETALLE */}
+          <TabsContent value="detalle" className="space-y-4">
+            <DetalleTropaTab operador={operador} />
+          </TabsContent>
+
+          {/* TAB 7: INFORMES FISCALES */}
           <TabsContent value="informes" className="space-y-4">
             {/* Filtros Informe */}
             <Card className="border-0 shadow-md">
@@ -2089,9 +1698,9 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
             )}
           </TabsContent>
 
-          {/* TAB HISTORIAL PRECIOS */}
+          {/* TAB 8: PRECIOS */}
           <TabsContent value="historialPrecios">
-            <HistoricoPrecios operador={operador} />
+            <PreciosPage operador={operador} />
           </TabsContent>
         </Tabs>
 
@@ -2367,143 +1976,51 @@ ${factura.iva > 0 ? `<p>IVA (${factura.porcentajeIva}%): $${factura.iva?.toLocal
           </DialogContent>
         </Dialog>
 
-        {/* Dialog Editar Precios Tropa */}
-        <Dialog open={precioEditOpen} onOpenChange={setPrecioEditOpen}>
-          <DialogContent className="max-w-lg" maximizable>
+        {/* Dialog Supervisor Edit */}
+        <Dialog open={supervisorEditOpen} onOpenChange={setSupervisorEditOpen}>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Pencil className="w-5 h-5 text-amber-600" />
-                Editar Precios - Tropa {precioEditData?.codigo}
-              </DialogTitle>
-              <DialogDescription>
-                {precioEditData?.usuario} — Kg Gancho: {precioEditData?.kgGancho?.toLocaleString('es-AR', {maximumFractionDigits:1}) || '0'}
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2"><Lock className="w-5 h-5 text-blue-600" />Editar Factura</DialogTitle>
+              <DialogDescription>Ingrese la clave de supervisor para modificar esta factura</DialogDescription>
             </DialogHeader>
-            {precioEditData && (
-              <div className="space-y-4 py-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Precio/kg Servicio</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={precioEditData.precioServicioKg || ''}
-                      onChange={(e) => setPrecioEditData({ ...precioEditData, precioServicioKg: parseFloat(e.target.value) || 0 })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Precio/kg con Recupero</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={precioEditData.precioServicioKgConRecupero || ''}
-                      onChange={(e) => setPrecioEditData({ ...precioEditData, precioServicioKgConRecupero: parseFloat(e.target.value) || 0 })}
-                      placeholder="0.00"
-                    />
-                  </div>
+            <div className="space-y-4 py-4">
+              {/* Current invoice info */}
+              <div className="bg-stone-50 rounded-lg p-3 text-sm">
+                <p className="font-mono font-bold">{facturaSeleccionada?.numero}</p>
+                <p>{facturaSeleccionada?.clienteNombre || facturaSeleccionada?.cliente?.nombre}</p>
+                <p className="text-stone-500">Total: {formatCurrency(facturaSeleccionada?.total || 0)}</p>
+              </div>
+
+              {/* Supervisor Password */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Clave de Supervisor</Label>
+                <Input
+                  type="password"
+                  value={supervisorPassword}
+                  onChange={(e) => { setSupervisorPassword(e.target.value); setSupervisorPasswordError('') }}
+                  placeholder="Ingrese clave de supervisor"
+                  className="h-10"
+                />
+                {supervisorPasswordError && <p className="text-xs text-red-500">{supervisorPasswordError}</p>}
+              </div>
+
+              {/* Editable fields */}
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">N° Factura</Label>
+                  <Input value={editFacturaData?.numero || ''} onChange={(e) => setEditFacturaData(prev => prev ? { ...prev, numero: e.target.value } : prev)} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tasa Inspección Veterinaria ($/kg)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={precioEditData.tasaInspVet || ''}
-                      onChange={(e) => setPrecioEditData({ ...precioEditData, tasaInspVet: parseFloat(e.target.value) || 0 })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Arancel IPCVA ($/kg)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={precioEditData.arancelIpcva || ''}
-                      onChange={(e) => setPrecioEditData({ ...precioEditData, arancelIpcva: parseFloat(e.target.value) || 0 })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                {/* Auto-calculated preview */}
-                <div className="bg-stone-50 rounded-lg p-4 space-y-2">
-                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Cálculo automático</p>
-                  {(() => {
-                    const kgGancho = precioEditData.kgGancho || 0
-                    const precioKg = precioEditData.precioServicioKg || 0
-                    const tasaVet = precioEditData.tasaInspVet || 0
-                    const arancel = precioEditData.arancelIpcva || 0
-                    const montoServicioFaena = kgGancho * precioKg * 1.21
-                    const montoFactura = montoServicioFaena + (kgGancho * tasaVet) + (kgGancho * arancel)
-                    return (
-                      <>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-stone-600">Monto Servicio Faena (IVA 21%):</span>
-                          <span className="font-medium">{formatCurrency(montoServicioFaena)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-stone-500">
-                          <span>= {kgGancho.toLocaleString('es-AR', {maximumFractionDigits:1})} kg × {formatCurrency(precioKg)} × 1.21</span>
-                        </div>
-                        <div className="border-t pt-2 mt-2 flex justify-between text-sm">
-                          <span className="text-stone-600">Total Factura:</span>
-                          <span className="font-bold text-amber-700 text-base">{formatCurrency(montoFactura)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-stone-400">
-                          <span>Serv+IVA + ({kgGancho.toLocaleString('es-AR', {maximumFractionDigits:1})} × Tasa Vet) + ({kgGancho.toLocaleString('es-AR', {maximumFractionDigits:1})} × Arancel)</span>
-                        </div>
-                      </>
-                    )
-                  })()}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">Observaciones</Label>
+                  <Textarea value={editFacturaData?.observaciones || ''} onChange={(e) => setEditFacturaData(prev => prev ? { ...prev, observaciones: e.target.value } : prev)} rows={2} />
                 </div>
               </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setPrecioEditOpen(false)}>Cancelar</Button>
-              <Button
-                onClick={async () => {
-                  if (!precioEditData) return
-                  setSaving(true)
-                  try {
-                    const kgGancho = precioEditData.kgGancho || 0
-                    const precioKg = precioEditData.precioServicioKg || 0
-                    const tasaVet = precioEditData.tasaInspVet || 0
-                    const arancel = precioEditData.arancelIpcva || 0
-                    const montoServicioFaena = kgGancho * precioKg * 1.21
-                    const montoFactura = montoServicioFaena + (kgGancho * tasaVet) + (kgGancho * arancel)
-
-                    const res = await fetch('/api/facturacion/servicio-faena', {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        tropaId: precioEditData.id,
-                        precioServicioKg: precioEditData.precioServicioKg,
-                        precioServicioKgConRecupero: precioEditData.precioServicioKgConRecupero,
-                        tasaInspVet: precioEditData.tasaInspVet,
-                        arancelIpcva: precioEditData.arancelIpcva,
-                        montoServicioFaena,
-                        montoFactura,
-                      })
-                    })
-                    const data = await res.json()
-                    if (data.success) {
-                      toast.success('Precios actualizados correctamente')
-                      setPrecioEditOpen(false)
-                      setPrecioEditData(null)
-                      fetchServicioFaena()
-                    } else {
-                      toast.error(data.error || 'Error al actualizar precios')
-                    }
-                  } catch {
-                    toast.error('Error al actualizar precios')
-                  } finally {
-                    setSaving(false)
-                  }
-                }}
-                disabled={saving}
-                className="bg-amber-500 hover:bg-amber-600"
-              >
-                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
-                {saving ? 'Guardando...' : 'Guardar Precios'}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setSupervisorEditOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSupervisorEdit} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
+                Guardar Cambios
               </Button>
             </DialogFooter>
           </DialogContent>

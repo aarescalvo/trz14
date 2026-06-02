@@ -315,65 +315,66 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
     toast.success('Exportación PDF iniciada')
   }
 
-  const exportDetalleExcel = () => {
-    if (!tropaDetalle) return
+  const exportDetalleExcel = async () => {
+    if (!tropaDetalle?.tropa) return
 
-    const headers = ['Garrón', 'Animal', 'Tipo', 'Peso Vivo (kg)', 'Media Izq (kg)', 'Media Der (kg)', 'Total (kg)', 'Rinde %']
-    const data = tropaDetalle.romaneos.map(r => [
-      r.garron,
-      r.numeroAnimal || '-',
-      r.tipoAnimal || '-',
-      r.pesoVivo ? Math.round(r.pesoVivo) : '-',
-      r.pesoMediaIzq ? r.pesoMediaIzq.toFixed(1) : '-',
-      r.pesoMediaDer ? r.pesoMediaDer.toFixed(1) : '-',
-      r.pesoTotal ? r.pesoTotal.toFixed(1) : '-',
-      r.rinde ? (r.rinde * 100).toFixed(2) : '-',
-    ])
+    try {
+      const res = await fetch('/api/reportes/rinde-tropa-detalle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tropaId: tropaDetalle.tropa.id })
+      })
 
-    const stats = tropaDetalle.estadisticas
-    data.push([
-      '', 'TOTALES', '', 
-      Math.round(stats.pesoVivoTotal), '', '',
-      Math.round(stats.pesoFaenaTotal),
-      `${stats.rindePromedio.toFixed(2)}%`,
-    ])
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al generar Excel')
+      }
 
-    ExcelExporter.exportToExcel({
-      filename: `detalle_tropa_${tropaDetalle.tropa?.codigo || 'desconocida'}_${new Date().toISOString().split('T')[0]}`,
-      sheets: [{ name: 'Detalle Animales', headers, data }],
-      title: `Detalle de Tropa ${tropaDetalle.tropa?.codigo} - Productor: ${tropaDetalle.tropa?.productor?.nombre || '-'}`,
-    })
-
-    toast.success('Exportación Excel del detalle iniciada')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Rinde_Tropa_${tropaDetalle.tropa.numero || tropaDetalle.tropa.codigo}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 500)
+      toast.success('Excel generado correctamente')
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error(error instanceof Error ? error.message : 'Error al generar Excel')
+    }
   }
 
-  const exportDetallePDF = () => {
-    if (!tropaDetalle) return
+  const exportDetallePDF = async () => {
+    if (!tropaDetalle?.tropa) return
 
-    const headers = ['Garrón', 'Animal', 'Tipo', 'P. Vivo', 'Med. Izq', 'Med. Der', 'Total', 'Rinde']
-    const data = tropaDetalle.romaneos.map(r => [
-      r.garron.toString(),
-      (r.numeroAnimal || '-').toString(),
-      r.tipoAnimal || '-',
-      r.pesoVivo ? Math.round(r.pesoVivo).toString() : '-',
-      r.pesoMediaIzq ? r.pesoMediaIzq.toFixed(1) : '-',
-      r.pesoMediaDer ? r.pesoMediaDer.toFixed(1) : '-',
-      r.pesoTotal ? r.pesoTotal.toFixed(1) : '-',
-      r.rinde ? `${(r.rinde * 100).toFixed(2)}%` : '-',
-    ])
+    try {
+      const res = await fetch(`/api/reportes/rinde-tropa-detalle/pdf?tropaId=${tropaDetalle.tropa.id}`)
 
-    const stats = tropaDetalle.estadisticas
-    const doc = PDFExporter.generateReport({
-      title: `Detalle de Tropa ${tropaDetalle.tropa?.codigo || ''}`,
-      subtitle: `Productor: ${tropaDetalle.tropa?.productor?.nombre || '-'} | Animales: ${stats.cantidadAnimales} | Rinde: ${stats.rindePromedio.toFixed(2)}%`,
-      headers,
-      data,
-      orientation: 'landscape',
-      fileName: `detalle_tropa_${tropaDetalle.tropa?.codigo || 'desconocida'}.pdf`,
-    })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al generar PDF')
+      }
 
-    PDFExporter.downloadPDF(doc, `detalle_tropa_${tropaDetalle.tropa?.codigo || 'desconocida'}.pdf`)
-    toast.success('Exportación PDF del detalle iniciada')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Rinde_Tropa_${tropaDetalle.tropa.numero || tropaDetalle.tropa.codigo}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 500)
+      toast.success('PDF generado correctamente')
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error(error instanceof Error ? error.message : 'Error al generar PDF')
+    }
   }
 
   const tieneFiltrosActivos = fechaDesde || fechaHasta || tropaDesde || tropaHasta || (usuario && usuario !== '___todos___') || (proveedor && proveedor !== '___todos___')

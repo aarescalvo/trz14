@@ -11,86 +11,406 @@
 -- 1. ENUM TYPES
 -- ============================================================================
 
-CREATE TYPE IF NOT EXISTS "TipoCamara" AS ENUM ('FAENA', 'CUARTEO', 'DEPOSITO');
-CREATE TYPE IF NOT EXISTS "TipoRotulo" AS ENUM ('MEDIA_RES', 'CUARTO', 'MENUDENCIA', 'PRODUCTO_TERMINADO_ENVASE_PRIMARIO', 'PRODUCTO_TERMINADO_ENVASE_SECUNDARIO', 'PRODUCTO_TERMINADO_UN_ENVASE');
-CREATE TYPE IF NOT EXISTS "RolOperador" AS ENUM ('OPERADOR', 'SUPERVISOR', 'ADMINISTRADOR');
-CREATE TYPE IF NOT EXISTS "TipoProductor" AS ENUM ('PRODUCTOR', 'CONSIGNATARIO', 'AMBOS');
-CREATE TYPE IF NOT EXISTS "Especie" AS ENUM ('BOVINO', 'EQUINO');
-CREATE TYPE IF NOT EXISTS "TipoAnimal" AS ENUM ('TO', 'VA', 'VQ', 'MEJ', 'NO', 'NT', 'PADRILLO', 'POTRILLO', 'YEGUA', 'CABALLO', 'BURRO', 'MULA');
-CREATE TYPE IF NOT EXISTS "EstadoTropa" AS ENUM ('RECIBIDO', 'EN_CORRAL', 'EN_PESAJE', 'PESADO', 'LISTO_FAENA', 'EN_FAENA', 'FAENADO', 'DESPACHADO');
-CREATE TYPE IF NOT EXISTS "EstadoAnimal" AS ENUM ('RECIBIDO', 'PESADO', 'EN_FAENA', 'FAENADO', 'EN_CAMARA', 'DESPACHADO', 'FALLECIDO');
-CREATE TYPE IF NOT EXISTS "TipoPesajeCamion" AS ENUM ('INGRESO_HACIENDA', 'PESAJE_PARTICULAR', 'SALIDA_MERCADERIA');
-CREATE TYPE IF NOT EXISTS "EstadoPesaje" AS ENUM ('ABIERTO', 'CERRADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoListaFaena" AS ENUM ('ABIERTA', 'EN_PROCESO', 'CERRADA', 'ANULADA');
-CREATE TYPE IF NOT EXISTS "EstadoRomaneo" AS ENUM ('PENDIENTE', 'CONFIRMADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "LadoMedia" AS ENUM ('IZQUIERDA', 'DERECHA');
-CREATE TYPE IF NOT EXISTS "SiglaMedia" AS ENUM ('A', 'T', 'D');
-CREATE TYPE IF NOT EXISTS "EstadoMediaRes" AS ENUM ('EN_CAMARA', 'EN_CUARTEO', 'DESPACHADO');
-CREATE TYPE IF NOT EXISTS "EstadoCCIR" AS ENUM ('EMITIDO', 'ANULADO', 'EXPORTADO');
-CREATE TYPE IF NOT EXISTS "EstadoDeclaracionJurada" AS ENUM ('ACTIVA', 'ANULADA', 'UTILIZADA');
-CREATE TYPE IF NOT EXISTS "EstadoFactura" AS ENUM ('PENDIENTE', 'EMITIDA', 'PAGADA', 'ANULADA');
-CREATE TYPE IF NOT EXISTS "TipoProductoFactura" AS ENUM ('MEDIA_RES', 'CUARTO_DELANTERO', 'CUARTO_TRASERO', 'MENUDENCIA', 'OTRO');
-CREATE TYPE IF NOT EXISTS "CategoriaInsumo" AS ENUM ('EMBALAJE', 'ETIQUETAS', 'HIGIENE', 'PROTECCION', 'HERRAMIENTAS', 'OFICINA', 'OTROS');
-CREATE TYPE IF NOT EXISTS "TipoProductoEnum" AS ENUM ('CORTE_VACUNO', 'CORTE_EQUINO', 'MENUDENCIA', 'SUBPRODUCTO', 'PRODUCTO_ELAVORADO', 'DESPOSTADO', 'OTRO');
-CREATE TYPE IF NOT EXISTS "EstadoCuarto" AS ENUM ('EN_CAMARA', 'EN_DESPOSTADA', 'DESPOSTADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "SiglaCuarto" AS ENUM ('A', 'D', 'T');
-CREATE TYPE IF NOT EXISTS "EstadoLote" AS ENUM ('ABIERTO', 'CERRADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoCaja" AS ENUM ('EN_CAMARA', 'EN_PALLETS', 'DESPACHADA', 'ANULADA', 'ARMADA', 'DEGRADADA');
-CREATE TYPE IF NOT EXISTS "EstadoPallet" AS ENUM ('ARMADO', 'COMPLETO', 'DESPACHADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "TipoMermaDespostada" AS ENUM ('HUESO', 'GRASA', 'INCOMESTIBLE', 'RECORTES', 'OTRO');
-CREATE TYPE IF NOT EXISTS "EstadoExpedicion" AS ENUM ('PENDIENTE', 'EN_CARGA', 'DESPACHADO', 'ENTREGADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "TipoReclamo" AS ENUM ('RECLAMO', 'QUEJA', 'INCIDENTE', 'CONSULTA', 'SUGERENCIA', 'OTRO');
-CREATE TYPE IF NOT EXISTS "TipoRespuesta" AS ENUM ('RESPUESTA_CLIENTE', 'NOTA_INTERNA', 'SEGUIMIENTO', 'CIERRE');
-CREATE TYPE IF NOT EXISTS "TipoArchivo" AS ENUM ('FOTO', 'PDF', 'DOCUMENTO', 'OTRO');
-CREATE TYPE IF NOT EXISTS "EstadoReclamo" AS ENUM ('PENDIENTE', 'EN_REVISION', 'RESPONDIDO', 'RESUELTO', 'CERRADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "PrioridadReclamo" AS ENUM ('BAJA', 'NORMAL', 'ALTA', 'URGENTE');
-CREATE TYPE IF NOT EXISTS "TipoReporteEmail" AS ENUM ('STOCK_DIARIO', 'STOCK_SEMANAL', 'FAENA_DIARIO', 'FAENA_SEMANAL', 'RENDIMIENTO_DIARIO', 'RENDIMIENTO_SEMANAL', 'ALERTA_STOCK_BAJO', 'ALERTA_CAMARA', 'RESUMEN_MENSUAL', 'PERSONALIZADO');
-CREATE TYPE IF NOT EXISTS "FrecuenciaEmail" AS ENUM ('DIARIO', 'SEMANAL', 'QUINCENAL', 'MENSUAL', 'MANUAL');
-CREATE TYPE IF NOT EXISTS "EstadoEnvioEmail" AS ENUM ('PENDIENTE', 'ENVIANDO', 'ENVIADO', 'ERROR', 'REINTENTO');
-CREATE TYPE IF NOT EXISTS "FormatoReporte" AS ENUM ('PDF', 'EXCEL', 'AMBOS');
-CREATE TYPE IF NOT EXISTS "EstadoDespacho" AS ENUM ('PENDIENTE', 'EN_CARGA', 'DESPACHADO', 'ENTREGADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "TipoProductoPrecio" AS ENUM ('MEDIA_RES_BOVINA', 'MEDIA_RES_EQUINA', 'CUARTO_DELANTERO', 'CUARTO_TRASERO', 'MENUDENCIA', 'SERVICIO_DESPOSTE', 'SERVICIO_FRIO', 'CARNE_CORTE', 'OTRO');
-CREATE TYPE IF NOT EXISTS "TipoRendering" AS ENUM ('GRASA', 'DESPERDICIOS', 'FONDO_DIGESTOR', 'SANGRE');
-CREATE TYPE IF NOT EXISTS "CategoriaCuero" AS ENUM ('SALADO', 'FRESCO', 'CORTADO');
-CREATE TYPE IF NOT EXISTS "TipoDestinoCuero" AS ENUM ('CURTIEMBRE', 'VENTA_DIRECTA');
-CREATE TYPE IF NOT EXISTS "TipoMovimientoDespostada" AS ENUM ('CORTE', 'LIMPIEZA', 'DESPERDICIO', 'HUESO', 'GRASA', 'MERMA');
-CREATE TYPE IF NOT EXISTS "DestinoCorte" AS ENUM ('PRODUCCION', 'RECORTE', 'DESECHO');
-CREATE TYPE IF NOT EXISTS "AlicuotaIVA" AS ENUM ('CERO', 'DIEZ_CINCO', 'VEINTIUNO', 'VEINTISIETE');
-CREATE TYPE IF NOT EXISTS "CategoriaInsumoTipo" AS ENUM ('EMBALAJE', 'ETIQUETAS', 'HIGIENE', 'PROTECCION', 'HERRAMIENTAS', 'OFICINA', 'OTROS');
-CREATE TYPE IF NOT EXISTS "ClasificacionPH" AS ENUM ('NORMAL', 'INTERMEDIO', 'DFD', 'ALTO', 'SIN_CLASIFICAR');
-CREATE TYPE IF NOT EXISTS "CondicionIva" AS ENUM ('RI', 'CF', 'MT', 'EX', 'NC');
-CREATE TYPE IF NOT EXISTS "ConservacionCuero" AS ENUM ('SALADO', 'FRESCO', 'CORTADO');
-CREATE TYPE IF NOT EXISTS "EstadoAsientoContable" AS ENUM ('BORRADOR', 'CONFIRMADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoBalanza" AS ENUM ('DESCONECTADA', 'CONECTADA', 'ERROR', 'CALIBRANDO', 'LISTA');
-CREATE TYPE IF NOT EXISTS "EstadoBorrador" AS ENUM ('ACTIVO', 'RECUPERADO', 'DESCARTADO', 'EXPIRADO');
-CREATE TYPE IF NOT EXISTS "EstadoCheque" AS ENUM ('RECIBIDO', 'DEPOSITADO', 'COBRADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoCuero" AS ENUM ('PENDIENTE', 'DESPACHADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoDetalleOrden" AS ENUM ('PENDIENTE', 'PARCIAL', 'COMPLETADO');
-CREATE TYPE IF NOT EXISTS "EstadoEmpaque" AS ENUM ('PENDIENTE', 'EMPACADO', 'DESPACHADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoIngreso" AS ENUM ('PENDIENTE', 'INGRESADO', 'EN_PROCESO', 'PROCESADO', 'DEVUELTO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoInventario" AS ENUM ('PENDIENTE', 'EN_PROCESO', 'COMPLETADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoNota" AS ENUM ('EMITIDA', 'APLICADA', 'ANULADA');
-CREATE TYPE IF NOT EXISTS "EstadoOrdenCompra" AS ENUM ('PENDIENTE', 'APROBADA', 'ENVIADA', 'PARCIAL', 'COMPLETADA', 'ANULADA');
-CREATE TYPE IF NOT EXISTS "EstadoPago" AS ENUM ('PENDIENTE', 'APLICADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoRecepcion" AS ENUM ('PARCIAL', 'COMPLETA');
-CREATE TYPE IF NOT EXISTS "EstadoRendering" AS ENUM ('REGISTRADO', 'DESPACHADO', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "EstadoReporteSenasa" AS ENUM ('PENDIENTE', 'ENVIADO', 'CONFIRMADO', 'ERROR', 'ANULADO');
-CREATE TYPE IF NOT EXISTS "ProtocoloBalanza" AS ENUM ('GENERICO', 'TOLEDO', 'METTLER', 'OHAUS', 'DIGI', 'ADAM', 'CUSTOM');
-CREATE TYPE IF NOT EXISTS "TipoAsientoContable" AS ENUM ('INGRESO', 'EGRESO', 'AJUSTE', 'APERTURA', 'CIERRE');
-CREATE TYPE IF NOT EXISTS "TipoCliente" AS ENUM ('USUARIO_FAENA', 'COMPRADOR', 'PROVEEDOR_TERCE');
-CREATE TYPE IF NOT EXISTS "TipoComprobante" AS ENUM ('FACTURA_A', 'FACTURA_B', 'FACTURA_C', 'REMITO', 'NOTA_CREDITO', 'NOTA_DEBITO');
-CREATE TYPE IF NOT EXISTS "TipoConexionBalanza" AS ENUM ('SERIAL', 'TCP', 'SIMULADA');
-CREATE TYPE IF NOT EXISTS "TipoCuarteo" AS ENUM ('DELANTERO_TRASERO', 'CUARTOS_IGUALES', 'OTRO');
-CREATE TYPE IF NOT EXISTS "TipoCuarto" AS ENUM ('DELANTERO', 'TRASERO', 'ASADO');
-CREATE TYPE IF NOT EXISTS "TipoDecomiso" AS ENUM ('TOTAL', 'PARCIAL');
-CREATE TYPE IF NOT EXISTS "TipoDegradacion" AS ENUM ('TRIMMING', 'GOLPEADO', 'DECOMISO_PARCIAL', 'APROVECHAMIENTO');
-CREATE TYPE IF NOT EXISTS "TipoGrasa" AS ENUM ('RENDERING', 'GRASA_DRESSING', 'GRASA_COMESTIBLE');
-CREATE TYPE IF NOT EXISTS "TipoMedia" AS ENUM ('DELANTERA', 'TRASERA', 'ENTERA');
-CREATE TYPE IF NOT EXISTS "TipoMovimientoInsumo" AS ENUM ('INGRESO', 'EGRESO', 'TRANSFERENCIA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'PERDIDA', 'DEVOLUCION');
-CREATE TYPE IF NOT EXISTS "TipoPlanCuenta" AS ENUM ('ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'EGRESO');
-CREATE TYPE IF NOT EXISTS "TipoProveedor" AS ENUM ('INSUMOS', 'SERVICIOS', 'EQUIPOS', 'EMPAQUES', 'LIMPIEZA', 'VETERINARIOS', 'OTROS');
-CREATE TYPE IF NOT EXISTS "TipoReporteSenasa" AS ENUM ('FAENA_MENSUAL', 'EXISTENCIAS', 'MOVIMIENTOS', 'DECOMISOS', 'PRODUCCION', 'STOCK');
-CREATE TYPE IF NOT EXISTS "TipoSubproducto" AS ENUM ('HUESO', 'GRASA', 'INCOMESTIBLE', 'RECORTES', 'OTRO');
+DO $$ BEGIN
+    CREATE TYPE "TipoCamara" AS ENUM ('FAENA', 'CUARTEO', 'DEPOSITO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoRotulo" AS ENUM ('MEDIA_RES', 'CUARTO', 'MENUDENCIA', 'PRODUCTO_TERMINADO_ENVASE_PRIMARIO', 'PRODUCTO_TERMINADO_ENVASE_SECUNDARIO', 'PRODUCTO_TERMINADO_UN_ENVASE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "RolOperador" AS ENUM ('OPERADOR', 'SUPERVISOR', 'ADMINISTRADOR');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoProductor" AS ENUM ('PRODUCTOR', 'CONSIGNATARIO', 'AMBOS');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "Especie" AS ENUM ('BOVINO', 'EQUINO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoAnimal" AS ENUM ('TO', 'VA', 'VQ', 'MEJ', 'NO', 'NT', 'PADRILLO', 'POTRILLO', 'YEGUA', 'CABALLO', 'BURRO', 'MULA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoTropa" AS ENUM ('RECIBIDO', 'EN_CORRAL', 'EN_PESAJE', 'PESADO', 'LISTO_FAENA', 'EN_FAENA', 'FAENADO', 'DESPACHADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoAnimal" AS ENUM ('RECIBIDO', 'PESADO', 'EN_FAENA', 'FAENADO', 'EN_CAMARA', 'DESPACHADO', 'FALLECIDO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoPesajeCamion" AS ENUM ('INGRESO_HACIENDA', 'PESAJE_PARTICULAR', 'SALIDA_MERCADERIA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoPesaje" AS ENUM ('ABIERTO', 'CERRADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoListaFaena" AS ENUM ('ABIERTA', 'EN_PROCESO', 'CERRADA', 'ANULADA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoRomaneo" AS ENUM ('PENDIENTE', 'CONFIRMADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "LadoMedia" AS ENUM ('IZQUIERDA', 'DERECHA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "SiglaMedia" AS ENUM ('A', 'T', 'D');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoMediaRes" AS ENUM ('EN_CAMARA', 'EN_CUARTEO', 'DESPACHADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoCCIR" AS ENUM ('EMITIDO', 'ANULADO', 'EXPORTADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoDeclaracionJurada" AS ENUM ('ACTIVA', 'ANULADA', 'UTILIZADA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoFactura" AS ENUM ('PENDIENTE', 'EMITIDA', 'PAGADA', 'ANULADA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoProductoFactura" AS ENUM ('MEDIA_RES', 'CUARTO_DELANTERO', 'CUARTO_TRASERO', 'MENUDENCIA', 'OTRO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "CategoriaInsumo" AS ENUM ('EMBALAJE', 'ETIQUETAS', 'HIGIENE', 'PROTECCION', 'HERRAMIENTAS', 'OFICINA', 'OTROS');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoProductoEnum" AS ENUM ('CORTE_VACUNO', 'CORTE_EQUINO', 'MENUDENCIA', 'SUBPRODUCTO', 'PRODUCTO_ELAVORADO', 'DESPOSTADO', 'OTRO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoCuarto" AS ENUM ('EN_CAMARA', 'EN_DESPOSTADA', 'DESPOSTADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "SiglaCuarto" AS ENUM ('A', 'D', 'T');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoLote" AS ENUM ('ABIERTO', 'CERRADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoCaja" AS ENUM ('EN_CAMARA', 'EN_PALLETS', 'DESPACHADA', 'ANULADA', 'ARMADA', 'DEGRADADA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoPallet" AS ENUM ('ARMADO', 'COMPLETO', 'DESPACHADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoMermaDespostada" AS ENUM ('HUESO', 'GRASA', 'INCOMESTIBLE', 'RECORTES', 'OTRO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoExpedicion" AS ENUM ('PENDIENTE', 'EN_CARGA', 'DESPACHADO', 'ENTREGADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoReclamo" AS ENUM ('RECLAMO', 'QUEJA', 'INCIDENTE', 'CONSULTA', 'SUGERENCIA', 'OTRO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoRespuesta" AS ENUM ('RESPUESTA_CLIENTE', 'NOTA_INTERNA', 'SEGUIMIENTO', 'CIERRE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoArchivo" AS ENUM ('FOTO', 'PDF', 'DOCUMENTO', 'OTRO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoReclamo" AS ENUM ('PENDIENTE', 'EN_REVISION', 'RESPONDIDO', 'RESUELTO', 'CERRADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "PrioridadReclamo" AS ENUM ('BAJA', 'NORMAL', 'ALTA', 'URGENTE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoReporteEmail" AS ENUM ('STOCK_DIARIO', 'STOCK_SEMANAL', 'FAENA_DIARIO', 'FAENA_SEMANAL', 'RENDIMIENTO_DIARIO', 'RENDIMIENTO_SEMANAL', 'ALERTA_STOCK_BAJO', 'ALERTA_CAMARA', 'RESUMEN_MENSUAL', 'PERSONALIZADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "FrecuenciaEmail" AS ENUM ('DIARIO', 'SEMANAL', 'QUINCENAL', 'MENSUAL', 'MANUAL');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoEnvioEmail" AS ENUM ('PENDIENTE', 'ENVIANDO', 'ENVIADO', 'ERROR', 'REINTENTO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "FormatoReporte" AS ENUM ('PDF', 'EXCEL', 'AMBOS');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoDespacho" AS ENUM ('PENDIENTE', 'EN_CARGA', 'DESPACHADO', 'ENTREGADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoProductoPrecio" AS ENUM ('MEDIA_RES_BOVINA', 'MEDIA_RES_EQUINA', 'CUARTO_DELANTERO', 'CUARTO_TRASERO', 'MENUDENCIA', 'SERVICIO_DESPOSTE', 'SERVICIO_FRIO', 'CARNE_CORTE', 'OTRO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoRendering" AS ENUM ('GRASA', 'DESPERDICIOS', 'FONDO_DIGESTOR', 'SANGRE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "CategoriaCuero" AS ENUM ('SALADO', 'FRESCO', 'CORTADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoDestinoCuero" AS ENUM ('CURTIEMBRE', 'VENTA_DIRECTA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoMovimientoDespostada" AS ENUM ('CORTE', 'LIMPIEZA', 'DESPERDICIO', 'HUESO', 'GRASA', 'MERMA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "DestinoCorte" AS ENUM ('PRODUCCION', 'RECORTE', 'DESECHO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "AlicuotaIVA" AS ENUM ('CERO', 'DIEZ_CINCO', 'VEINTIUNO', 'VEINTISIETE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "CategoriaInsumoTipo" AS ENUM ('EMBALAJE', 'ETIQUETAS', 'HIGIENE', 'PROTECCION', 'HERRAMIENTAS', 'OFICINA', 'OTROS');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "ClasificacionPH" AS ENUM ('NORMAL', 'INTERMEDIO', 'DFD', 'ALTO', 'SIN_CLASIFICAR');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "CondicionIva" AS ENUM ('RI', 'CF', 'MT', 'EX', 'NC');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "ConservacionCuero" AS ENUM ('SALADO', 'FRESCO', 'CORTADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoAsientoContable" AS ENUM ('BORRADOR', 'CONFIRMADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoBalanza" AS ENUM ('DESCONECTADA', 'CONECTADA', 'ERROR', 'CALIBRANDO', 'LISTA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoBorrador" AS ENUM ('ACTIVO', 'RECUPERADO', 'DESCARTADO', 'EXPIRADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoCheque" AS ENUM ('RECIBIDO', 'DEPOSITADO', 'COBRADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoCuero" AS ENUM ('PENDIENTE', 'DESPACHADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoDetalleOrden" AS ENUM ('PENDIENTE', 'PARCIAL', 'COMPLETADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoEmpaque" AS ENUM ('PENDIENTE', 'EMPACADO', 'DESPACHADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoIngreso" AS ENUM ('PENDIENTE', 'INGRESADO', 'EN_PROCESO', 'PROCESADO', 'DEVUELTO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoInventario" AS ENUM ('PENDIENTE', 'EN_PROCESO', 'COMPLETADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoNota" AS ENUM ('EMITIDA', 'APLICADA', 'ANULADA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoOrdenCompra" AS ENUM ('PENDIENTE', 'APROBADA', 'ENVIADA', 'PARCIAL', 'COMPLETADA', 'ANULADA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoPago" AS ENUM ('PENDIENTE', 'APLICADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoRecepcion" AS ENUM ('PARCIAL', 'COMPLETA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoRendering" AS ENUM ('REGISTRADO', 'DESPACHADO', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "EstadoReporteSenasa" AS ENUM ('PENDIENTE', 'ENVIADO', 'CONFIRMADO', 'ERROR', 'ANULADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "ProtocoloBalanza" AS ENUM ('GENERICO', 'TOLEDO', 'METTLER', 'OHAUS', 'DIGI', 'ADAM', 'CUSTOM');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoAsientoContable" AS ENUM ('INGRESO', 'EGRESO', 'AJUSTE', 'APERTURA', 'CIERRE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoCliente" AS ENUM ('USUARIO_FAENA', 'COMPRADOR', 'PROVEEDOR_TERCE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoComprobante" AS ENUM ('FACTURA_A', 'FACTURA_B', 'FACTURA_C', 'REMITO', 'NOTA_CREDITO', 'NOTA_DEBITO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoConexionBalanza" AS ENUM ('SERIAL', 'TCP', 'SIMULADA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoCuarteo" AS ENUM ('DELANTERO_TRASERO', 'CUARTOS_IGUALES', 'OTRO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoCuarto" AS ENUM ('DELANTERO', 'TRASERO', 'ASADO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoDecomiso" AS ENUM ('TOTAL', 'PARCIAL');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoDegradacion" AS ENUM ('TRIMMING', 'GOLPEADO', 'DECOMISO_PARCIAL', 'APROVECHAMIENTO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoGrasa" AS ENUM ('RENDERING', 'GRASA_DRESSING', 'GRASA_COMESTIBLE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoMedia" AS ENUM ('DELANTERA', 'TRASERA', 'ENTERA');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoMovimientoInsumo" AS ENUM ('INGRESO', 'EGRESO', 'TRANSFERENCIA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'PERDIDA', 'DEVOLUCION');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoPlanCuenta" AS ENUM ('ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'EGRESO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoProveedor" AS ENUM ('INSUMOS', 'SERVICIOS', 'EQUIPOS', 'EMPAQUES', 'LIMPIEZA', 'VETERINARIOS', 'OTROS');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoReporteSenasa" AS ENUM ('FAENA_MENSUAL', 'EXISTENCIAS', 'MOVIMIENTOS', 'DECOMISOS', 'PRODUCCION', 'STOCK');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE "TipoSubproducto" AS ENUM ('HUESO', 'GRASA', 'INCOMESTIBLE', 'RECORTES', 'OTRO');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- ============================================================================
 -- 2. MISSING COLUMNS FOR EXISTING TABLES
@@ -2300,3 +2620,1535 @@ END $$;
 -- ============================================================================
 -- END OF MIGRATION
 -- ============================================================================
+-- ============================================================================
+-- MISSING TABLES - Generated from Prisma schema
+-- 70 tables that were not present in the migration
+-- ============================================================================
+
+-- 1. ArqueoCaja
+CREATE TABLE IF NOT EXISTS "ArqueoCaja" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "cajaId" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "saldoSistema" DOUBLE PRECISION NOT NULL,
+    "saldoFisico" DOUBLE PRECISION NOT NULL,
+    "diferencia" DOUBLE PRECISION NOT NULL,
+    "estado" TEXT NOT NULL DEFAULT 'PENDIENTE',
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "supervisorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ArqueoCaja_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "ArqueoCaja_cajaId_idx" ON "ArqueoCaja"("cajaId");
+CREATE INDEX IF NOT EXISTS "ArqueoCaja_estado_idx" ON "ArqueoCaja"("estado");
+CREATE INDEX IF NOT EXISTS "ArqueoCaja_fecha_idx" ON "ArqueoCaja"("fecha");
+
+-- 2. Balanza
+CREATE TABLE IF NOT EXISTS "Balanza" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "codigo" TEXT,
+    "tipoConexion" "TipoConexionBalanza" NOT NULL DEFAULT 'SERIAL',
+    "puerto" TEXT,
+    "baudRate" INTEGER NOT NULL DEFAULT 9600,
+    "dataBits" INTEGER NOT NULL DEFAULT 8,
+    "parity" TEXT NOT NULL DEFAULT 'none',
+    "stopBits" INTEGER DEFAULT 1,
+    "ip" TEXT,
+    "puertoTcp" INTEGER,
+    "protocolo" "ProtocoloBalanza" NOT NULL DEFAULT 'GENERICO',
+    "comandoPeso" TEXT,
+    "formatoRespuesta" TEXT,
+    "capacidadMax" DOUBLE PRECISION,
+    "division" DOUBLE PRECISION DEFAULT 0.1,
+    "unidad" TEXT NOT NULL DEFAULT 'kg',
+    "fechaCalibracion" TIMESTAMP(3),
+    "proximaCalibracion" TIMESTAMP(3),
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "estado" "EstadoBalanza" NOT NULL DEFAULT 'DESCONECTADA',
+    "ultimoError" TEXT,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Balanza_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Balanza_codigo_key" ON "Balanza"("codigo");
+CREATE INDEX IF NOT EXISTS "Balanza_activa_idx" ON "Balanza"("activa");
+CREATE INDEX IF NOT EXISTS "Balanza_estado_idx" ON "Balanza"("estado");
+
+-- 3. Caja
+CREATE TABLE IF NOT EXISTS "Caja" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "saldoActual" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "cuentaBancariaId" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Caja_pkey" PRIMARY KEY ("id")
+);
+
+-- 4. CategoriaInsumoTabla
+CREATE TABLE IF NOT EXISTS "CategoriaInsumoTabla" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CategoriaInsumoTabla_pkey" PRIMARY KEY ("id")
+);
+
+-- 5. Cheque
+CREATE TABLE IF NOT EXISTS "Cheque" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "numero" TEXT NOT NULL,
+    "banco" TEXT NOT NULL,
+    "monto" DOUBLE PRECISION NOT NULL,
+    "fechaEmision" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaVencimiento" TIMESTAMP(3) NOT NULL,
+    "fechaCobro" TIMESTAMP(3),
+    "cuentaBancariaId" TEXT,
+    "libradorNombre" TEXT NOT NULL,
+    "libradorCuit" TEXT,
+    "libradorTelefono" TEXT,
+    "estado" "EstadoCheque" NOT NULL DEFAULT 'RECIBIDO',
+    "destino" TEXT,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Cheque_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "cheque_numero_banco" ON "Cheque"("numero", "banco");
+
+-- 6. CodigoBarrasConfig
+CREATE TABLE IF NOT EXISTS "CodigoBarrasConfig" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tipo" TEXT NOT NULL,
+    "prefijo" TEXT NOT NULL,
+    "formato" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "variables" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "esDefault" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CodigoBarrasConfig_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "CodigoBarrasConfig_tipo_key" ON "CodigoBarrasConfig"("tipo");
+CREATE INDEX IF NOT EXISTS "CodigoBarrasConfig_tipo_idx" ON "CodigoBarrasConfig"("tipo");
+CREATE INDEX IF NOT EXISTS "CodigoBarrasConfig_activo_idx" ON "CodigoBarrasConfig"("activo");
+
+-- 7. ConciliacionBancaria
+CREATE TABLE IF NOT EXISTS "ConciliacionBancaria" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "cuentaBancariaId" TEXT NOT NULL,
+    "fechaDesde" TIMESTAMP(3) NOT NULL,
+    "fechaHasta" TIMESTAMP(3) NOT NULL,
+    "nombreArchivo" TEXT NOT NULL,
+    "totalRegistros" INTEGER NOT NULL DEFAULT 0,
+    "totalDebitos" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "totalCreditos" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "conciliados" INTEGER NOT NULL DEFAULT 0,
+    "pendientes" INTEGER NOT NULL DEFAULT 0,
+    "diferencias" INTEGER NOT NULL DEFAULT 0,
+    "estado" TEXT NOT NULL DEFAULT 'PENDIENTE',
+    "creadoPor" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConciliacionBancaria_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "ConciliacionBancaria_cuentaBancariaId_idx" ON "ConciliacionBancaria"("cuentaBancariaId");
+CREATE INDEX IF NOT EXISTS "ConciliacionBancaria_estado_idx" ON "ConciliacionBancaria"("estado");
+
+-- 8. ConfigBalanza
+CREATE TABLE IF NOT EXISTS "ConfigBalanza" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "modelo" TEXT,
+    "marca" TEXT,
+    "tipoConexion" TEXT NOT NULL DEFAULT 'SERIAL',
+    "puertoSerial" TEXT,
+    "baudRate" INTEGER NOT NULL DEFAULT 9600,
+    "dataBits" INTEGER NOT NULL DEFAULT 8,
+    "stopBits" INTEGER NOT NULL DEFAULT 1,
+    "paridad" TEXT NOT NULL DEFAULT 'NONE',
+    "direccionIP" TEXT,
+    "puertoTCP" INTEGER,
+    "protocolo" TEXT NOT NULL DEFAULT 'CONTINUO',
+    "timeout" INTEGER NOT NULL DEFAULT 5000,
+    "intervaloLectura" INTEGER NOT NULL DEFAULT 500,
+    "comandoPesar" TEXT,
+    "comandoTara" TEXT,
+    "comandoCero" TEXT,
+    "formatoTrama" TEXT,
+    "posicionPeso" INTEGER,
+    "decimales" INTEGER NOT NULL DEFAULT 2,
+    "unidad" TEXT NOT NULL DEFAULT 'KG',
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "esPrincipal" BOOLEAN NOT NULL DEFAULT false,
+    "ubicacion" TEXT,
+    "terminalId" TEXT,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConfigBalanza_pkey" PRIMARY KEY ("id")
+);
+
+-- 9. ConfiguracionAFIP
+CREATE TABLE IF NOT EXISTS "ConfiguracionAFIP" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "certificadoPath" TEXT,
+    "clavePrivadaPath" TEXT,
+    "entorno" TEXT NOT NULL DEFAULT 'testing',
+    "cuit" TEXT,
+    "razonSocial" TEXT,
+    "inicioActividades" TIMESTAMP(3),
+    "puntosVenta" TEXT,
+    "wsaaUrl" TEXT,
+    "wsfeUrl" TEXT,
+    "tokenWsfe" TEXT,
+    "signWsfe" TEXT,
+    "tokenExpiracion" TIMESTAMP(3),
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConfiguracionAFIP_pkey" PRIMARY KEY ("id")
+);
+
+-- 10. ConfiguracionBackup
+CREATE TABLE IF NOT EXISTS "ConfiguracionBackup" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "backupDiario" BOOLEAN NOT NULL DEFAULT true,
+    "horaBackup" TEXT NOT NULL DEFAULT '02:00',
+    "retenerDias" INTEGER NOT NULL DEFAULT 30,
+    "nubeHabilitado" BOOLEAN NOT NULL DEFAULT false,
+    "proveedorNube" TEXT,
+    "credenciales" TEXT,
+    "pointInTime" BOOLEAN NOT NULL DEFAULT false,
+    "intervaloPIT" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "ultimoBackup" TIMESTAMP(3),
+    "ultimoExitoso" BOOLEAN NOT NULL DEFAULT false,
+    "tamanoUltimo" DOUBLE PRECISION,
+    "espacioUsado" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConfiguracionBackup_pkey" PRIMARY KEY ("id")
+);
+
+-- 11. ConfiguracionPH (@@map("configuracion_ph"))
+CREATE TABLE IF NOT EXISTS "configuracion_ph" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "umbralPSE" DOUBLE PRECISION NOT NULL DEFAULT 5.4,
+    "umbralNormMax" DOUBLE PRECISION NOT NULL DEFAULT 5.7,
+    "umbralIntMax" DOUBLE PRECISION NOT NULL DEFAULT 5.9,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "configuracion_ph_pkey" PRIMARY KEY ("id")
+);
+
+-- 12. ConfiguracionRotulo
+CREATE TABLE IF NOT EXISTS "ConfiguracionRotulo" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tipo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "ancho" INTEGER NOT NULL DEFAULT 100,
+    "alto" INTEGER NOT NULL DEFAULT 50,
+    "campos" TEXT,
+    "incluyeCodigoBarras" BOOLEAN NOT NULL DEFAULT true,
+    "codigoBarrasTipo" TEXT NOT NULL DEFAULT 'CODE128',
+    "codigoBarrasPosicion" TEXT,
+    "orientacion" TEXT NOT NULL DEFAULT 'HORIZONTAL',
+    "margenes" TEXT,
+    "plantilla" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConfiguracionRotulo_pkey" PRIMARY KEY ("id")
+);
+
+-- 13. ConfiguracionSIGICA
+CREATE TABLE IF NOT EXISTS "ConfiguracionSIGICA" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "habilitado" BOOLEAN NOT NULL DEFAULT false,
+    "urlServicio" TEXT,
+    "usuario" TEXT,
+    "password" TEXT,
+    "certificado" TEXT,
+    "establecimiento" TEXT,
+    "ultimaSincronizacion" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConfiguracionSIGICA_pkey" PRIMARY KEY ("id")
+);
+
+-- 14. ConfiguracionSeguridad
+CREATE TABLE IF NOT EXISTS "ConfiguracionSeguridad" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "passwordMinLength" INTEGER NOT NULL DEFAULT 8,
+    "passwordRequireUppercase" BOOLEAN NOT NULL DEFAULT true,
+    "passwordRequireLowercase" BOOLEAN NOT NULL DEFAULT true,
+    "passwordRequireNumbers" BOOLEAN NOT NULL DEFAULT true,
+    "passwordRequireSpecialChars" BOOLEAN NOT NULL DEFAULT false,
+    "passwordMaxAge" INTEGER NOT NULL DEFAULT 90,
+    "sessionTimeout" INTEGER NOT NULL DEFAULT 480,
+    "maxConcurrentSessions" INTEGER NOT NULL DEFAULT 1,
+    "maxLoginAttempts" INTEGER NOT NULL DEFAULT 5,
+    "lockoutDuration" INTEGER NOT NULL DEFAULT 30,
+    "notifyNewIp" BOOLEAN NOT NULL DEFAULT true,
+    "notifyFailedAttempts" BOOLEAN NOT NULL DEFAULT true,
+    "notifyPasswordChange" BOOLEAN NOT NULL DEFAULT true,
+    "notifyOutOfHoursAccess" BOOLEAN NOT NULL DEFAULT false,
+    "restrictedHoursEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "allowedHourStart" INTEGER,
+    "allowedHourEnd" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConfiguracionSeguridad_pkey" PRIMARY KEY ("id")
+);
+
+-- 15. DetalleConciliacion
+CREATE TABLE IF NOT EXISTS "DetalleConciliacion" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "conciliacionId" TEXT NOT NULL,
+    "movimientoCajaId" TEXT,
+    "fechaExtracto" TIMESTAMP(3) NOT NULL,
+    "descripcionExtracto" TEXT NOT NULL,
+    "referenciaExtracto" TEXT,
+    "montoExtracto" DOUBLE PRECISION NOT NULL,
+    "tipoExtracto" TEXT NOT NULL,
+    "estado" TEXT NOT NULL DEFAULT 'PENDIENTE',
+    "confianza" DOUBLE PRECISION,
+    "montoAjuste" DOUBLE PRECISION,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DetalleConciliacion_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "DetalleConciliacion_conciliacionId_idx" ON "DetalleConciliacion"("conciliacionId");
+CREATE INDEX IF NOT EXISTS "DetalleConciliacion_estado_idx" ON "DetalleConciliacion"("estado");
+
+-- 16. DetalleInventario
+CREATE TABLE IF NOT EXISTS "DetalleInventario" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "inventarioId" TEXT NOT NULL,
+    "insumoId" TEXT NOT NULL,
+    "cantidadSistema" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "cantidadFisica" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "diferencia" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "costoUnitario" DOUBLE PRECISION,
+    "costoDiferencia" DOUBLE PRECISION,
+    "estado" TEXT,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DetalleInventario_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "detalleInventario_insumo_deposito" ON "DetalleInventario"("inventarioId", "insumoId");
+CREATE INDEX IF NOT EXISTS "DetalleInventario_inventarioId_idx" ON "DetalleInventario"("inventarioId");
+
+-- 17. DetalleNotaCredito
+CREATE TABLE IF NOT EXISTS "DetalleNotaCredito" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "notaCreditoId" TEXT NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "cantidad" DOUBLE PRECISION NOT NULL DEFAULT 1,
+    "precioUnitario" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "subtotal" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DetalleNotaCredito_pkey" PRIMARY KEY ("id")
+);
+
+-- 18. DetalleNotaDebito
+CREATE TABLE IF NOT EXISTS "DetalleNotaDebito" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "notaDebitoId" TEXT NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "cantidad" DOUBLE PRECISION NOT NULL DEFAULT 1,
+    "precioUnitario" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "subtotal" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DetalleNotaDebito_pkey" PRIMARY KEY ("id")
+);
+
+-- 19. DetalleOrdenCompra
+CREATE TABLE IF NOT EXISTS "DetalleOrdenCompra" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "ordenCompraId" TEXT NOT NULL,
+    "insumoId" TEXT NOT NULL,
+    "cantidadPedida" DOUBLE PRECISION NOT NULL,
+    "cantidadRecibida" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "precioUnitario" DOUBLE PRECISION NOT NULL,
+    "subtotal" DOUBLE PRECISION NOT NULL,
+    "centroCostoId" TEXT,
+    "estado" "EstadoDetalleOrden" NOT NULL DEFAULT 'PENDIENTE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DetalleOrdenCompra_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "DetalleOrdenCompra_ordenCompraId_idx" ON "DetalleOrdenCompra"("ordenCompraId");
+CREATE INDEX IF NOT EXISTS "DetalleOrdenCompra_insumoId_idx" ON "DetalleOrdenCompra"("insumoId");
+CREATE INDEX IF NOT EXISTS "DetalleOrdenCompra_centroCostoId_idx" ON "DetalleOrdenCompra"("centroCostoId");
+
+-- 20. FormaPago
+CREATE TABLE IF NOT EXISTS "FormaPago" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "tipo" TEXT NOT NULL,
+    "requiereBanco" BOOLEAN NOT NULL DEFAULT false,
+    "requiereCheque" BOOLEAN NOT NULL DEFAULT false,
+    "requiereTarjeta" BOOLEAN NOT NULL DEFAULT false,
+    "cuentaContable" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "FormaPago_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "FormaPago_nombre_key" ON "FormaPago"("nombre");
+
+-- 21. HistorialBackup
+CREATE TABLE IF NOT EXISTS "HistorialBackup" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tipo" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "rutaArchivo" TEXT NOT NULL,
+    "nombreArchivo" TEXT,
+    "tamanio" DOUBLE PRECISION,
+    "tablasIncluidas" TEXT,
+    "estado" TEXT,
+    "descripcion" TEXT,
+    "mensajeError" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "HistorialBackup_pkey" PRIMARY KEY ("id")
+);
+
+-- 22. HistorialPrecioInsumo
+CREATE TABLE IF NOT EXISTS "HistorialPrecioInsumo" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "insumoId" TEXT NOT NULL,
+    "precioAnterior" DOUBLE PRECISION,
+    "precioNuevo" DOUBLE PRECISION,
+    "moneda" TEXT NOT NULL DEFAULT 'ARS',
+    "motivo" TEXT,
+    "operadorId" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "HistorialPrecioInsumo_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "HistorialPrecioInsumo_insumoId_idx" ON "HistorialPrecioInsumo"("insumoId");
+CREATE INDEX IF NOT EXISTS "HistorialPrecioInsumo_fecha_idx" ON "HistorialPrecioInsumo"("fecha");
+
+-- 23. HistoricoPrecio
+CREATE TABLE IF NOT EXISTS "HistoricoPrecio" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "productoVendibleId" TEXT,
+    "precioAnterior" DOUBLE PRECISION,
+    "precioNuevo" DOUBLE PRECISION NOT NULL,
+    "moneda" TEXT NOT NULL DEFAULT 'ARS',
+    "fechaVigencia" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "motivo" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "HistoricoPrecio_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "HistoricoPrecio_productoVendibleId_idx" ON "HistoricoPrecio"("productoVendibleId");
+
+-- 24. HistoricoPrecioProducto
+CREATE TABLE IF NOT EXISTS "HistoricoPrecioProducto" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "productoVendibleId" TEXT NOT NULL,
+    "precioAnterior" DOUBLE PRECISION,
+    "precioNuevo" DOUBLE PRECISION NOT NULL,
+    "moneda" TEXT NOT NULL DEFAULT 'ARS',
+    "motivo" TEXT,
+    "fechaVigencia" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "clienteId" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "HistoricoPrecioProducto_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "HistoricoPrecioProducto_productoVendibleId_fechaVigencia_idx" ON "HistoricoPrecioProducto"("productoVendibleId", "fechaVigencia" DESC);
+CREATE INDEX IF NOT EXISTS "HistoricoPrecioProducto_clienteId_idx" ON "HistoricoPrecioProducto"("clienteId");
+
+-- 25. HistoricoTarifa
+CREATE TABLE IF NOT EXISTS "HistoricoTarifa" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tipoTarifaId" TEXT NOT NULL,
+    "clienteId" TEXT,
+    "especie" TEXT,
+    "categoria" TEXT,
+    "valor" DOUBLE PRECISION NOT NULL,
+    "moneda" TEXT NOT NULL DEFAULT 'ARS',
+    "vigenciaDesde" TIMESTAMP(3) NOT NULL,
+    "vigenciaHasta" TIMESTAMP(3),
+    "operadorId" TEXT,
+    "motivo" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "HistoricoTarifa_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "HistoricoTarifa_tipoTarifaId_vigenciaDesde_idx" ON "HistoricoTarifa"("tipoTarifaId", "vigenciaDesde");
+CREATE INDEX IF NOT EXISTS "HistoricoTarifa_clienteId_tipoTarifaId_idx" ON "HistoricoTarifa"("clienteId", "tipoTarifaId");
+CREATE INDEX IF NOT EXISTS "HistoricoTarifa_especie_idx" ON "HistoricoTarifa"("especie");
+CREATE INDEX IF NOT EXISTS "HistoricoTarifa_vigenciaHasta_idx" ON "HistoricoTarifa"("vigenciaHasta");
+
+-- 26. Impresora
+CREATE TABLE IF NOT EXISTS "Impresora" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "marca" TEXT,
+    "modelo" TEXT,
+    "puerto" TEXT NOT NULL DEFAULT 'USB',
+    "direccionIP" TEXT,
+    "anchoEtiqueta" INTEGER NOT NULL DEFAULT 80,
+    "altoEtiqueta" INTEGER NOT NULL DEFAULT 50,
+    "dpi" INTEGER NOT NULL DEFAULT 203,
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "predeterminada" BOOLEAN NOT NULL DEFAULT false,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Impresora_pkey" PRIMARY KEY ("id")
+);
+
+-- 27. Indicador
+CREATE TABLE IF NOT EXISTS "Indicador" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "codigo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "unidad" TEXT NOT NULL,
+    "meta" DOUBLE PRECISION,
+    "alertaMinima" DOUBLE PRECISION,
+    "alertaMaxima" DOUBLE PRECISION,
+    "categoria" TEXT NOT NULL,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Indicador_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Indicador_codigo_key" ON "Indicador"("codigo");
+CREATE INDEX IF NOT EXISTS "Indicador_categoria_idx" ON "Indicador"("categoria");
+CREATE INDEX IF NOT EXISTS "Indicador_activo_idx" ON "Indicador"("activo");
+
+-- 28. Inventario
+CREATE TABLE IF NOT EXISTS "Inventario" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "numero" INTEGER NOT NULL,
+    "depositoId" TEXT NOT NULL,
+    "fechaInicio" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaFin" TIMESTAMP(3),
+    "operadorId" TEXT,
+    "supervisorId" TEXT,
+    "estado" "EstadoInventario" NOT NULL DEFAULT 'PENDIENTE',
+    "observaciones" TEXT,
+    "itemsTotal" INTEGER NOT NULL DEFAULT 0,
+    "itemsConDiferencia" INTEGER NOT NULL DEFAULT 0,
+    "valorDiferencia" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Inventario_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "Inventario_depositoId_idx" ON "Inventario"("depositoId");
+CREATE INDEX IF NOT EXISTS "Inventario_estado_idx" ON "Inventario"("estado");
+
+-- 29. IpBloqueada
+CREATE TABLE IF NOT EXISTS "IpBloqueada" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "ip" TEXT NOT NULL,
+    "motivo" TEXT NOT NULL DEFAULT 'MANUAL',
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "fechaBloqueo" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaExpiracion" TIMESTAMP(3),
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "IpBloqueada_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IpBloqueada_ip_idx" ON "IpBloqueada"("ip");
+CREATE INDEX IF NOT EXISTS "IpBloqueada_activo_idx" ON "IpBloqueada"("activo");
+
+-- 30. MovimientoCaja
+CREATE TABLE IF NOT EXISTS "MovimientoCaja" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "cajaId" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "monto" DOUBLE PRECISION NOT NULL,
+    "saldoAnterior" DOUBLE PRECISION NOT NULL,
+    "saldoNueva" DOUBLE PRECISION NOT NULL,
+    "documentoTipo" TEXT,
+    "documentoId" TEXT,
+    "documentoNumero" TEXT,
+    "concepto" TEXT NOT NULL,
+    "observaciones" TEXT,
+    "terceroNombre" TEXT,
+    "terceroCuit" TEXT,
+    "operadorId" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "MovimientoCaja_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "MovimientoCaja_cajaId_idx" ON "MovimientoCaja"("cajaId");
+CREATE INDEX IF NOT EXISTS "MovimientoCaja_tipo_idx" ON "MovimientoCaja"("tipo");
+CREATE INDEX IF NOT EXISTS "MovimientoCaja_fecha_idx" ON "MovimientoCaja"("fecha");
+CREATE INDEX IF NOT EXISTS "MovimientoCaja_documentoId_idx" ON "MovimientoCaja"("documentoId");
+
+-- 31. MovimientoInsumo
+CREATE TABLE IF NOT EXISTS "MovimientoInsumo" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "insumoId" TEXT NOT NULL,
+    "tipo" "TipoMovimientoInsumo" NOT NULL,
+    "depositoOrigenId" TEXT,
+    "depositoDestinoId" TEXT,
+    "cantidad" DOUBLE PRECISION NOT NULL,
+    "loteInsumoId" TEXT,
+    "precioUnitario" DOUBLE PRECISION,
+    "costoTotal" DOUBLE PRECISION,
+    "documentoTipo" TEXT,
+    "documentoNumero" TEXT,
+    "centroCostoId" TEXT,
+    "produccionId" TEXT,
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "MovimientoInsumo_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "MovimientoInsumo_insumoId_idx" ON "MovimientoInsumo"("insumoId");
+CREATE INDEX IF NOT EXISTS "MovimientoInsumo_tipo_idx" ON "MovimientoInsumo"("tipo");
+CREATE INDEX IF NOT EXISTS "MovimientoInsumo_fecha_idx" ON "MovimientoInsumo"("fecha");
+
+-- 32. NotaCredito
+CREATE TABLE IF NOT EXISTS "NotaCredito" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "numero" TEXT NOT NULL,
+    "numeroInterno" INTEGER NOT NULL,
+    "clienteId" TEXT NOT NULL,
+    "facturaId" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "subtotal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "iva" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "total" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "motivo" TEXT NOT NULL,
+    "estado" "EstadoNota" NOT NULL DEFAULT 'EMITIDA',
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotaCredito_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "NotaCredito_clienteId_idx" ON "NotaCredito"("clienteId");
+CREATE INDEX IF NOT EXISTS "NotaCredito_fecha_idx" ON "NotaCredito"("fecha");
+CREATE INDEX IF NOT EXISTS "NotaCredito_estado_idx" ON "NotaCredito"("estado");
+
+-- 33. NotaCreditoDebito
+CREATE TABLE IF NOT EXISTS "NotaCreditoDebito" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tipo" TEXT NOT NULL,
+    "tipoComprobante" INTEGER NOT NULL,
+    "facturaId" TEXT NOT NULL,
+    "numero" INTEGER NOT NULL,
+    "puntoVenta" INTEGER NOT NULL DEFAULT 1,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "motivo" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "cae" TEXT,
+    "caeVencimiento" TIMESTAMP(3),
+    "subtotal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "iva" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "total" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "estado" TEXT NOT NULL DEFAULT 'EMITIDA',
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotaCreditoDebito_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "NotaCreditoDebito_facturaId_idx" ON "NotaCreditoDebito"("facturaId");
+CREATE INDEX IF NOT EXISTS "NotaCreditoDebito_tipo_idx" ON "NotaCreditoDebito"("tipo");
+CREATE INDEX IF NOT EXISTS "NotaCreditoDebito_fecha_idx" ON "NotaCreditoDebito"("fecha");
+CREATE INDEX IF NOT EXISTS "NotaCreditoDebito_estado_idx" ON "NotaCreditoDebito"("estado");
+
+-- 34. NotaDebito
+CREATE TABLE IF NOT EXISTS "NotaDebito" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "numero" TEXT NOT NULL,
+    "numeroInterno" INTEGER NOT NULL,
+    "clienteId" TEXT NOT NULL,
+    "facturaId" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "subtotal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "iva" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "total" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "motivo" TEXT NOT NULL,
+    "estado" "EstadoNota" NOT NULL DEFAULT 'EMITIDA',
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotaDebito_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "NotaDebito_clienteId_idx" ON "NotaDebito"("clienteId");
+CREATE INDEX IF NOT EXISTS "NotaDebito_fecha_idx" ON "NotaDebito"("fecha");
+CREATE INDEX IF NOT EXISTS "NotaDebito_estado_idx" ON "NotaDebito"("estado");
+
+-- 35. NovedadCalidad
+CREATE TABLE IF NOT EXISTS "NovedadCalidad" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "usuarioId" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "titulo" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaVencimiento" TIMESTAMP(3),
+    "responsableId" TEXT,
+    "responsableNombre" TEXT,
+    "estado" TEXT NOT NULL DEFAULT 'PENDIENTE',
+    "acciones" TEXT,
+    "adjuntoUrl" TEXT,
+    "observaciones" TEXT,
+    "fechaResolucion" TIMESTAMP(3),
+    "resueltoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NovedadCalidad_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "NovedadCalidad_usuarioId_idx" ON "NovedadCalidad"("usuarioId");
+CREATE INDEX IF NOT EXISTS "NovedadCalidad_estado_idx" ON "NovedadCalidad"("estado");
+CREATE INDEX IF NOT EXISTS "NovedadCalidad_fecha_idx" ON "NovedadCalidad"("fecha");
+
+-- 36. ObservacionUsuario
+CREATE TABLE IF NOT EXISTS "ObservacionUsuario" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "clienteId" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL DEFAULT 'NOTA',
+    "observacion" TEXT NOT NULL,
+    "fechaSeguimiento" TIMESTAMP(3),
+    "resuelto" BOOLEAN NOT NULL DEFAULT false,
+    "resolucion" TEXT,
+    "fechaResolucion" TIMESTAMP(3),
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ObservacionUsuario_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "ObservacionUsuario_clienteId_idx" ON "ObservacionUsuario"("clienteId");
+CREATE INDEX IF NOT EXISTS "ObservacionUsuario_resuelto_idx" ON "ObservacionUsuario"("resuelto");
+
+-- 37. OrdenCarga
+CREATE TABLE IF NOT EXISTS "OrdenCarga" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "despachoId" TEXT NOT NULL,
+    "numero" INTEGER NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "horaPreparacion" TEXT NOT NULL,
+    "estado" TEXT NOT NULL DEFAULT 'PENDIENTE',
+    "firmaOperario" TEXT,
+    "firmaChofer" TEXT,
+    "tempCargaOK" BOOLEAN,
+    "tempTransporteOK" BOOLEAN,
+    "precintosOK" BOOLEAN,
+    "fechaPreparacion" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OrdenCarga_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "OrdenCarga_despachoId_key" ON "OrdenCarga"("despachoId");
+CREATE INDEX IF NOT EXISTS "OrdenCarga_estado_idx" ON "OrdenCarga"("estado");
+
+-- 38. OrdenCompra
+CREATE TABLE IF NOT EXISTS "OrdenCompra" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "numero" INTEGER NOT NULL,
+    "proveedorId" TEXT,
+    "fechaEmision" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaEntrega" TIMESTAMP(3),
+    "fechaRecepcion" TIMESTAMP(3),
+    "estado" "EstadoOrdenCompra" NOT NULL DEFAULT 'PENDIENTE',
+    "subtotal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "iva" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "total" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OrdenCompra_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "OrdenCompra_estado_idx" ON "OrdenCompra"("estado");
+CREATE INDEX IF NOT EXISTS "OrdenCompra_proveedorId_idx" ON "OrdenCompra"("proveedorId");
+CREATE INDEX IF NOT EXISTS "OrdenCompra_fechaEmision_idx" ON "OrdenCompra"("fechaEmision");
+
+-- 39. Pago
+CREATE TABLE IF NOT EXISTS "Pago" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "numero" INTEGER NOT NULL,
+    "terceroId" TEXT,
+    "terceroNombre" TEXT NOT NULL,
+    "terceroCuit" TEXT,
+    "terceroTipo" TEXT NOT NULL,
+    "formaPagoId" TEXT,
+    "monto" DOUBLE PRECISION NOT NULL,
+    "chequeId" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "estado" "EstadoPago" NOT NULL DEFAULT 'PENDIENTE',
+    "comprobante" TEXT,
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Pago_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "Pago_terceroId_idx" ON "Pago"("terceroId");
+CREATE INDEX IF NOT EXISTS "Pago_fecha_idx" ON "Pago"("fecha");
+CREATE INDEX IF NOT EXISTS "Pago_estado_idx" ON "Pago"("estado");
+
+-- 40. PagoFactura
+CREATE TABLE IF NOT EXISTS "PagoFactura" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "facturaId" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "monto" DOUBLE PRECISION NOT NULL,
+    "metodoPago" TEXT NOT NULL DEFAULT 'EFECTIVO',
+    "referencia" TEXT,
+    "banco" TEXT,
+    "numeroCheque" TEXT,
+    "fechaCheque" TIMESTAMP(3),
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PagoFactura_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "PagoFactura_facturaId_idx" ON "PagoFactura"("facturaId");
+CREATE INDEX IF NOT EXISTS "PagoFactura_fecha_idx" ON "PagoFactura"("fecha");
+CREATE INDEX IF NOT EXISTS "PagoFactura_metodoPago_idx" ON "PagoFactura"("metodoPago");
+
+-- 41. PesajeInterno
+CREATE TABLE IF NOT EXISTS "PesajeInterno" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tropaCodigo" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "grasa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "lavadito" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "bolsaAzul" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "hueso" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "grasaBascula" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "despojo" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "operadorId" TEXT,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PesajeInterno_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "PesajeInterno_tropaCodigo_key" ON "PesajeInterno"("tropaCodigo");
+CREATE INDEX IF NOT EXISTS "PesajeInterno_tropaCodigo_idx" ON "PesajeInterno"("tropaCodigo");
+CREATE INDEX IF NOT EXISTS "PesajeInterno_fecha_idx" ON "PesajeInterno"("fecha");
+
+-- 42. PlantillaReporte
+CREATE TABLE IF NOT EXISTS "PlantillaReporte" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "archivoNombre" TEXT NOT NULL,
+    "archivoContenido" TEXT NOT NULL,
+    "marcadores" TEXT,
+    "hojaDatos" TEXT NOT NULL DEFAULT 'Datos',
+    "filaInicio" INTEGER NOT NULL DEFAULT 1,
+    "rangoDatos" TEXT,
+    "columnas" TEXT,
+    "orientacion" TEXT NOT NULL DEFAULT 'portrait',
+    "tamanoPapel" TEXT NOT NULL DEFAULT 'A4',
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "categoria" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PlantillaReporte_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "PlantillaReporte_nombre_key" ON "PlantillaReporte"("nombre");
+CREATE UNIQUE INDEX IF NOT EXISTS "PlantillaReporte_codigo_key" ON "PlantillaReporte"("codigo");
+CREATE INDEX IF NOT EXISTS "PlantillaReporte_categoria_idx" ON "PlantillaReporte"("categoria");
+CREATE INDEX IF NOT EXISTS "PlantillaReporte_activo_idx" ON "PlantillaReporte"("activo");
+
+-- 43. PrecioHistorial
+CREATE TABLE IF NOT EXISTS "PrecioHistorial" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "precioServicioId" TEXT,
+    "tipoServicioId" TEXT NOT NULL,
+    "tipoServicioNombre" TEXT NOT NULL,
+    "clienteId" TEXT NOT NULL,
+    "clienteNombre" TEXT NOT NULL,
+    "precioAnterior" DOUBLE PRECISION,
+    "precioNuevo" DOUBLE PRECISION NOT NULL,
+    "fechaDesde" TIMESTAMP(3) NOT NULL,
+    "fechaHasta" TIMESTAMP(3),
+    "motivo" TEXT,
+    "operadorId" TEXT,
+    "operadorNombre" TEXT,
+    "tipoCambio" TEXT NOT NULL DEFAULT 'CREACION',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PrecioHistorial_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "PrecioHistorial_precioServicioId_idx" ON "PrecioHistorial"("precioServicioId");
+CREATE INDEX IF NOT EXISTS "PrecioHistorial_tipoServicioId_idx" ON "PrecioHistorial"("tipoServicioId");
+CREATE INDEX IF NOT EXISTS "PrecioHistorial_clienteId_idx" ON "PrecioHistorial"("clienteId");
+CREATE INDEX IF NOT EXISTS "PrecioHistorial_fechaDesde_idx" ON "PrecioHistorial"("fechaDesde");
+CREATE INDEX IF NOT EXISTS "PrecioHistorial_operadorId_idx" ON "PrecioHistorial"("operadorId");
+CREATE INDEX IF NOT EXISTS "PrecioHistorial_tipoCambio_idx" ON "PrecioHistorial"("tipoCambio");
+
+-- 44. PrecioRendering
+CREATE TABLE IF NOT EXISTS "PrecioRendering" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "clienteId" TEXT NOT NULL,
+    "tipoProducto" TEXT NOT NULL,
+    "precioKg" DOUBLE PRECISION NOT NULL,
+    "fechaDesde" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaHasta" TIMESTAMP(3),
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PrecioRendering_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "PrecioRendering_clienteId_idx" ON "PrecioRendering"("clienteId");
+CREATE INDEX IF NOT EXISTS "PrecioRendering_tipoProducto_idx" ON "PrecioRendering"("tipoProducto");
+
+-- 45. PrecioServicio
+CREATE TABLE IF NOT EXISTS "PrecioServicio" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tipoServicioId" TEXT NOT NULL,
+    "clienteId" TEXT NOT NULL,
+    "precio" DOUBLE PRECISION NOT NULL,
+    "fechaDesde" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaHasta" TIMESTAMP(3),
+    "observaciones" TEXT,
+    "createdBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PrecioServicio_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "PrecioServicio_tipoServicioId_idx" ON "PrecioServicio"("tipoServicioId");
+CREATE INDEX IF NOT EXISTS "PrecioServicio_clienteId_idx" ON "PrecioServicio"("clienteId");
+CREATE INDEX IF NOT EXISTS "PrecioServicio_fechaDesde_idx" ON "PrecioServicio"("fechaDesde");
+CREATE INDEX IF NOT EXISTS "PrecioServicio_fechaHasta_idx" ON "PrecioServicio"("fechaHasta");
+
+-- 46. PreferenciasUI
+CREATE TABLE IF NOT EXISTS "PreferenciasUI" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "operadorId" TEXT NOT NULL,
+    "moduloOrden" TEXT,
+    "moduloTamano" TEXT,
+    "moduloVisible" TEXT,
+    "moduloColor" TEXT,
+    "sidebarExpandido" BOOLEAN NOT NULL DEFAULT true,
+    "gruposExpandidos" TEXT,
+    "tema" TEXT NOT NULL DEFAULT 'light',
+    "tamanoFuente" TEXT NOT NULL DEFAULT 'normal',
+    "densidad" TEXT NOT NULL DEFAULT 'normal',
+    "paginaInicio" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PreferenciasUI_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "PreferenciasUI_operadorId_key" ON "PreferenciasUI"("operadorId");
+CREATE INDEX IF NOT EXISTS "PreferenciasUI_operadorId_idx" ON "PreferenciasUI"("operadorId");
+
+-- 47. PresupuestoCentro
+CREATE TABLE IF NOT EXISTS "PresupuestoCentro" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "centroCostoId" TEXT NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "mes" INTEGER NOT NULL,
+    "presupuesto" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "ejecutado" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "desviacion" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PresupuestoCentro_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "PresupuestoCentro_centroCostoId_anio_mes_key" ON "PresupuestoCentro"("centroCostoId", "anio", "mes");
+
+-- 48. Raza
+CREATE TABLE IF NOT EXISTS "Raza" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "especie" TEXT NOT NULL,
+    "observaciones" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Raza_pkey" PRIMARY KEY ("id")
+);
+
+-- 49. RecepcionCompra
+CREATE TABLE IF NOT EXISTS "RecepcionCompra" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "ordenCompraId" TEXT NOT NULL,
+    "numeroRemito" TEXT,
+    "fechaRecepcion" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "estado" "EstadoRecepcion" NOT NULL DEFAULT 'PARCIAL',
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RecepcionCompra_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "RecepcionCompra_ordenCompraId_idx" ON "RecepcionCompra"("ordenCompraId");
+CREATE INDEX IF NOT EXISTS "RecepcionCompra_estado_idx" ON "RecepcionCompra"("estado");
+
+-- 50. RegistroCuarteo
+CREATE TABLE IF NOT EXISTS "RegistroCuarteo" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "mediaResId" TEXT,
+    "tipoCorte" "TipoCuarteo" NOT NULL DEFAULT 'DELANTERO_TRASERO',
+    "pesoTotal" DOUBLE PRECISION NOT NULL,
+    "pesoDelantero" DOUBLE PRECISION,
+    "pesoTrasero" DOUBLE PRECISION,
+    "camaraId" TEXT,
+    "operadorId" TEXT,
+    "observaciones" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RegistroCuarteo_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "RegistroCuarteo_fecha_idx" ON "RegistroCuarteo"("fecha");
+CREATE INDEX IF NOT EXISTS "RegistroCuarteo_tipoCorte_idx" ON "RegistroCuarteo"("tipoCorte");
+
+-- 51. RegistroEmpaque
+CREATE TABLE IF NOT EXISTS "RegistroEmpaque" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "paqueteId" TEXT NOT NULL,
+    "producto" TEXT NOT NULL,
+    "productoId" TEXT,
+    "pesoKg" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "cantidad" INTEGER NOT NULL DEFAULT 1,
+    "destino" TEXT,
+    "camaraId" TEXT,
+    "estado" "EstadoEmpaque" NOT NULL DEFAULT 'PENDIENTE',
+    "loteId" TEXT,
+    "operadorId" TEXT,
+    "fechaDespacho" TIMESTAMP(3),
+    "observaciones" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RegistroEmpaque_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "RegistroEmpaque_paqueteId_key" ON "RegistroEmpaque"("paqueteId");
+CREATE INDEX IF NOT EXISTS "RegistroEmpaque_producto_idx" ON "RegistroEmpaque"("producto");
+CREATE INDEX IF NOT EXISTS "RegistroEmpaque_estado_idx" ON "RegistroEmpaque"("estado");
+CREATE INDEX IF NOT EXISTS "RegistroEmpaque_fecha_idx" ON "RegistroEmpaque"("fecha");
+
+-- 52. RendimientoHistorico
+CREATE TABLE IF NOT EXISTS "RendimientoHistorico" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "anio" INTEGER NOT NULL,
+    "mes" INTEGER NOT NULL,
+    "especie" "Especie" NOT NULL,
+    "tipoAnimal" "TipoAnimal" NOT NULL,
+    "cantidadAnimales" INTEGER NOT NULL DEFAULT 0,
+    "pesoVivoPromedio" DOUBLE PRECISION,
+    "pesoFrioPromedio" DOUBLE PRECISION,
+    "rindePromedio" DOUBLE PRECISION,
+    "rindeMinimo" DOUBLE PRECISION,
+    "rindeMaximo" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RendimientoHistorico_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "rendimientoHistorico_anio_mes_especie_tipo" ON "RendimientoHistorico"("anio", "mes", "especie", "tipoAnimal");
+CREATE INDEX IF NOT EXISTS "RendimientoHistorico_anio_idx" ON "RendimientoHistorico"("anio");
+CREATE INDEX IF NOT EXISTS "RendimientoHistorico_mes_idx" ON "RendimientoHistorico"("mes");
+CREATE INDEX IF NOT EXISTS "RendimientoHistorico_especie_idx" ON "RendimientoHistorico"("especie");
+
+-- 53. ReporteAutomatico
+CREATE TABLE IF NOT EXISTS "ReporteAutomatico" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "tipo" TEXT NOT NULL,
+    "formato" TEXT NOT NULL DEFAULT 'PDF',
+    "frecuencia" TEXT NOT NULL,
+    "diaSemana" INTEGER,
+    "diaMes" INTEGER,
+    "hora" TEXT NOT NULL DEFAULT '08:00',
+    "destinatarios" TEXT NOT NULL,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "proximoEnvio" TIMESTAMP(3),
+    "ultimoEnvio" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReporteAutomatico_pkey" PRIMARY KEY ("id")
+);
+
+-- 54. ReporteSenasa
+CREATE TABLE IF NOT EXISTS "ReporteSenasa" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tipoReporte" "TipoReporteSenasa" NOT NULL,
+    "fechaDesde" TIMESTAMP(3) NOT NULL,
+    "fechaHasta" TIMESTAMP(3) NOT NULL,
+    "periodo" TEXT NOT NULL,
+    "estado" "EstadoReporteSenasa" NOT NULL DEFAULT 'PENDIENTE',
+    "fechaEnvio" TIMESTAMP(3),
+    "fechaConfirmacion" TIMESTAMP(3),
+    "mensajeError" TEXT,
+    "reintentos" INTEGER NOT NULL DEFAULT 0,
+    "archivoNombre" TEXT,
+    "archivoUrl" TEXT,
+    "datosReporte" TEXT,
+    "observaciones" TEXT,
+    "operadorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReporteSenasa_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "ReporteSenasa_tipoReporte_idx" ON "ReporteSenasa"("tipoReporte");
+CREATE INDEX IF NOT EXISTS "ReporteSenasa_estado_idx" ON "ReporteSenasa"("estado");
+CREATE INDEX IF NOT EXISTS "ReporteSenasa_fechaDesde_idx" ON "ReporteSenasa"("fechaDesde");
+CREATE INDEX IF NOT EXISTS "ReporteSenasa_fechaEnvio_idx" ON "ReporteSenasa"("fechaEnvio");
+
+-- 55. ResumenCostosFaena
+CREATE TABLE IF NOT EXISTS "ResumenCostosFaena" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "listaFaenaId" TEXT NOT NULL,
+    "totalAnimales" INTEGER,
+    "totalKg" DOUBLE PRECISION,
+    "costoTotal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "costoPorKg" DOUBLE PRECISION,
+    "costoPorAnimal" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ResumenCostosFaena_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "ResumenCostosFaena_listaFaenaId_key" ON "ResumenCostosFaena"("listaFaenaId");
+
+-- 56. RindeFaena
+CREATE TABLE IF NOT EXISTS "RindeFaena" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tropaId" TEXT,
+    "tropaCodigo" TEXT,
+    "numeroGarron" INTEGER,
+    "numeroAnimal" INTEGER,
+    "caravana" TEXT,
+    "raza" TEXT,
+    "tipoAnimal" TEXT,
+    "pesoVivo" DOUBLE PRECISION NOT NULL,
+    "pesoMediaA" DOUBLE PRECISION,
+    "pesoMediaB" DOUBLE PRECISION,
+    "pesoTotalMedia" DOUBLE PRECISION NOT NULL,
+    "rinde" DOUBLE PRECISION NOT NULL,
+    "rindePorcentaje" DOUBLE PRECISION NOT NULL,
+    "fechaFaena" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "matarife" TEXT,
+    "numeroDTE" TEXT,
+    "operadorId" TEXT,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RindeFaena_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "RindeFaena_tropaId_idx" ON "RindeFaena"("tropaId");
+CREATE INDEX IF NOT EXISTS "RindeFaena_tropaCodigo_idx" ON "RindeFaena"("tropaCodigo");
+CREATE INDEX IF NOT EXISTS "RindeFaena_fechaFaena_idx" ON "RindeFaena"("fechaFaena");
+
+-- 57. RotuloElemento
+CREATE TABLE IF NOT EXISTS "RotuloElemento" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "rotuloId" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "campo" TEXT,
+    "textoFijo" TEXT,
+    "posX" INTEGER NOT NULL DEFAULT 0,
+    "posY" INTEGER NOT NULL DEFAULT 0,
+    "ancho" INTEGER DEFAULT 100,
+    "alto" INTEGER DEFAULT 30,
+    "fuente" TEXT DEFAULT '0',
+    "tamano" INTEGER DEFAULT 10,
+    "negrita" BOOLEAN NOT NULL DEFAULT false,
+    "anchoFuente" INTEGER DEFAULT 0,
+    "alineacion" TEXT DEFAULT 'LEFT',
+    "tipoCodigo" TEXT DEFAULT 'CODE128',
+    "altoCodigo" INTEGER DEFAULT 60,
+    "mostrarTexto" BOOLEAN NOT NULL DEFAULT true,
+    "grosorLinea" INTEGER DEFAULT 2,
+    "color" TEXT DEFAULT 'B',
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RotuloElemento_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "RotuloElemento_rotuloId_idx" ON "RotuloElemento"("rotuloId");
+CREATE INDEX IF NOT EXISTS "RotuloElemento_tipo_idx" ON "RotuloElemento"("tipo");
+
+-- 58. Sesion
+CREATE TABLE IF NOT EXISTS "Sesion" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "operadorId" TEXT NOT NULL,
+    "ip" TEXT NOT NULL,
+    "userAgent" TEXT,
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "fechaInicio" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaExpiracion" TIMESTAMP(3) NOT NULL,
+    "fechaCierre" TIMESTAMP(3),
+    "motivoCierre" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Sesion_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "Sesion_operadorId_idx" ON "Sesion"("operadorId");
+CREATE INDEX IF NOT EXISTS "Sesion_activa_idx" ON "Sesion"("activa");
+
+-- 59. SesionRomaneo
+CREATE TABLE IF NOT EXISTS "SesionRomaneo" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "operadorId" TEXT NOT NULL,
+    "tipificadorId" TEXT,
+    "camaraId" TEXT,
+    "ultimoGarron" INTEGER,
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "fechaInicio" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaFin" TIMESTAMP(3),
+
+    CONSTRAINT "SesionRomaneo_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "SesionRomaneo_operadorId_idx" ON "SesionRomaneo"("operadorId");
+CREATE INDEX IF NOT EXISTS "SesionRomaneo_activa_idx" ON "SesionRomaneo"("activa");
+
+-- 60. StockCamara
+CREATE TABLE IF NOT EXISTS "StockCamara" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "productoId" TEXT NOT NULL,
+    "camaraId" TEXT NOT NULL,
+    "cantidad" INTEGER,
+    "pesoTotal" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "StockCamara_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "StockCamara_productoId_idx" ON "StockCamara"("productoId");
+CREATE INDEX IF NOT EXISTS "StockCamara_camaraId_idx" ON "StockCamara"("camaraId");
+
+-- 61. StockCamaraSIGICA
+CREATE TABLE IF NOT EXISTS "StockCamaraSIGICA" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "camaraId" TEXT NOT NULL,
+    "totalMedias" INTEGER NOT NULL DEFAULT 0,
+    "totalKg" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "bovinosMedias" INTEGER NOT NULL DEFAULT 0,
+    "bovinosKg" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "equinosMedias" INTEGER NOT NULL DEFAULT 0,
+    "equinosKg" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "remanenteKg" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "sincronizado" BOOLEAN NOT NULL DEFAULT false,
+    "ultimaActualizacion" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "StockCamaraSIGICA_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "StockCamaraSIGICA_camaraId_key" ON "StockCamaraSIGICA"("camaraId");
+
+-- 62. StockInsumo
+CREATE TABLE IF NOT EXISTS "StockInsumo" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "insumoId" TEXT NOT NULL,
+    "depositoId" TEXT NOT NULL,
+    "cantidad" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "cantidadMinima" DOUBLE PRECISION,
+    "cantidadMaxima" DOUBLE PRECISION,
+    "precioPromedio" DOUBLE PRECISION,
+    "valorTotal" DOUBLE PRECISION,
+    "ultimoIngreso" TIMESTAMP(3),
+    "ultimaSalida" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "StockInsumo_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "stockInsumo_insumo_deposito" ON "StockInsumo"("insumoId", "depositoId");
+CREATE INDEX IF NOT EXISTS "StockInsumo_depositoId_idx" ON "StockInsumo"("depositoId");
+
+-- 63. StockProducto
+CREATE TABLE IF NOT EXISTS "StockProducto" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "productoNombre" TEXT NOT NULL,
+    "productoId" TEXT,
+    "productoDesposteId" TEXT,
+    "lote" TEXT,
+    "tropaCodigo" TEXT,
+    "camaraId" TEXT,
+    "cantidad" INTEGER NOT NULL DEFAULT 0,
+    "pesoTotal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "tipo" TEXT,
+    "estado" TEXT NOT NULL DEFAULT 'DISPONIBLE',
+    "fechaIngreso" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "StockProducto_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "StockProducto_productoId_idx" ON "StockProducto"("productoId");
+CREATE INDEX IF NOT EXISTS "StockProducto_camaraId_idx" ON "StockProducto"("camaraId");
+CREATE INDEX IF NOT EXISTS "StockProducto_estado_idx" ON "StockProducto"("estado");
+CREATE INDEX IF NOT EXISTS "StockProducto_tropaCodigo_idx" ON "StockProducto"("tropaCodigo");
+
+-- 64. SubproductoIncomestible
+CREATE TABLE IF NOT EXISTS "SubproductoIncomestible" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "tipo" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "kilos" DOUBLE PRECISION NOT NULL,
+    "cantidad" INTEGER,
+    "tropaCodigo" TEXT,
+    "fechaFaena" TIMESTAMP(3),
+    "destino" TEXT,
+    "clienteId" TEXT,
+    "precioKg" DOUBLE PRECISION,
+    "montoTotal" DOUBLE PRECISION,
+    "estado" TEXT NOT NULL DEFAULT 'DISPONIBLE',
+    "operadorId" TEXT,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SubproductoIncomestible_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "SubproductoIncomestible_tipo_idx" ON "SubproductoIncomestible"("tipo");
+CREATE INDEX IF NOT EXISTS "SubproductoIncomestible_estado_idx" ON "SubproductoIncomestible"("estado");
+CREATE INDEX IF NOT EXISTS "SubproductoIncomestible_fecha_idx" ON "SubproductoIncomestible"("fecha");
+
+-- 65. Terminal
+CREATE TABLE IF NOT EXISTS "Terminal" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "ubicacion" TEXT,
+    "balanzaId" TEXT,
+    "impresoraId" TEXT,
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Terminal_pkey" PRIMARY KEY ("id")
+);
+
+-- 66. TipoServicio
+CREATE TABLE IF NOT EXISTS "TipoServicio" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "codigo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "unidad" TEXT NOT NULL DEFAULT 'KG',
+    "seFactura" BOOLEAN NOT NULL DEFAULT true,
+    "incluidoEn" TEXT,
+    "porcentajeIva" DOUBLE PRECISION NOT NULL DEFAULT 21,
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TipoServicio_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "TipoServicio_codigo_key" ON "TipoServicio"("codigo");
+CREATE INDEX IF NOT EXISTS "TipoServicio_activo_idx" ON "TipoServicio"("activo");
+CREATE INDEX IF NOT EXISTS "TipoServicio_orden_idx" ON "TipoServicio"("orden");
+
+-- 67. TipoTarifa
+CREATE TABLE IF NOT EXISTS "TipoTarifa" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "codigo" TEXT NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "unidad" TEXT NOT NULL DEFAULT 'POR_KG',
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TipoTarifa_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "TipoTarifa_codigo_key" ON "TipoTarifa"("codigo");
+CREATE INDEX IF NOT EXISTS "TipoTarifa_activo_idx" ON "TipoTarifa"("activo");
+CREATE INDEX IF NOT EXISTS "TipoTarifa_orden_idx" ON "TipoTarifa"("orden");
+
+-- 68. TipoTrabajo
+CREATE TABLE IF NOT EXISTS "TipoTrabajo" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "codigo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "esDefault" BOOLEAN NOT NULL DEFAULT false,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TipoTrabajo_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "TipoTrabajo_codigo_key" ON "TipoTrabajo"("codigo");
+
+-- 69. UsuarioCalidad
+CREATE TABLE IF NOT EXISTS "UsuarioCalidad" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "nombre" TEXT NOT NULL,
+    "apellido" TEXT NOT NULL,
+    "dni" TEXT,
+    "cuit" TEXT,
+    "tipo" TEXT NOT NULL DEFAULT 'EMPLEADO',
+    "area" TEXT,
+    "sector" TEXT,
+    "puesto" TEXT,
+    "telefono" TEXT,
+    "email" TEXT,
+    "direccion" TEXT,
+    "fechaIngreso" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaEgreso" TIMESTAMP(3),
+    "estado" TEXT NOT NULL DEFAULT 'ACTIVO',
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UsuarioCalidad_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "UsuarioCalidad_dni_key" ON "UsuarioCalidad"("dni");
+CREATE INDEX IF NOT EXISTS "UsuarioCalidad_estado_idx" ON "UsuarioCalidad"("estado");
+
+-- 70. ValorIndicador
+CREATE TABLE IF NOT EXISTS "ValorIndicador" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    "indicadorId" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "valor" DOUBLE PRECISION NOT NULL,
+    "valorMeta" DOUBLE PRECISION,
+    "desviacion" DOUBLE PRECISION,
+    "observaciones" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ValorIndicador_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "valorIndicador_indicador_fecha" ON "ValorIndicador"("indicadorId", "fecha");
+CREATE INDEX IF NOT EXISTS "ValorIndicador_indicadorId_idx" ON "ValorIndicador"("indicadorId");
+CREATE INDEX IF NOT EXISTS "ValorIndicador_fecha_idx" ON "ValorIndicador"("fecha");
