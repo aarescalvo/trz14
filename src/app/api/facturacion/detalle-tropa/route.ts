@@ -3,6 +3,19 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+const MESES_NOMBRES = [
+  'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+  'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+]
+
+// Calcula el mes en español desde una fecha
+function calcularMesDesdeFecha(fecha: string | null | undefined): string | null {
+  if (!fecha) return null
+  const d = new Date(fecha)
+  if (isNaN(d.getTime())) return null
+  return MESES_NOMBRES[d.getMonth()] || null
+}
+
 // GET — Listar detalles con filtros
 export async function GET(request: NextRequest) {
   try {
@@ -84,6 +97,11 @@ export async function GET(request: NextRequest) {
               estado: true,
               usuarioFaena: {
                 select: { id: true, nombre: true, cuit: true }
+              },
+              planillasServicioFaena: {
+                select: { fechaFaena: true },
+                take: 1,
+                orderBy: { fechaFaena: 'desc' }
               }
             }
           }
@@ -95,13 +113,21 @@ export async function GET(request: NextRequest) {
       prisma.detalleTropaFaena.count({ where })
     ])
 
-    // Calculate total operación for each record
-    const detallesConTotal = detalles.map(d => ({
-      ...d,
-      totalOperacion: d.valorServicioFaena + d.servicioDespostada + d.factCompraMenudencia +
-        d.factVentaMenudencia + d.ventaChinchulin + d.montoHueso + d.montoDesperdicio +
-        d.montoGrasa + d.montoCuero + d.montoGrasaDressing,
-    }))
+    // Calcular total operación + mes desde fechaFaena para cada registro
+    // Prioridad: 1) PlanillaServicioFaena.fechaFaena, 2) Tropa.fechaFaena, 3) campo manual
+    const detallesConTotal = detalles.map(d => {
+      const planillaFecha = d.tropa?.planillasServicioFaena?.[0]?.fechaFaena
+      const tropaFecha = d.tropa?.fechaFaena
+      const mesCalculado = calcularMesDesdeFecha(planillaFecha?.toISOString()) ||
+                            calcularMesDesdeFecha(tropaFecha?.toISOString())
+      return {
+        ...d,
+        mes: mesCalculado || d.mes,
+        totalOperacion: d.valorServicioFaena + d.servicioDespostada + d.factCompraMenudencia +
+          d.factVentaMenudencia + d.ventaChinchulin + d.montoHueso + d.montoDesperdicio +
+          d.montoGrasa + d.montoCuero + d.montoGrasaDressing,
+      }
+    })
 
     // Resumen
     const resumen = {
@@ -176,8 +202,17 @@ export async function POST(request: NextRequest) {
       valorServicioFaena, servicioDespostada, factCompraMenudencia, factVentaMenudencia,
       ventaChinchulin, montoHueso, montoDesperdicio, montoGrasa, montoCuero, montoGrasaDressing } = body
 
-    // Verify tropa exists
-    const tropa = await prisma.tropa.findUnique({ where: { id: tropaId } })
+    // Verify tropa exists (include planilla para obtener fechaFaena)
+    const tropa = await prisma.tropa.findUnique({
+      where: { id: tropaId },
+      include: {
+        planillasServicioFaena: {
+          select: { fechaFaena: true },
+          take: 1,
+          orderBy: { fechaFaena: 'desc' }
+        }
+      }
+    })
     if (!tropa) {
       return NextResponse.json({ success: false, error: 'Tropa no encontrada' }, { status: 404 })
     }
@@ -188,9 +223,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Ya existe un detalle para esta tropa' }, { status: 400 })
     }
 
+    // Auto-calcular mes desde fechaFaena (prioridad: planilla > tropa > manual)
+    const planillaFecha = tropa.planillasServicioFaena?.[0]?.fechaFaena
+    const tropaFecha = tropa.fechaFaena
+    const mesFinal = mes ||
+      calcularMesDesdeFecha(planillaFecha?.toISOString()) ||
+      calcularMesDesdeFecha(tropaFecha?.toISOString()) ||
+      null
+
     const detalle = await prisma.detalleTropaFaena.create({
       data: {
-        tropaId, numeroTropa, mes, usuario, cantidadAnimales, precioServicio,
+        tropaId, numeroTropa, mes: mesFinal, usuario, cantidadAnimales, precioServicio,
         kgGancho, valorServicioFaena, servicioDespostada: servicioDespostada || 0,
         factCompraMenudencia: factCompraMenudencia || 0, factVentaMenudencia: factVentaMenudencia || 0,
         ventaChinchulin: ventaChinchulin || 0, montoHueso: montoHueso || 0,
@@ -215,6 +258,33 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID requerido' }, { status: 400 })
+    }
+
+    // Auto-calcular mes desde fechaFaena al actualizar
+    // Prioridad: planilla > tropa > mantener actual
+    const detalleActual = await prisma.detalleTropaFaena.findUnique({
+      where: { id },
+      include: {
+        tropa: {
+          select: {
+            fechaFaena: true,
+            planillasServicioFaena: {
+              select: { fechaFaena: true },
+              take: 1,
+              orderBy: { fechaFaena: 'desc' }
+            }
+          }
+        }
+      }
+    })
+    if (detalleActual?.tropa) {
+      const planillaFecha = detalleActual.tropa.planillasServicioFaena?.[0]?.fechaFaena
+      const tropaFecha = detalleActual.tropa.fechaFaena
+      const mesCalculado = calcularMesDesdeFecha(planillaFecha?.toISOString()) ||
+                            calcularMesDesdeFecha(tropaFecha?.toISOString())
+      if (mesCalculado) {
+        data.mes = mesCalculado
+      }
     }
 
     const detalle = await prisma.detalleTropaFaena.update({
