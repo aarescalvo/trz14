@@ -1,6 +1,11 @@
 /**
  * Importación de RINDE FAENA BOVINO.xlsx → tabla RindeFaena + actualiza Tropa
  * 
+ * SOPORTA 3 FORMATOS DE HOJA:
+ * - Formato 1 (Tropas ~1-20): Header en col F/G rows 2-8, animales desde row 10
+ * - Formato 2 (Tropas ~100+): Header "Fecha Faena" en row 11-12 col E, animales desde row ~22
+ * - Formato 3 (Tropas ~190+): Header "Fecha Faena" en row 13-14 col E, animales desde row ~24
+ * 
  * DATOS QUE IMPORTA:
  * - RindeFaena: datos por animal (peso vivo, media res A/B, rinde, caravana, raza, tipo)
  * - Tropa.fechaFaena: desde la fecha de faena del Excel
@@ -38,8 +43,13 @@ const TIPO_ANIMAL_MAP: Record<string, string> = {
   'NOVILLITO': 'NT',
 }
 
-// Normalizar tipo de animal
-function normalizarTipoAnimal(raw: string): string {
+// Normalizar tipo de animal — usa la columna de clasificación si está disponible (col G en formatos 2/3)
+function normalizarTipoAnimal(raw: string, clasificacion?: string): string {
+  // Priorizar clasificación explícita (MEJ, VQ, NO, etc.)
+  if (clasificacion && clasificacion.trim()) {
+    const upper = clasificacion.trim().toUpperCase()
+    if (TIPO_ANIMAL_MAP[upper]) return TIPO_ANIMAL_MAP[upper]
+  }
   if (!raw) return 'NT'
   // Puede venir como "2D - VQ" → extraer la parte después del guión
   const parts = raw.split('-').map(s => s.trim())
@@ -59,18 +69,53 @@ function normalizarRaza(raw: string): string | null {
 // Convertir fecha Excel serial (días desde 1900-01-01) a Date
 function excelDateToDate(serial: number): Date | null {
   if (!serial || serial < 1) return null
-  // Excel epoch: 25569 = days from 1900-01-01 to 1970-01-01 (Unix epoch)
-  // Excel bug: treats 1900 as leap year, so subtract 1 for dates after Feb 28, 1900
   const unixMs = (serial - 25569) * 86400 * 1000
   const d = new Date(unixMs)
   if (isNaN(d.getTime())) return null
   return d
 }
 
+// Convertir cualquier valor de fecha (puede ser serial, string, o Date) a Date
+function parseFechaFaena(raw: any): Date | null {
+  if (!raw) return null
+  // Si ya es un objeto Date
+  if (raw instanceof Date && !isNaN(raw.getTime())) return raw
+  // Si es string "2026-05-22 00:00:00" o "2026-05-22"
+  if (typeof raw === 'string') {
+    const d = new Date(raw)
+    if (!isNaN(d.getTime())) return d
+    return null
+  }
+  // Si es número (Excel serial)
+  if (typeof raw === 'number') return excelDateToDate(raw)
+  return null
+}
+
 // Leer celda segura
 function getCell(sheet: XLSX.WorkSheet, row: number, col: number): any {
   const addr = XLSX.utils.encode_cell({ r: row, c: col })
   return sheet[addr]?.v ?? null
+}
+
+// Buscar una fila que contenga un texto específico en una columna
+function findRowByText(sheet: XLSX.WorkSheet, col: number, text: string, startRow: number = 0, endRow: number = 30): number {
+  const search = text.toUpperCase()
+  for (let r = startRow; r <= endRow; r++) {
+    const val = String(getCell(sheet, r, col) || '').toUpperCase()
+    if (val.includes(search)) return r
+  }
+  return -1
+}
+
+// Buscar fila del header de animales (contiene "GARRON")
+function findAnimalHeaderRow(sheet: XLSX.WorkSheet, startRow: number = 10, endRow: number = 30): number {
+  for (let r = startRow; r <= endRow; r++) {
+    for (let c = 2; c <= 8; c++) {
+      const val = String(getCell(sheet, r, c) || '').toUpperCase()
+      if (val.includes('GARRON')) return r
+    }
+  }
+  return -1
 }
 
 interface TropaExcelData {
@@ -83,6 +128,7 @@ interface TropaExcelData {
   matarife: string | null
   dte: string | null
   animales: AnimalExcelData[]
+  formato: string // '1', '2', o '3'
 }
 
 interface AnimalExcelData {
@@ -96,6 +142,199 @@ interface AnimalExcelData {
   kgMediaB: number | null
   kgTotal: number
   rinde: number
+}
+
+/**
+ * Detecta el formato de la hoja y extrae todos los datos.
+ * 
+ * Formato 1 (Tropas ~1-20):
+ *   Row 3, Col F (5): "SOBRE kg vivo de:" → valor en Col G (6)
+ *   Row 4, Col F (5): "SOBRE 1/2 res de:" → valor en Col G (6)
+ *   Row 5, Col F (5): "FECHA DE FAENA:" → valor en Col G (6)
+ *   Row 6, Col F (5): "TROPA Nº:" → valor en Col G (6)
+ *   Row 7, Col F (5): "CANTIDAD ANIMALES:" → valor en Col G (6)
+ *   Row 7, Col I (8): "MATARIFE:" → valor en Col J (9)
+ *   Row 8, Col I (8): "Nº DTE:" → valor en Col J (9)
+ *   Animales: Row 10+ (header en row 10), col C= Garrón, D= Animal, E= Raza, F= Tipo, G= Caravana, H= Kg entrada, I= 1/2A, J= 1/2B, K= Total, L= Rinde
+ * 
+ * Formato 2 (Tropas ~100+):
+ *   Row ~8, Col C (2): "Usuario/Matarife:" → valor en Col E (4)
+ *   Row ~9, Col C (2): "Matricula:" → valor en Col E (4)
+ *   Row ~9, Col I (8): "Nº DTE:" → valor en Col J (9)
+ *   Row ~11-12, Col D (3): "Fecha Faena:" → valor en Col E (4)
+ *   Row ~12-13, Col C (2): "Nº Tropa:" → valor en Col E (4)
+ *   Row ~13-14, Col C (2): "Cantidad Cabeza:" → valor en Col E (4)
+ *   Animales: Row ~22+ (header con "GARRON"), col C= Garrón, D= Animal, E= Raza, F= Tipo, G= Clasif, H= Caravana, I= Kg entrada, J= 1/2A, K= 1/2B, L= Total, M= Rinde
+ * 
+ * Formato 3 (Tropas ~190+):
+ *   Igual al Formato 2 pero con más filas de menudencia arriba, 
+ *   "Fecha Faena" en row ~14 en vez de ~12
+ *   Animales desde row ~24 en vez de ~22
+ */
+function parseTropaSheet(sheetName: string, sheet: XLSX.WorkSheet): TropaExcelData | null {
+  // Extraer número de tropa
+  const tropaMatch = sheetName.match(/T\s+(\d+)/)
+  if (!tropaMatch) return null
+  const numeroTropa = parseInt(tropaMatch[1])
+
+  // Detectar formato buscando "GARRON" en la hoja
+  const animalHeaderRow = findAnimalHeaderRow(sheet, 8, 30)
+  if (animalHeaderRow === -1) {
+    // No se encontraron datos de animales
+    return {
+      numeroTropa,
+      fechaFaena: null,
+      kgVivoTotal: 0,
+      kgMedioRes: 0,
+      rindePromedio: 0,
+      cantidadAnimales: 0,
+      matarife: null,
+      dte: null,
+      animales: [],
+      formato: '?',
+    }
+  }
+
+  // Determinar formato basado en posición del header de animales
+  let formato: string
+  let fechaFaena: Date | null = null
+  let matarife: string | null = null
+  let dte: string | null = null
+  let kgVivoTotal = 0
+  let kgMedioRes = 0
+  let rindePromedio = 0
+  let cantidadAnimales = 0
+  // Column mapping para animales: {garron, animal, raza, tipo, clasificacion, caravana, kgEntrada, kgMediaA, kgMediaB, kgTotal, rinde}
+  let colMap: { garron: number; animal: number; raza: number; tipo: number; clasif: number; caravana: number; kgEntrada: number; kgMediaA: number; kgMediaB: number; kgTotal: number; rinde: number }
+
+  if (animalHeaderRow <= 11) {
+    // FORMATO 1: animales desde row 10-11
+    formato = '1'
+    const dataStartRow = animalHeaderRow + 1 // fila siguiente al header
+
+    // Header: Row 5 col F="FECHA DE FAENA", valor en col G
+    const fechaRow = findRowByText(sheet, 5, 'FECHA DE FAENA', 3, 8)
+    if (fechaRow >= 0) {
+      fechaFaena = parseFechaFaena(getCell(sheet, fechaRow, 6))
+    }
+
+    // Matarife: Row 7 col I="MATARIFE", valor en col J
+    const matarifeRow = findRowByText(sheet, 8, 'MATARIFE', 5, 10)
+    if (matarifeRow >= 0) {
+      matarife = String(getCell(sheet, matarifeRow, 9) || '').trim() || null
+    }
+
+    // DTE: Row 8 col I="Nº DTE", valor en col J
+    const dteRow = findRowByText(sheet, 8, 'Nº DTE', 5, 10)
+    if (dteRow >= 0) {
+      dte = String(getCell(sheet, dteRow, 9) || '').trim() || null
+    }
+
+    // kg vivo: Row 3 col F="SOBRE kg vivo de:", valor en col G
+    const kgVivoRow = findRowByText(sheet, 5, 'SOBRE kg vivo', 1, 6)
+    if (kgVivoRow >= 0) {
+      kgVivoTotal = Number(getCell(sheet, kgVivoRow, 6)) || 0
+    }
+
+    // kg 1/2 res: Row 4 col F
+    const kgResRow = findRowByText(sheet, 5, 'SOBRE 1/2 res', 1, 6)
+    if (kgResRow >= 0) {
+      kgMedioRes = Number(getCell(sheet, kgResRow, 6)) || 0
+    }
+
+    // Cantidad animales: Row 7 col F
+    const cantRow = findRowByText(sheet, 5, 'CANTIDAD ANIMALES', 5, 10)
+    if (cantRow >= 0) {
+      cantidadAnimales = Number(getCell(sheet, cantRow, 6)) || 0
+    }
+
+    // Columnas: C=2 Garrón, D=3 Animal, E=4 Raza, F=5 Tipo, G=6 Caravana, H=7 Kg Entrada, I=8 1/2A, J=9 1/2B, K=10 Total, L=11 Rinde
+    colMap = { garron: 2, animal: 3, raza: 4, tipo: 5, clasif: 6, caravana: 6, kgEntrada: 7, kgMediaA: 8, kgMediaB: 9, kgTotal: 10, rinde: 11 }
+
+    // Leer animales
+    const animales: AnimalExcelData[] = []
+    for (let r = dataStartRow; r <= 200; r++) {
+      const numGarron = getCell(sheet, r, colMap.garron)
+      const numAnimal = getCell(sheet, r, colMap.animal)
+      if (!numGarron && !numAnimal) break
+
+      animales.push({
+        numeroGarron: Number(numGarron) || 0,
+        numeroAnimal: Number(numAnimal) || 0,
+        raza: normalizarRaza(String(getCell(sheet, r, colMap.raza) || '')),
+        tipoAnimal: normalizarTipoAnimal(String(getCell(sheet, r, colMap.tipo) || '')),
+        caravana: String(getCell(sheet, r, colMap.caravana) || '').trim() || null,
+        kgEntrada: Number(getCell(sheet, r, colMap.kgEntrada)) || 0,
+        kgMediaA: getCell(sheet, r, colMap.kgMediaA) != null ? Number(getCell(sheet, r, colMap.kgMediaA)) : null,
+        kgMediaB: getCell(sheet, r, colMap.kgMediaB) != null ? Number(getCell(sheet, r, colMap.kgMediaB)) : null,
+        kgTotal: Number(getCell(sheet, r, colMap.kgTotal)) || 0,
+        rinde: Number(getCell(sheet, r, colMap.rinde)) || 0,
+      })
+    }
+
+    return { numeroTropa, fechaFaena, kgVivoTotal, kgMedioRes, rindePromedio, cantidadAnimales, matarife, dte, animales, formato }
+
+  } else {
+    // FORMATO 2 o 3: animales desde row 20+ (detectado por findAnimalHeaderRow)
+    formato = animalHeaderRow <= 22 ? '2' : '3'
+    const dataStartRow = animalHeaderRow + 2 // header + fila de "Denticion/Clasificacion"
+
+    // Buscar "Fecha Faena:" en col D (3), valor en col E (4)
+    const fechaRow = findRowByText(sheet, 3, 'Fecha Faena', 8, 20)
+    if (fechaRow >= 0) {
+      fechaFaena = parseFechaFaena(getCell(sheet, fechaRow, 4))
+    }
+
+    // Matarife: "Usuario/Matarife:" en col C (2), valor en col E (4)
+    const matarifeRow = findRowByText(sheet, 2, 'Usuario/Matarife', 5, 15)
+    if (matarifeRow >= 0) {
+      matarife = String(getCell(sheet, matarifeRow, 4) || '').trim() || null
+    }
+
+    // DTE: "Nº DTE:" en col I (8), valor en col J (9)
+    const dteRow = findRowByText(sheet, 8, 'Nº DTE', 5, 15)
+    if (dteRow >= 0) {
+      dte = String(getCell(sheet, dteRow, 9) || '').trim() || null
+    }
+
+    // Cantidad cabezas: "Cantidad Cabeza:" en col C (2), valor en col E (4)
+    const cantRow = findRowByText(sheet, 2, 'Cantidad Cabeza', 8, 20)
+    if (cantRow >= 0) {
+      cantidadAnimales = Number(getCell(sheet, cantRow, 4)) || 0
+    }
+
+    // Columnas: C=2 Garrón, D=3 Animal, E=4 Raza, F=5 Tipo, G=6 Clasificacion, H=7 Caravana, I=8 Kg Entrada, J=9 1/2A, K=10 1/2B, L=11 Total, M=12 Rinde
+    colMap = { garron: 2, animal: 3, raza: 4, tipo: 5, clasif: 6, caravana: 7, kgEntrada: 8, kgMediaA: 9, kgMediaB: 10, kgTotal: 11, rinde: 12 }
+
+    // Leer animales
+    const animales: AnimalExcelData[] = []
+    for (let r = dataStartRow; r <= 200; r++) {
+      const numGarron = getCell(sheet, r, colMap.garron)
+      const numAnimal = getCell(sheet, r, colMap.animal)
+      // Stop si no hay garrón ni animal (fin de datos)
+      // Pero verificar que no sea la fila de totales (que tiene fórmulas en col D)
+      if (!numGarron && !numAnimal) break
+      // Skip la fila de totales (si col D tiene COUNT o SUM)
+      if (typeof numAnimal === 'string' && (numAnimal.includes('COUNT') || numAnimal.includes('SUM'))) break
+
+      const clasificacion = String(getCell(sheet, r, colMap.clasif) || '')
+
+      animales.push({
+        numeroGarron: Number(numGarron) || 0,
+        numeroAnimal: Number(numAnimal) || 0,
+        raza: normalizarRaza(String(getCell(sheet, r, colMap.raza) || '')),
+        tipoAnimal: normalizarTipoAnimal(String(getCell(sheet, r, colMap.tipo) || ''), clasificacion),
+        caravana: String(getCell(sheet, r, colMap.caravana) || '').trim() || null,
+        kgEntrada: Number(getCell(sheet, r, colMap.kgEntrada)) || 0,
+        kgMediaA: getCell(sheet, r, colMap.kgMediaA) != null ? Number(getCell(sheet, r, colMap.kgMediaA)) : null,
+        kgMediaB: getCell(sheet, r, colMap.kgMediaB) != null ? Number(getCell(sheet, r, colMap.kgMediaB)) : null,
+        kgTotal: Number(getCell(sheet, r, colMap.kgTotal)) || 0,
+        rinde: Number(getCell(sheet, r, colMap.rinde)) || 0,
+      })
+    }
+
+    return { numeroTropa, fechaFaena, kgVivoTotal, kgMedioRes, rindePromedio, cantidadAnimales, matarife, dte, animales, formato }
+  }
 }
 
 async function main() {
@@ -129,7 +368,7 @@ async function main() {
 
   // 2. Estado actual BD
   const tropasExistentes = await db.tropa.findMany({
-    select: { id: true, numero: true, fechaFaena: true, kgGancho: true, dte: true },
+    select: { id: true, numero: true, fechaFaena: true, kgGancho: true, dte: true, codigo: true },
   })
   const tropaByNumero = new Map(tropasExistentes.map(t => [t.numero, t]))
 
@@ -141,64 +380,32 @@ async function main() {
   console.log(`Tropas en BD: ${tropasExistentes.length}`)
   console.log(`Rindes en BD: ${rindesExistentes.length}\n`)
 
-  // 3. Parsear cada hoja
+  // 3. Parsear cada hoja con detección automática de formato
   const tropasData: TropaExcelData[] = []
+  const formatoCount = { '1': 0, '2': 0, '3': 0, '?': 0 }
 
   for (const sheetName of sheetNames) {
     const sheet = workbook.Sheets[sheetName]
     if (!sheet) continue
 
-    // Extraer número de tropa del nombre "T 01" → 1, "T 203" → 203
-    const tropaMatch = sheetName.match(/T\s+(\d+)/)
-    if (!tropaMatch) continue
-    const numeroTropa = parseInt(tropaMatch[1])
+    const parsed = parseTropaSheet(sheetName, sheet)
+    if (!parsed) continue
 
-    // Leer datos del header (filas 0-indexed)
-    const fechaFaenaSerial = getCell(sheet, 4, 6) // Row 4, Col 6: FECHA DE FAENA
-    const kgVivoTotal = getCell(sheet, 2, 6) // Row 2, Col 6: SOBRE kg vivo de
-    const kgMedioRes = getCell(sheet, 3, 6) // Row 3, Col 6: SOBRE 1/2 res de
-    const rindePromedio = getCell(sheet, 3, 8) // Row 3, Col 8: rinde
-    const cantidadAnimales = getCell(sheet, 6, 7) // Row 6, Col 7: CANTIDAD ANIMALES
-    const matarife = getCell(sheet, 6, 10) // Row 6, Col 10: MATARIFE
-    const dte = getCell(sheet, 7, 10) // Row 7, Col 10: Nº DTE
-
-    const fechaFaena = excelDateToDate(Number(fechaFaenaSerial))
-
-    // Leer animales (desde fila 10 en adelante)
-    const animales: AnimalExcelData[] = []
-    for (let r = 10; r <= 200; r++) {
-      const numGarron = getCell(sheet, r, 2)
-      const numAnimal = getCell(sheet, r, 3)
-      if (!numGarron && !numAnimal) break // fin de datos
-
-      animales.push({
-        numeroGarron: Number(numGarron) || 0,
-        numeroAnimal: Number(numAnimal) || 0,
-        raza: normalizarRaza(String(getCell(sheet, r, 4) || '')),
-        tipoAnimal: normalizarTipoAnimal(String(getCell(sheet, r, 5) || '')),
-        caravana: String(getCell(sheet, r, 6) || '').trim() || null,
-        kgEntrada: Number(getCell(sheet, r, 7)) || 0,
-        kgMediaA: getCell(sheet, r, 8) != null ? Number(getCell(sheet, r, 8)) : null,
-        kgMediaB: getCell(sheet, r, 9) != null ? Number(getCell(sheet, r, 9)) : null,
-        kgTotal: Number(getCell(sheet, r, 10)) || 0,
-        rinde: Number(getCell(sheet, r, 11)) || 0,
-      })
-    }
-
-    tropasData.push({
-      numeroTropa,
-      fechaFaena,
-      kgVivoTotal: Number(kgVivoTotal) || 0,
-      kgMedioRes: Number(kgMedioRes) || 0,
-      rindePromedio: Number(rindePromedio) || 0,
-      cantidadAnimales: Number(cantidadAnimales) || 0,
-      matarife: matarife ? String(matarife).trim() : null,
-      dte: dte ? String(dte).trim() : null,
-      animales,
-    })
+    formatoCount[parsed.formato as keyof typeof formatoCount]++
+    tropasData.push(parsed)
   }
 
-  console.log(`Tropas parseadas del Excel: ${tropasData.length}\n`)
+  console.log(`Tropas parseadas del Excel: ${tropasData.length}`)
+  console.log(`  Formato 1 (viejo): ${formatoCount['1']}`)
+  console.log(`  Formato 2 (medio): ${formatoCount['2']}`)
+  console.log(`  Formato 3 (nuevo): ${formatoCount['3']}`)
+  console.log(`  Sin formato:       ${formatoCount['?']}\n`)
+
+  // Mostrar tropas con fecha vacía
+  const sinFecha = tropasData.filter(t => !t.fechaFaena).map(t => t.numeroTropa)
+  if (sinFecha.length > 0) {
+    console.log(`Tropas sin fecha de faena en Excel: ${sinFecha.join(', ')}\n`)
+  }
 
   // 4. Actualizar Tropa (fechaFaena, kgGancho, DTE) — solo si están vacíos
   let tropasActualizadas = 0
@@ -276,7 +483,7 @@ async function main() {
             pesoMediaB: animal.kgMediaB,
             pesoTotalMedia: animal.kgTotal,
             rinde: animal.rinde,
-            rindePorcentaje: Math.round(animal.rinde * 10000) / 100, // ej: 0.5756 → 57.56
+            rindePorcentaje: Math.round(animal.rinde * 10000) / 100,
             fechaFaena: td.fechaFaena || new Date(),
             matarife: td.matarife,
             numeroDTE: td.dte,
