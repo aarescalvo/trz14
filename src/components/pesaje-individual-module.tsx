@@ -5,7 +5,7 @@ import {
   Scale, RefreshCw, Plus, CheckCircle, AlertCircle,
   Beef, Edit, Trash2, ArrowRight, Minus, AlertTriangle, ClipboardCheck, Printer, 
   Edit3, Save, X, Settings2, Move, Eye, Type, Palette, ChevronUp, ChevronDown,
-  Maximize, Minimize, FileText
+  Maximize, Minimize, FileText, Search, Calendar, Weight, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -329,6 +329,14 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
   const [impresoraAncho, setImpresoraAncho] = useState(100)        // mm
   const [impresoraAlto, setImpresoraAlto] = useState(50)           // mm
 
+  // Historial de pesajes
+  const [historial, setHistorial] = useState<any[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialBusqueda, setHistorialBusqueda] = useState('')
+  const [historialPage, setHistorialPage] = useState(1)
+  const [historialTotalPages, setHistorialTotalPages] = useState(0)
+  const [historialTotal, setHistorialTotal] = useState(0)
+
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ animal: Animal; action: 'delete' | 'repesar' } | null>(null)
@@ -453,6 +461,48 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       setLoading(false)
     }
   }
+
+  // Fetch historial de pesajes
+  const fetchHistorial = useCallback(async (busqueda?: string, page?: number) => {
+    setHistorialLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('limit', '20')
+      if (busqueda) params.set('busqueda', busqueda)
+      if (page) params.set('page', String(page))
+      else params.set('page', String(historialPage))
+
+      const res = await fetch(`/api/pesaje-individual/historial?${params}`)
+      const data = await res.json()
+      if (data.success) {
+        setHistorial(data.data)
+        setHistorialTotal(data.pagination.total)
+        setHistorialTotalPages(data.pagination.totalPages)
+      }
+    } catch (error) {
+      console.error('Error fetching historial:', error)
+    } finally {
+      setHistorialLoading(false)
+    }
+  }, [historialPage])
+
+  // Cargar historial cuando se activa el tab de historial
+  useEffect(() => {
+    if (activeTab === 'historial') {
+      fetchHistorial(historialBusqueda || undefined, 1)
+    }
+  }, [activeTab])
+
+  // Búsqueda con debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (activeTab === 'historial') {
+        fetchHistorial(historialBusqueda || undefined, 1)
+        setHistorialPage(1)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [historialBusqueda])
 
   const razasActuales = tropaSeleccionada?.especie === 'EQUINO' ? RAZAS_EQUINO : RAZAS_BOVINO
 
@@ -2016,55 +2066,155 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
         </TabsContent>
 
         {/* HISTORIAL */}
-        <TabsContent value="historial" className="flex-1 overflow-auto p-4">
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="bg-green-50 py-2">
-              <CardTitle className="text-base">{textos.labelHistorial}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {tropasPesado.length === 0 ? (
-                  <div className="text-center py-8 text-stone-400">No hay tropas pesadas</div>
-                ) : (
-                  tropasPesado.map((tropa) => (
-                    <div key={tropa.id} className="p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono font-bold">{tropa.codigo}</span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => handleImprimirTicketA4(tropa)}
-                          >
-                            <FileText className="w-3 h-3" />
-                            A4
-                          </Button>
-                          <span className="font-bold text-green-600">{tropa.pesoTotalIndividual?.toLocaleString() || '-'} kg</span>
+        <TabsContent value="historial" className="flex-1 overflow-auto p-4 space-y-3">
+          {/* Barra de búsqueda y total */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-stone-400" />
+              <Input
+                placeholder="Buscar por numero de tropa..."
+                className="pl-9 h-9"
+                value={historialBusqueda}
+                onChange={(e) => setHistorialBusqueda(e.target.value)}
+              />
+            </div>
+            <div className="text-xs text-stone-500 flex-shrink-0">
+              {historialTotal} tropa{historialTotal !== 1 ? 's' : ''} pesada{historialTotal !== 1 ? 's' : ''}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1"
+              onClick={() => fetchHistorial(historialBusqueda || undefined, historialPage)}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+
+          {/* Loading */}
+          {historialLoading && (
+            <div className="text-center py-6 text-stone-400">
+              <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin" />
+              <p className="text-sm">Cargando historial...</p>
+            </div>
+          )}
+
+          {/* Lista de tropas pesadas */}
+          {!historialLoading && historial.length === 0 && (
+            <div className="text-center py-8 text-stone-400">
+              <Scale className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">{historialBusqueda ? 'No se encontraron tropas para esa busqueda' : 'No hay tropas pesadas'}</p>
+            </div>
+          )}
+
+          {!historialLoading && historial.length > 0 && (
+            <div className="space-y-2">
+              {historial.map((tropa) => (
+                <Card key={tropa.id} className="border shadow-sm">
+                  <CardContent className="p-3">
+                    {/* Fila 1: Tropa + Fecha + Kg Netos */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono font-bold text-lg">{tropa.codigo}</span>
+                        <div className="flex items-center gap-1.5 text-xs text-stone-500">
+                          <Calendar className="w-3 h-3" />
+                          <span>{new Date(tropa.fechaPesaje).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-stone-500">
-                        <span>{tropa.usuarioFaena?.nombre || '-'}</span>
-                        <span>{tropa.cantidadCabezas} cabezas</span>
-                        {tropa.pesoTotalIndividual && tropa.cantidadCabezas && (
-                          <span>_prom: {Math.round(tropa.pesoTotalIndividual / tropa.cantidadCabezas)} kg/cab</span>
-                        )}
-                      </div>
-                      {tropa.tiposAnimales && tropa.tiposAnimales.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {tropa.tiposAnimales.map((t, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">
-                              {t.tipoAnimal}: {t.cantidad}
-                            </Badge>
-                          ))}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => handleImprimirTicketA4(tropa)}
+                        >
+                          <FileText className="w-3 h-3" />
+                          A4
+                        </Button>
+                        <div className="flex items-center gap-1 bg-green-50 px-2.5 py-1 rounded-md">
+                          <Weight className="w-3.5 h-3.5 text-green-600" />
+                          <span className="font-bold text-green-700 text-sm">
+                            {tropa.kgNetosTotales.toLocaleString('es-AR')} kg
+                          </span>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Fila 2: Info secundaria */}
+                    <div className="flex items-center gap-3 text-xs text-stone-500 mb-2">
+                      <span>{tropa.cantidadAnimalesPesados} animales</span>
+                      <span className="text-stone-300">|</span>
+                      <span>{tropa.usuarioFaena?.nombre || '-'}</span>
+                      {tropa.corral && (
+                        <>
+                          <span className="text-stone-300">|</span>
+                          <span>Corral: {tropa.corral.nombre}</span>
+                        </>
+                      )}
+                      {tropa.kgNetosTotales > 0 && tropa.cantidadAnimalesPesados > 0 && (
+                        <>
+                          <span className="text-stone-300">|</span>
+                          <span>Prom: {Math.round(tropa.kgNetosTotales / tropa.cantidadAnimalesPesados)} kg/cab</span>
+                        </>
                       )}
                     </div>
-                  ))
-                )}
+
+                    {/* Fila 3: Resumen por tipo con kg */}
+                    {tropa.resumenPorTipo && tropa.resumenPorTipo.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {tropa.resumenPorTipo.map((rt: any) => (
+                          <Badge
+                            key={rt.tipo}
+                            variant="secondary"
+                            className="text-xs font-mono bg-stone-100 hover:bg-stone-200 px-2 py-0.5"
+                          >
+                            {rt.tipo}: {rt.cantidad} cab - <span className="font-bold">{rt.kgTotal.toLocaleString('es-AR')} kg</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Paginación */}
+          {!historialLoading && historialTotalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-stone-500">
+                Pagina {historialPage} de {historialTotalPages}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={historialPage <= 1}
+                  onClick={() => {
+                    const newPage = historialPage - 1
+                    setHistorialPage(newPage)
+                    fetchHistorial(historialBusqueda || undefined, newPage)
+                  }}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={historialPage >= historialTotalPages}
+                  onClick={() => {
+                    const newPage = historialPage + 1
+                    setHistorialPage(newPage)
+                    fetchHistorial(historialBusqueda || undefined, newPage)
+                  }}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
