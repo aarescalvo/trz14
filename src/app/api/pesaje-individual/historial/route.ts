@@ -13,9 +13,17 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')))
 
-    // Buscar tropas en estado PESADO (o con animales pesados)
+    // Buscar tropas que tengan animales con pesoVivo cargado (ya pesadas)
+    // Incluye estados: PESADO, LISTO_FAENA, EN_FAENA, FAENADO, DESPACHADO
     const where: Record<string, unknown> = {
-      estado: 'PESADO',
+      estado: {
+        in: ['PESADO', 'LISTO_FAENA', 'EN_FAENA', 'FAENADO', 'DESPACHADO'],
+      },
+      animales: {
+        some: {
+          pesoVivo: { not: null },
+        },
+      },
     }
 
     // Búsqueda por número de tropa o código
@@ -37,13 +45,14 @@ export async function GET(request: NextRequest) {
         tiposAnimales: true,
         animales: {
           where: {
-            estado: 'PESADO',
+            pesoVivo: { not: null },
           },
           select: {
             id: true,
             numero: true,
             tipoAnimal: true,
             pesoVivo: true,
+            estado: true,
           },
           orderBy: { numero: 'asc' },
         },
@@ -64,6 +73,7 @@ export async function GET(request: NextRequest) {
 
       for (const animal of animales) {
         const tipo = animal.tipoAnimal
+        if (!tipo) continue
         if (!resumenPorTipo[tipo]) {
           resumenPorTipo[tipo] = { cantidad: 0, kgTotal: 0 }
         }
@@ -72,8 +82,7 @@ export async function GET(request: NextRequest) {
         kgNetosTotales += animal.pesoVivo || 0
       }
 
-      // Buscar fecha del último pesaje de la tropa (updatedAt de la tropa o el más reciente de los animales)
-      // Como no hay fecha en PesajeIndividual directamente asociada, usamos updatedAt de la tropa
+      // Usar updatedAt de la tropa como referencia de fecha
       const fechaPesaje = tropa.updatedAt
 
       return {
@@ -81,6 +90,7 @@ export async function GET(request: NextRequest) {
         numero: tropa.numero,
         codigo: tropa.codigo,
         especie: tropa.especie,
+        estado: tropa.estado,
         cantidadCabezas: tropa.cantidadCabezas,
         cantidadAnimalesPesados: cantidadAnimales,
         corral: tropa.corral,
