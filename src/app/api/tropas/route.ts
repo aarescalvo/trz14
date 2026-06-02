@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
         tiposAnimales: t.tiposAnimales,
         fechaFaena: t.fechaFaena?.toISOString() || null,
         kgGancho: t.kgGancho,
+        updatedAt: t.updatedAt.toISOString(),
         ...(includeAnimales ? {
           animales: t.animales?.map(a => ({
             id: a.id,

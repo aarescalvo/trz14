@@ -262,6 +262,7 @@ interface Tropa {
   usuarioFaena?: { nombre: string }
   tiposAnimales?: { tipoAnimal: string; cantidad: number }[]
   observaciones?: string
+  updatedAt?: string
 }
 
 interface Animal {
@@ -341,6 +342,10 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
   const [finalizacionDialogOpen, setFinalizacionDialogOpen] = useState(false)
   const [diferenciasDTE, setDiferenciasDTE] = useState<{ tipo: string; dte: number; pesado: number; diferencia: number }[]>([])
 
+  // Historial pesaje con datos de animales
+  const [historialData, setHistorialData] = useState<{ tropa: Tropa; tipoKg: { tipo: string; cantidad: number; kgTotal: number }[] }[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+
   const isAdmin = operador.rol === 'ADMINISTRADOR' || (operador.permisos?.puedeAdminSistema ?? false)
 
   // Computed: progress for PI2
@@ -419,6 +424,66 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     ))
     setTropasPesado(tropas.filter(t => t.estado === 'PESADO'))
   }, [tropas])
+
+  // Cargar historial con datos de animales cuando se abre la pestaña
+  useEffect(() => {
+    if (activeTab === 'historial' && tropasPesado.length > 0 && historialData.length === 0) {
+      fetchHistorialData()
+    }
+  }, [activeTab, tropasPesado.length])
+
+  // Refrescar historial al volver a la pestaña solicitar (por si se finalizó un pesaje)
+  useEffect(() => {
+    if (activeTab === 'historial') {
+      fetchHistorialData()
+    }
+  }, [activeTab])
+
+  const fetchHistorialData = async () => {
+    if (tropasPesado.length === 0) {
+      setHistorialData([])
+      return
+    }
+    setHistorialLoading(true)
+    try {
+      // Fetch tropas PESADO with animales
+      const res = await fetch('/api/tropas?estado=PESADO&includeAnimales=true&limit=500')
+      const data = await res.json()
+      if (data.success && data.data) {
+        const pesadas = data.data.filter((t: any) => t.estado === 'PESADO')
+        const historial = pesadas.map((tropa: any) => {
+          const tipoKg: { tipo: string; cantidad: number; kgTotal: number }[] = []
+          const tipoMap: Record<string, { cantidad: number; kgTotal: number }> = {}
+          
+          // Agregar animales pesados
+          if (tropa.animales) {
+            tropa.animales.forEach((a: any) => {
+              if (a.estado === 'PESADO' && a.tipoAnimal) {
+                if (!tipoMap[a.tipoAnimal]) {
+                  tipoMap[a.tipoAnimal] = { cantidad: 0, kgTotal: 0 }
+                }
+                tipoMap[a.tipoAnimal].cantidad++
+                tipoMap[a.tipoAnimal].kgTotal += a.pesoVivo || 0
+              }
+            })
+          }
+          
+          // Convertir a array ordenado por kg descendente
+          Object.entries(tipoMap).forEach(([tipo, data]) => {
+            tipoKg.push({ tipo, ...data })
+          })
+          tipoKg.sort((a, b) => b.kgTotal - a.kgTotal)
+          
+          return { tropa, tipoKg }
+        })
+        setHistorialData(historial)
+      }
+    } catch (error) {
+      console.error('Error fetching historial:', error)
+    } finally {
+      setHistorialLoading(false)
+    }
+  }
 
   const fetchLayout = async () => {
     try {
@@ -2091,50 +2156,80 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
         <TabsContent value="historial" className="flex-1 overflow-auto p-4">
           <Card className="border-0 shadow-sm">
             <CardHeader className="bg-green-50 py-2">
-              <CardTitle className="text-base">{textos.labelHistorial}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">{textos.labelHistorial} ({historialData.length})</CardTitle>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={fetchHistorialData}>
+                  <RefreshCw className="w-3 h-3" /> Actualizar
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y">
-                {tropasPesado.length === 0 ? (
-                  <div className="text-center py-8 text-stone-400">No hay tropas pesadas</div>
-                ) : (
-                  tropasPesado.map((tropa) => (
-                    <div key={tropa.id} className="p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono font-bold">{tropa.codigo}</span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => handleImprimirTicketA4(tropa)}
-                          >
-                            <FileText className="w-3 h-3" />
-                            A4
-                          </Button>
-                          <span className="font-bold text-green-600">{tropa.pesoTotalIndividual?.toLocaleString() || '-'} kg</span>
+              {historialLoading ? (
+                <div className="flex items-center justify-center py-8 text-stone-400">
+                  <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Cargando historial...
+                </div>
+              ) : historialData.length === 0 ? (
+                <div className="text-center py-8 text-stone-400">
+                  <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No hay tropas pesadas</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {historialData.map(({ tropa, tipoKg }) => {
+                    const totalKg = tipoKg.reduce((acc, t) => acc + t.kgTotal, 0)
+                    const totalCabezas = tipoKg.reduce((acc, t) => acc + t.cantidad, 0)
+                    const fechaStr = tropa.updatedAt ? new Date(tropa.updatedAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
+                    
+                    return (
+                      <div key={tropa.id} className="p-3 hover:bg-stone-50">
+                        {/* Fila 1: Tropa + Fecha + Acciones */}
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-sm">{tropa.codigo}</span>
+                            <span className="text-xs text-stone-400">{fechaStr}</span>
+                            <Badge variant="outline" className="text-xs">{tropa.especie}</Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => handleImprimirTicketA4(tropa)}
+                            >
+                              <FileText className="w-3 h-3" />
+                              A4
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-stone-500">
-                        <span>{tropa.usuarioFaena?.nombre || '-'}</span>
-                        <span>{tropa.cantidadCabezas} cabezas</span>
-                        {tropa.pesoTotalIndividual && tropa.cantidadCabezas && (
-                          <span>_prom: {Math.round(tropa.pesoTotalIndividual / tropa.cantidadCabezas)} kg/cab</span>
-                        )}
-                      </div>
-                      {tropa.tiposAnimales && tropa.tiposAnimales.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {tropa.tiposAnimales.map((t, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">
-                              {t.tipoAnimal}: {t.cantidad}
+                        
+                        {/* Fila 2: Cabezas + Usuario + Promedio */}
+                        <div className="flex items-center gap-3 text-xs text-stone-500 mb-2">
+                          <span>{tropa.usuarioFaena?.nombre || '-'}</span>
+                          <span>{totalCabezas} cabezas</span>
+                          {totalKg > 0 && totalCabezas > 0 && (
+                            <span>prom: {Math.round(totalKg / totalCabezas)} kg/cab</span>
+                          )}
+                        </div>
+                        
+                        {/* Fila 3: Resumen clasificación + KG por tipo */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {tipoKg.map((t) => (
+                            <Badge key={t.tipo} variant="secondary" className="text-xs font-mono">
+                              <span className="font-bold">{t.tipo}</span>
+                              <span className="text-stone-500 ml-0.5">{t.cantidad} cab</span>
+                              <span className="text-green-700 font-bold ml-1">{Math.round(t.kgTotal).toLocaleString('es-AR')} kg</span>
                             </Badge>
                           ))}
+                          {/* Total KG netos */}
+                          <Badge className="text-xs bg-stone-800 text-white font-mono">
+                            Total: <span className="font-bold">{Math.round(totalKg).toLocaleString('es-AR')} kg</span>
+                          </Badge>
                         </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
