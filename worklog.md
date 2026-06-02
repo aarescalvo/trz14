@@ -70,3 +70,25 @@ Stage Summary:
 - No dangling references to removed state/functions
 - New feature: Supervisor password invoice editing via lock-protected dialog
 - Lint: clean
+---
+Task ID: 1
+Agent: main
+Task: Implementar historial de pesajes en pesaje individual
+
+Work Log:
+- Leido pesaje-individual-module.tsx para entender el historial actual (usaba tropasPesado del estado local)
+- Creado endpoint /api/pesaje-individual/historial/route.ts que consulta tropas estado PESADO con animales pesados
+- El endpoint calcula resumen por tipo (cantidad + kg sum), kg netos totales, fecha pesaje
+- Soporta busqueda por codigo/simplificado y paginacion
+- Modificado pesaje-individual-module.tsx: nuevo estado historial/historialBusqueda/historialPage/historialTotalPages
+- Agregada funcion fetchHistorial con debounce para busqueda
+- Reemplazada seccion HISTORIAL del TabsContent con UI completa: busqueda, tarjetas con resumen, paginacion
+- Cada tarjeta muestra: tropa codigo, fecha pesaje, kg netos totales, cantidad animales, corral, promedio kg/cab
+- Badges por tipo con cantidad de cabezas y sumatoria de kg
+- Commit local f7b8a8c creado. Push falla por conflictos de merge remotos (submodulos y renombramientos)
+
+Stage Summary:
+- Archivos creados: src/app/api/pesaje-individual/historial/route.ts
+- Archivos modificados: src/components/pesaje-individual-module.tsx
+- Commit: f7b8a8c (local, pendiente push por conflictos remotos)
+
