@@ -5,7 +5,7 @@ import {
   Scale, RefreshCw, Plus, CheckCircle, AlertCircle,
   Beef, Edit, Trash2, ArrowRight, Minus, AlertTriangle, ClipboardCheck, Printer, 
   Edit3, Save, X, Settings2, Move, Eye, Type, Palette, ChevronUp, ChevronDown,
-  Maximize, Minimize, FileText
+  Maximize, Minimize, FileText, Search, Calendar, Weight, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,7 +24,8 @@ import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Progress } from '@/components/ui/progress'
 import { BalanzaConfigButton } from '@/components/balanza-config-button'
-import { imprimirTicketPesajeA4 } from './pesaje-individual/rotuloPrint'
+import { imprimirTicketPesajeA4, imprimirResumenTipo } from './pesaje-individual/rotuloPrint'
+import { TiposProgress } from './pesaje-individual/TiposProgress'
 
 const TIPOS_ANIMALES: Record<string, { codigo: string; label: string }[]> = {
   BOVINO: [
@@ -261,6 +262,7 @@ interface Tropa {
   usuarioFaena?: { nombre: string }
   tiposAnimales?: { tipoAnimal: string; cantidad: number }[]
   observaciones?: string
+  updatedAt?: string
 }
 
 interface Animal {
@@ -329,12 +331,26 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
   const [impresoraAncho, setImpresoraAncho] = useState(100)        // mm
   const [impresoraAlto, setImpresoraAlto] = useState(50)           // mm
 
+  // Historial de pesajes
+  const [historial, setHistorial] = useState<any[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialBusqueda, setHistorialBusqueda] = useState('')
+  const [historialPage, setHistorialPage] = useState(1)
+  const [historialTotalPages, setHistorialTotalPages] = useState(0)
+  const [historialTotal, setHistorialTotal] = useState(0)
+
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ animal: Animal; action: 'delete' | 'repesar' } | null>(null)
   const [lastRegisteredAnimal, setLastRegisteredAnimal] = useState<Animal | null>(null)
   const [flashFeedback, setFlashFeedback] = useState(false)
   const [productionMode, setProductionMode] = useState(false)
+
+  // Diálogo de confirmación de finalización
+  const [finalizacionDialogOpen, setFinalizacionDialogOpen] = useState(false)
+  const [diferenciasDTE, setDiferenciasDTE] = useState<{ tipo: string; dte: number; pesado: number; diferencia: number }[]>([])
+
+
 
   const isAdmin = operador.rol === 'ADMINISTRADOR' || (operador.permisos?.puedeAdminSistema ?? false)
 
@@ -415,6 +431,8 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     setTropasPesado(tropas.filter(t => t.estado === 'PESADO'))
   }, [tropas])
 
+
+
   const fetchLayout = async () => {
     try {
       const res = await fetch('/api/layout-modulo?modulo=pesajeIndividual')
@@ -453,6 +471,48 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       setLoading(false)
     }
   }
+
+  // Fetch historial de pesajes
+  const fetchHistorial = useCallback(async (busqueda?: string, page?: number) => {
+    setHistorialLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('limit', '20')
+      if (busqueda) params.set('busqueda', busqueda)
+      if (page) params.set('page', String(page))
+      else params.set('page', String(historialPage))
+
+      const res = await fetch(`/api/pesaje-individual/historial?${params}`)
+      const data = await res.json()
+      if (data.success) {
+        setHistorial(data.data)
+        setHistorialTotal(data.pagination.total)
+        setHistorialTotalPages(data.pagination.totalPages)
+      }
+    } catch (error) {
+      console.error('Error fetching historial:', error)
+    } finally {
+      setHistorialLoading(false)
+    }
+  }, [historialPage])
+
+  // Cargar historial cuando se activa el tab de historial
+  useEffect(() => {
+    if (activeTab === 'historial') {
+      fetchHistorial(historialBusqueda || undefined, 1)
+    }
+  }, [activeTab])
+
+  // Búsqueda con debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (activeTab === 'historial') {
+        fetchHistorial(historialBusqueda || undefined, 1)
+        setHistorialPage(1)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [historialBusqueda])
 
   const razasActuales = tropaSeleccionada?.especie === 'EQUINO' ? RAZAS_EQUINO : RAZAS_BOVINO
 
@@ -520,7 +580,18 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     
     setTropaSeleccionada(tropa)
     resetFormFields()
-    setValidacionDialogOpen(true)
+    
+    // If corral already assigned, start weighing directly (skip validation dialog)
+    if (corralDestinoId || tropa.corralId || (typeof tropa.corral === 'object' && tropa.corral?.id)) {
+      // Small delay to ensure state is set before calling handleIniciarPesaje
+      const assignedCorralId = tropa.corralId || (typeof tropa.corral === 'object' && tropa.corral?.id) || corralDestinoId
+      setCorralDestinoId(assignedCorralId)
+      // Use setTimeout to ensure state updates are applied
+      setTimeout(() => handleIniciarPesaje(), 100)
+    } else {
+      // No corral assigned - show dialog for corral selection only
+      setValidacionDialogOpen(true)
+    }
   }
 
   const resetFormFields = () => {
@@ -804,9 +875,224 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     }
   }
 
+  // Imprimir resumen de pesaje desde el historial (usa datos ya cargados)
+  const handleImprimirResumenHistorial = (tropaHistorial: any) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=1100')
+    if (!printWindow) {
+      toast.error('No se pudo abrir ventana de impresion. Verifique los popups.')
+      return
+    }
+
+    const fecha = new Date(tropaHistorial.fechaPesaje).toLocaleDateString('es-AR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
+    const promedio = tropaHistorial.cantidadAnimalesPesados > 0
+      ? Math.round(tropaHistorial.kgNetosTotales / tropaHistorial.cantidadAnimalesPesados)
+      : 0
+    const tipos = tropaHistorial.resumenPorTipo || []
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>Resumen Pesaje - Tropa ${tropaHistorial.codigo}</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; width: 190mm; background: white; padding: 5mm; }
+          
+          .header {
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 3px solid #1a365d; padding-bottom: 6mm; margin-bottom: 6mm;
+          }
+          .logo-placeholder {
+            width: 55px; height: 55px; border: 2px solid #1a365d; border-radius: 5px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 16px; background: linear-gradient(135deg, #1a365d, #2c5282); color: white;
+          }
+          .empresa-info h1 { font-size: 22px; font-weight: 900; color: #1a365d; text-transform: uppercase; letter-spacing: 1px; }
+          .empresa-info p { font-size: 9px; color: #555; }
+          .ticket-info { text-align: right; }
+          .ticket-info h2 { font-size: 16px; color: #1a365d; }
+          .ticket-info .fecha { font-size: 11px; color: #333; margin-top: 2mm; }
+
+          .tropa-datos {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm;
+            margin-bottom: 6mm; padding: 4mm; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 3mm;
+          }
+          .dato-box { text-align: center; padding: 2mm; }
+          .dato-box .label { font-size: 9px; color: #718096; text-transform: uppercase; font-weight: bold; }
+          .dato-box .value { font-size: 15px; font-weight: bold; color: #1a365d; }
+
+          .resumen-title {
+            font-size: 14px; color: #1a365d; font-weight: bold; margin-bottom: 3mm;
+            border-bottom: 1px solid #e2e8f0; padding-bottom: 2mm;
+          }
+
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th { background: #1a365d; color: white; padding: 3mm 4mm; text-align: center; font-weight: bold; text-transform: uppercase; }
+          td { padding: 3mm 4mm; border-bottom: 1px solid #e2e8f0; }
+          tr:nth-child(even) { background: #f7fafc; }
+          .text-right { text-align: right; }
+
+          .totales-row td { background: #edf2f7 !important; font-weight: bold; font-size: 13px; }
+
+          .totales-boxes {
+            display: flex; justify-content: flex-end; gap: 10mm; margin-top: 6mm;
+            padding: 4mm; background: #edf2f7; border-radius: 3mm;
+          }
+          .total-box { text-align: center; padding: 0 5mm; }
+          .total-box .label { font-size: 10px; color: #718096; }
+          .total-box .value { font-size: 20px; font-weight: bold; color: #1a365d; }
+
+          .footer {
+            margin-top: 10mm; padding-top: 3mm; border-top: 1px solid #e2e8f0;
+            text-align: center; font-size: 8px; color: #718096;
+          }
+
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div style="display: flex; align-items: center; gap: 4mm;">
+            <div class="logo-placeholder">SA</div>
+            <div class="empresa-info">
+              <h1>Solemar Alimentaria</h1>
+              <p>Ruta Provincial N 11 - Km 45.5 | San Martin, Mendoza</p>
+            </div>
+          </div>
+          <div class="ticket-info">
+            <h2>RESUMEN DE PESAJE</h2>
+            <div class="fecha">${fecha}</div>
+          </div>
+        </div>
+
+        <div class="tropa-datos">
+          <div class="dato-box">
+            <div class="label">Tropa</div>
+            <div class="value">${tropaHistorial.codigo}</div>
+          </div>
+          <div class="dato-box">
+            <div class="label">Especie</div>
+            <div class="value">${tropaHistorial.especie}</div>
+          </div>
+          <div class="dato-box">
+            <div class="label">Usuario Faena</div>
+            <div class="value">${tropaHistorial.usuarioFaena?.nombre || '-'}</div>
+          </div>
+          <div class="dato-box">
+            <div class="label">Corral</div>
+            <div class="value">${tropaHistorial.corral?.nombre || '-'}</div>
+          </div>
+        </div>
+
+        <div class="resumen-title">Clasificacion por Tipo de Animal</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th class="text-right">Cantidad</th>
+              <th class="text-right">Kg Totales</th>
+              <th class="text-right">Promedio kg/cab</th>
+              <th class="text-right">% del Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tipos.map(t => {
+              const prom = t.cantidad > 0 ? Math.round(t.kgTotal / t.cantidad) : 0
+              const pct = tropaHistorial.kgNetosTotales > 0 ? ((t.kgTotal / tropaHistorial.kgNetosTotales) * 100).toFixed(1) : '0.0'
+              return `<tr>
+                <td><strong>${t.tipo}</strong></td>
+                <td class="text-right">${t.cantidad}</td>
+                <td class="text-right">${t.kgTotal.toLocaleString('es-AR')} kg</td>
+                <td class="text-right">${prom.toLocaleString('es-AR')} kg</td>
+                <td class="text-right">${pct}%</td>
+              </tr>`
+            }).join('')}
+            <tr class="totales-row">
+              <td>TOTAL</td>
+              <td class="text-right">${tropaHistorial.cantidadAnimalesPesados}</td>
+              <td class="text-right">${tropaHistorial.kgNetosTotales.toLocaleString('es-AR')} kg</td>
+              <td class="text-right">${promedio.toLocaleString('es-AR')} kg</td>
+              <td class="text-right">100%</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="totales-boxes">
+          <div class="total-box">
+            <div class="label">Animales Pesados</div>
+            <div class="value">${tropaHistorial.cantidadAnimalesPesados}</div>
+          </div>
+          <div class="total-box">
+            <div class="label">Kg Netos Totales</div>
+            <div class="value">${tropaHistorial.kgNetosTotales.toLocaleString('es-AR')} kg</div>
+          </div>
+          <div class="total-box">
+            <div class="label">Promedio</div>
+            <div class="value">${promedio.toLocaleString('es-AR')} kg</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Sistema de Trazabilidad - Solemar Alimentaria</p>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              window.onafterprint = function() { window.close(); }
+            }, 500);
+          }
+        </script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+    toast.success('Imprimiendo resumen...')
+  }
+
+  const handleSolicitarFinalizacion = () => {
+    // Compare weighed tipos with DTE
+    const diffs: { tipo: string; dte: number; pesado: number; diferencia: number }[] = []
+    
+    for (const tc of tiposConfirmados) {
+      const pesados = conteoPesadosPorTipo[tc.tipoAnimal] || 0
+      if (pesados !== tc.cantidadDTE) {
+        diffs.push({
+          tipo: tc.tipoAnimal,
+          dte: tc.cantidadDTE,
+          pesado: pesados,
+          diferencia: pesados - tc.cantidadDTE
+        })
+      }
+    }
+    
+    // Check for tipos pesados that weren't in DTE
+    const tiposDTE = tiposConfirmados.map(tc => tc.tipoAnimal)
+    for (const [tipo, count] of Object.entries(conteoPesadosPorTipo)) {
+      if (!tiposDTE.includes(tipo)) {
+        diffs.push({
+          tipo,
+          dte: 0,
+          pesado: count,
+          diferencia: count
+        })
+      }
+    }
+    
+    setDiferenciasDTE(diffs)
+    setFinalizacionDialogOpen(true)
+  }
+
   const handleFinalizarPesaje = async () => {
     if (!tropaSeleccionada) return
     
+    setFinalizacionDialogOpen(false)
     setSaving(true)
     try {
       const pesoTotal = animales.reduce((acc, a) => acc + (a.pesoVivo || 0), 0)
@@ -825,6 +1111,18 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       
       if (res.ok && data.success) {
         toast.success('Tropa pesada completamente')
+        
+        // Print summary rótulo (tipo + kg totals)
+        try {
+          imprimirResumenTipo({
+            tropaCodigo: tropaSeleccionada.codigo,
+            animales: animales.filter(a => a.estado === 'PESADO'),
+            tiposDTE: tiposConfirmados.map(tc => ({ tipoAnimal: tc.tipoAnimal, cantidad: tc.cantidadDTE }))
+          })
+        } catch (printError) {
+          console.error('Error al imprimir resumen:', printError)
+        }
+        
         setTropaSeleccionada(null)
         setAnimales([])
         setAnimalActual(0)
@@ -1789,6 +2087,16 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                 </div>
               </CardHeader>
               <CardContent className="flex-1 p-3 overflow-hidden flex flex-col">
+                {/* Contador de tipos pesados vs DTE */}
+                {animales.length > 0 && (
+                  <div className="mb-2 flex-shrink-0">
+                    <TiposProgress
+                      tiposConfirmados={tiposConfirmados.map(tc => ({ tipoAnimal: tc.tipoAnimal, cantidad: tc.cantidadConfirmada }))}
+                      animales={animales}
+                      especie={tropaSeleccionada?.especie || 'BOVINO'}
+                    />
+                  </div>
+                )}
                 {animales.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center text-center">
                     <div>
@@ -1806,7 +2114,7 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                       {getBoton('finalizar')?.visible && (
                         <Button 
                           className="mt-4" 
-                          onClick={() => handleFinalizarPesaje()}
+                          onClick={() => handleSolicitarFinalizacion()}
                         >
                           {getBoton('finalizar')?.texto}
                         </Button>
@@ -2016,55 +2324,155 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
         </TabsContent>
 
         {/* HISTORIAL */}
-        <TabsContent value="historial" className="flex-1 overflow-auto p-4">
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="bg-green-50 py-2">
-              <CardTitle className="text-base">{textos.labelHistorial}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {tropasPesado.length === 0 ? (
-                  <div className="text-center py-8 text-stone-400">No hay tropas pesadas</div>
-                ) : (
-                  tropasPesado.map((tropa) => (
-                    <div key={tropa.id} className="p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono font-bold">{tropa.codigo}</span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => handleImprimirTicketA4(tropa)}
-                          >
-                            <FileText className="w-3 h-3" />
-                            A4
-                          </Button>
-                          <span className="font-bold text-green-600">{tropa.pesoTotalIndividual?.toLocaleString() || '-'} kg</span>
+        <TabsContent value="historial" className="flex-1 overflow-auto p-4 space-y-3">
+          {/* Barra de búsqueda y total */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-stone-400" />
+              <Input
+                placeholder="Buscar por numero de tropa..."
+                className="pl-9 h-9"
+                value={historialBusqueda}
+                onChange={(e) => setHistorialBusqueda(e.target.value)}
+              />
+            </div>
+            <div className="text-xs text-stone-500 flex-shrink-0">
+              {historialTotal} tropa{historialTotal !== 1 ? 's' : ''} pesada{historialTotal !== 1 ? 's' : ''}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1"
+              onClick={() => fetchHistorial(historialBusqueda || undefined, historialPage)}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+
+          {/* Loading */}
+          {historialLoading && (
+            <div className="text-center py-6 text-stone-400">
+              <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin" />
+              <p className="text-sm">Cargando historial...</p>
+            </div>
+          )}
+
+          {/* Lista de tropas pesadas */}
+          {!historialLoading && historial.length === 0 && (
+            <div className="text-center py-8 text-stone-400">
+              <Scale className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">{historialBusqueda ? 'No se encontraron tropas para esa busqueda' : 'No hay tropas pesadas'}</p>
+            </div>
+          )}
+
+          {!historialLoading && historial.length > 0 && (
+            <div className="space-y-2">
+              {historial.map((tropa) => (
+                <Card key={tropa.id} className="border shadow-sm">
+                  <CardContent className="p-3">
+                    {/* Fila 1: Tropa + Fecha + Kg Netos */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono font-bold text-lg">{tropa.codigo}</span>
+                        <div className="flex items-center gap-1.5 text-xs text-stone-500">
+                          <Calendar className="w-3 h-3" />
+                          <span>{new Date(tropa.fechaPesaje).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-stone-500">
-                        <span>{tropa.usuarioFaena?.nombre || '-'}</span>
-                        <span>{tropa.cantidadCabezas} cabezas</span>
-                        {tropa.pesoTotalIndividual && tropa.cantidadCabezas && (
-                          <span>_prom: {Math.round(tropa.pesoTotalIndividual / tropa.cantidadCabezas)} kg/cab</span>
-                        )}
-                      </div>
-                      {tropa.tiposAnimales && tropa.tiposAnimales.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {tropa.tiposAnimales.map((t, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">
-                              {t.tipoAnimal}: {t.cantidad}
-                            </Badge>
-                          ))}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => handleImprimirResumenHistorial(tropa)}
+                        >
+                          <Printer className="w-3 h-3" />
+                          Imprimir
+                        </Button>
+                        <div className="flex items-center gap-1 bg-green-50 px-2.5 py-1 rounded-md">
+                          <Weight className="w-3.5 h-3.5 text-green-600" />
+                          <span className="font-bold text-green-700 text-sm">
+                            {tropa.kgNetosTotales.toLocaleString('es-AR')} kg
+                          </span>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Fila 2: Info secundaria */}
+                    <div className="flex items-center gap-3 text-xs text-stone-500 mb-2">
+                      <span>{tropa.cantidadAnimalesPesados} animales</span>
+                      <span className="text-stone-300">|</span>
+                      <span>{tropa.usuarioFaena?.nombre || '-'}</span>
+                      {tropa.corral && (
+                        <>
+                          <span className="text-stone-300">|</span>
+                          <span>Corral: {tropa.corral.nombre}</span>
+                        </>
+                      )}
+                      {tropa.kgNetosTotales > 0 && tropa.cantidadAnimalesPesados > 0 && (
+                        <>
+                          <span className="text-stone-300">|</span>
+                          <span>Prom: {Math.round(tropa.kgNetosTotales / tropa.cantidadAnimalesPesados)} kg/cab</span>
+                        </>
                       )}
                     </div>
-                  ))
-                )}
+
+                    {/* Fila 3: Resumen por tipo con kg */}
+                    {tropa.resumenPorTipo && tropa.resumenPorTipo.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {tropa.resumenPorTipo.map((rt: any) => (
+                          <Badge
+                            key={rt.tipo}
+                            variant="secondary"
+                            className="text-xs font-mono bg-stone-100 hover:bg-stone-200 px-2 py-0.5"
+                          >
+                            {rt.tipo}: {rt.cantidad} cab - <span className="font-bold">{rt.kgTotal.toLocaleString('es-AR')} kg</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Paginación */}
+          {!historialLoading && historialTotalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-stone-500">
+                Pagina {historialPage} de {historialTotalPages}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={historialPage <= 1}
+                  onClick={() => {
+                    const newPage = historialPage - 1
+                    setHistorialPage(newPage)
+                    fetchHistorial(historialBusqueda || undefined, newPage)
+                  }}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={historialPage >= historialTotalPages}
+                  onClick={() => {
+                    const newPage = historialPage + 1
+                    setHistorialPage(newPage)
+                    fetchHistorial(historialBusqueda || undefined, newPage)
+                  }}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -2551,6 +2959,95 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
           </div>
         </div>
       )}
+
+      {/* Diálogo de confirmación de finalización */}
+      <Dialog open={finalizacionDialogOpen} onOpenChange={setFinalizacionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <ClipboardCheck className="w-5 h-5 text-green-600" />
+              ¿Pesaje finalizado?
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            {/* Resumen de pesaje */}
+            <div className="bg-stone-50 p-3 rounded-lg">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-stone-500">Tropa:</span>
+                <span className="font-mono font-bold">{tropaSeleccionada?.codigo}</span>
+              </div>
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-stone-500">Animales pesados:</span>
+                <span className="font-bold">{animalesPesados}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-stone-500">Peso total:</span>
+                <span className="font-bold">{animales.reduce((acc, a) => acc + (a.pesoVivo || 0), 0).toLocaleString('es-AR')} kg</span>
+              </div>
+            </div>
+
+            {/* Diferencias con DTE */}
+            {diferenciasDTE.length > 0 ? (
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                <div className="flex items-center gap-2 text-amber-700 text-sm font-semibold mb-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Diferencias con DTE
+                </div>
+                <div className="space-y-1">
+                  {diferenciasDTE.map((d) => (
+                    <div key={d.tipo} className="flex justify-between text-sm">
+                      <span className="font-mono font-bold">{d.tipo}</span>
+                      <span className="text-amber-700">
+                        DTE: {d.dte} → Pesado: {d.pesado}
+                        <span className="ml-1 font-bold">
+                          ({d.diferencia > 0 ? '+' : ''}{d.diferencia})
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-amber-600 mt-2">
+                  Se imprimirá un rótulo resumen con los datos actuales.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700 text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  Sin diferencias con DTE — la clasificación coincide.
+                </div>
+              </div>
+            )}
+
+            {/* Resumen por tipo para el rótulo */}
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-xs font-semibold text-blue-800 mb-2">Resumen por tipo (se imprimirá en rótulo):</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(
+                  animales.filter(a => a.estado === 'PESADO').reduce((acc: Record<string, number>, a) => {
+                    acc[a.tipoAnimal] = (acc[a.tipoAnimal] || 0) + (a.pesoVivo || 0)
+                    return acc
+                  }, {})
+                ).map(([tipo, kg]) => (
+                  <span key={tipo} className="text-sm font-mono font-bold bg-white px-2 py-1 rounded border">
+                    {tipo}: {Math.round(kg).toLocaleString('es-AR')}kg
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFinalizacionDialogOpen(false)} size="sm">
+              Cancelar
+            </Button>
+            <Button onClick={() => handleFinalizarPesaje()} disabled={saving} className="bg-green-600 hover:bg-green-700" size="sm">
+              {saving ? 'Finalizando...' : 'Confirmar Finalización'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm Delete / Repesar Dialog */}
       <ConfirmDeleteDialog

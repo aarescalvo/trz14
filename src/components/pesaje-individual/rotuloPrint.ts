@@ -1272,3 +1272,128 @@ export function imprimirPlanilla01({ tropa, animales, romaneos, fechaFaena }: Im
   `)
   printWindow.document.close()
 }
+
+/**
+ * RÓTULO RESUMEN DE TIPOS - 10cm x 5cm (HORIZONTAL/LANDSCAPE)
+ * Muestra resumen de clasificación por tipo con sumatoria de kg
+ * Ej: NO 4120kg - VQ 213kg - NT 3129kg
+ */
+export function imprimirResumenTipo({ tropaCodigo, animales, tiposDTE }: {
+  tropaCodigo: string
+  animales: Animal[]
+  tiposDTE?: { tipoAnimal: string; cantidad: number }[]
+}) {
+  const printWindow = window.open('', '_blank', 'width=500,height=300')
+  if (!printWindow) return
+
+  // Calculate kg per tipo
+  const kgPorTipo: Record<string, number> = {}
+  const cantPorTipo: Record<string, number> = {}
+
+  animales.forEach(a => {
+    if (a.pesoVivo) {
+      kgPorTipo[a.tipoAnimal] = (kgPorTipo[a.tipoAnimal] || 0) + a.pesoVivo
+      cantPorTipo[a.tipoAnimal] = (cantPorTipo[a.tipoAnimal] || 0) + 1
+    }
+  })
+
+  const totalKg = Object.values(kgPorTipo).reduce((a, b) => a + b, 0)
+  const totalAnimales = animales.length
+  const tropaLimpia = tropaCodigo.replace(/\s/g, '')
+
+  // Build tipo summary lines
+  const tipoEntries = Object.entries(kgPorTipo)
+    .sort(([,a], [,b]) => b - a)
+    .map(([tipo, kg]) =>
+      `<span class="tipo-item"><span class="tipo-codigo">${tipo}</span> <span class="tipo-kg">${Math.round(kg).toLocaleString('es-AR')}kg</span></span>`
+    ).join('<span class="tipo-sep"> - </span>')
+
+  printWindow.document.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resumen ${tropaCodigo}</title>
+  <style>
+    @page { size: 100mm 50mm landscape; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      width: 100mm; height: 50mm;
+      background: white;
+    }
+    .etiqueta {
+      border: 2px solid black;
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+    }
+    .fila-tropa {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 2mm 4mm;
+      border-bottom: 2px solid black;
+      background: #f0f0f0;
+    }
+    .tropa-label { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #333; }
+    .tropa-value { font-size: 18px; font-weight: 900; color: #000; }
+    .fila-resumen {
+      flex: 1; display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      padding: 2mm 4mm;
+    }
+    .resumen-title {
+      font-size: 8px; font-weight: bold; text-transform: uppercase;
+      color: #333; margin-bottom: 1mm;
+      letter-spacing: 1px;
+    }
+    .resumen-tipos {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      align-items: center; gap: 1mm 3mm;
+    }
+    .tipo-item { display: inline-flex; align-items: baseline; }
+    .tipo-codigo { font-size: 14px; font-weight: 900; color: #000; }
+    .tipo-kg { font-size: 12px; font-weight: 700; color: #333; }
+    .tipo-sep { color: #999; font-size: 12px; font-weight: bold; }
+    .fila-totales {
+      display: flex; justify-content: space-around; align-items: center;
+      padding: 2mm 4mm;
+      border-top: 2px solid black;
+      background: #000; color: #fff;
+    }
+    .total-item { text-align: center; }
+    .total-label { font-size: 7px; text-transform: uppercase; color: #ccc; font-weight: bold; }
+    .total-value { font-size: 14px; font-weight: 900; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="etiqueta">
+    <div class="fila-tropa">
+      <div class="tropa-label">Tropa</div>
+      <div class="tropa-value">${tropaLimpia}</div>
+    </div>
+    <div class="fila-resumen">
+      <div class="resumen-title">Resumen Clasificación</div>
+      <div class="resumen-tipos">${tipoEntries}</div>
+    </div>
+    <div class="fila-totales">
+      <div class="total-item">
+        <div class="total-label">Cabezas</div>
+        <div class="total-value">${totalAnimales}</div>
+      </div>
+      <div class="total-item">
+        <div class="total-label">Total KG</div>
+        <div class="total-value">${Math.round(totalKg).toLocaleString('es-AR')}</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        window.onafterprint = function() { window.close(); }
+      }, 300);
+    }
+  </script>
+</body>
+</html>`)
+  printWindow.document.close()
+}
