@@ -875,6 +875,187 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     }
   }
 
+  // Imprimir resumen de pesaje desde el historial (usa datos ya cargados)
+  const handleImprimirResumenHistorial = (tropaHistorial: any) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=1100')
+    if (!printWindow) {
+      toast.error('No se pudo abrir ventana de impresion. Verifique los popups.')
+      return
+    }
+
+    const fecha = new Date(tropaHistorial.fechaPesaje).toLocaleDateString('es-AR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
+    const promedio = tropaHistorial.cantidadAnimalesPesados > 0
+      ? Math.round(tropaHistorial.kgNetosTotales / tropaHistorial.cantidadAnimalesPesados)
+      : 0
+    const tipos = tropaHistorial.resumenPorTipo || []
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>Resumen Pesaje - Tropa ${tropaHistorial.codigo}</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; width: 190mm; background: white; padding: 5mm; }
+          
+          .header {
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 3px solid #1a365d; padding-bottom: 6mm; margin-bottom: 6mm;
+          }
+          .logo-placeholder {
+            width: 55px; height: 55px; border: 2px solid #1a365d; border-radius: 5px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 16px; background: linear-gradient(135deg, #1a365d, #2c5282); color: white;
+          }
+          .empresa-info h1 { font-size: 22px; font-weight: 900; color: #1a365d; text-transform: uppercase; letter-spacing: 1px; }
+          .empresa-info p { font-size: 9px; color: #555; }
+          .ticket-info { text-align: right; }
+          .ticket-info h2 { font-size: 16px; color: #1a365d; }
+          .ticket-info .fecha { font-size: 11px; color: #333; margin-top: 2mm; }
+
+          .tropa-datos {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm;
+            margin-bottom: 6mm; padding: 4mm; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 3mm;
+          }
+          .dato-box { text-align: center; padding: 2mm; }
+          .dato-box .label { font-size: 9px; color: #718096; text-transform: uppercase; font-weight: bold; }
+          .dato-box .value { font-size: 15px; font-weight: bold; color: #1a365d; }
+
+          .resumen-title {
+            font-size: 14px; color: #1a365d; font-weight: bold; margin-bottom: 3mm;
+            border-bottom: 1px solid #e2e8f0; padding-bottom: 2mm;
+          }
+
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th { background: #1a365d; color: white; padding: 3mm 4mm; text-align: center; font-weight: bold; text-transform: uppercase; }
+          td { padding: 3mm 4mm; border-bottom: 1px solid #e2e8f0; }
+          tr:nth-child(even) { background: #f7fafc; }
+          .text-right { text-align: right; }
+
+          .totales-row td { background: #edf2f7 !important; font-weight: bold; font-size: 13px; }
+
+          .totales-boxes {
+            display: flex; justify-content: flex-end; gap: 10mm; margin-top: 6mm;
+            padding: 4mm; background: #edf2f7; border-radius: 3mm;
+          }
+          .total-box { text-align: center; padding: 0 5mm; }
+          .total-box .label { font-size: 10px; color: #718096; }
+          .total-box .value { font-size: 20px; font-weight: bold; color: #1a365d; }
+
+          .footer {
+            margin-top: 10mm; padding-top: 3mm; border-top: 1px solid #e2e8f0;
+            text-align: center; font-size: 8px; color: #718096;
+          }
+
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div style="display: flex; align-items: center; gap: 4mm;">
+            <div class="logo-placeholder">SA</div>
+            <div class="empresa-info">
+              <h1>Solemar Alimentaria</h1>
+              <p>Ruta Provincial N 11 - Km 45.5 | San Martin, Mendoza</p>
+            </div>
+          </div>
+          <div class="ticket-info">
+            <h2>RESUMEN DE PESAJE</h2>
+            <div class="fecha">${fecha}</div>
+          </div>
+        </div>
+
+        <div class="tropa-datos">
+          <div class="dato-box">
+            <div class="label">Tropa</div>
+            <div class="value">${tropaHistorial.codigo}</div>
+          </div>
+          <div class="dato-box">
+            <div class="label">Especie</div>
+            <div class="value">${tropaHistorial.especie}</div>
+          </div>
+          <div class="dato-box">
+            <div class="label">Usuario Faena</div>
+            <div class="value">${tropaHistorial.usuarioFaena?.nombre || '-'}</div>
+          </div>
+          <div class="dato-box">
+            <div class="label">Corral</div>
+            <div class="value">${tropaHistorial.corral?.nombre || '-'}</div>
+          </div>
+        </div>
+
+        <div class="resumen-title">Clasificacion por Tipo de Animal</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th class="text-right">Cantidad</th>
+              <th class="text-right">Kg Totales</th>
+              <th class="text-right">Promedio kg/cab</th>
+              <th class="text-right">% del Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tipos.map(t => {
+              const prom = t.cantidad > 0 ? Math.round(t.kgTotal / t.cantidad) : 0
+              const pct = tropaHistorial.kgNetosTotales > 0 ? ((t.kgTotal / tropaHistorial.kgNetosTotales) * 100).toFixed(1) : '0.0'
+              return `<tr>
+                <td><strong>${t.tipo}</strong></td>
+                <td class="text-right">${t.cantidad}</td>
+                <td class="text-right">${t.kgTotal.toLocaleString('es-AR')} kg</td>
+                <td class="text-right">${prom.toLocaleString('es-AR')} kg</td>
+                <td class="text-right">${pct}%</td>
+              </tr>`
+            }).join('')}
+            <tr class="totales-row">
+              <td>TOTAL</td>
+              <td class="text-right">${tropaHistorial.cantidadAnimalesPesados}</td>
+              <td class="text-right">${tropaHistorial.kgNetosTotales.toLocaleString('es-AR')} kg</td>
+              <td class="text-right">${promedio.toLocaleString('es-AR')} kg</td>
+              <td class="text-right">100%</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="totales-boxes">
+          <div class="total-box">
+            <div class="label">Animales Pesados</div>
+            <div class="value">${tropaHistorial.cantidadAnimalesPesados}</div>
+          </div>
+          <div class="total-box">
+            <div class="label">Kg Netos Totales</div>
+            <div class="value">${tropaHistorial.kgNetosTotales.toLocaleString('es-AR')} kg</div>
+          </div>
+          <div class="total-box">
+            <div class="label">Promedio</div>
+            <div class="value">${promedio.toLocaleString('es-AR')} kg</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Sistema de Trazabilidad - Solemar Alimentaria</p>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              window.onafterprint = function() { window.close(); }
+            }, 500);
+          }
+        </script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+    toast.success('Imprimiendo resumen...')
+  }
+
   const handleSolicitarFinalizacion = () => {
     // Compare weighed tipos with DTE
     const diffs: { tipo: string; dte: number; pesado: number; diferencia: number }[] = []
@@ -2203,10 +2384,10 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs gap-1"
-                          onClick={() => handleImprimirTicketA4(tropa)}
+                          onClick={() => handleImprimirResumenHistorial(tropa)}
                         >
-                          <FileText className="w-3 h-3" />
-                          A4
+                          <Printer className="w-3 h-3" />
+                          Imprimir
                         </Button>
                         <div className="flex items-center gap-1 bg-green-50 px-2.5 py-1 rounded-md">
                           <Weight className="w-3.5 h-3.5 text-green-600" />
