@@ -13,6 +13,7 @@
 
 import { PrismaClient } from '@prisma/client'
 import * as XLSX from 'xlsx'
+import * as path from 'path'
 
 const db = new PrismaClient()
 
@@ -48,10 +49,44 @@ async function main() {
   console.log('=== IMPORTACIÓN DE ANIMALES DESDE PLANTILLAMAXI.xlsx ===\n')
 
   // 1. Leer el archivo Excel
-  const filePath = '/home/z/my-project/upload/PLANTILLAMAXI.xlsx'
+  // Prioridad: 1) argumento CLI, 2) ./upload/PLANTILLAMAXI.xlsx relativo al proyecto, 3) ruta absoluta por defecto
+  const projectRoot = path.resolve(__dirname, '..')
+  const cliPath = process.argv[2]
+  const relativePath = path.join(projectRoot, 'upload', 'PLANTILLAMAXI.xlsx')
+  const fallbackPath = '/home/z/my-project/upload/PLANTILLAMAXI.xlsx'
+
+  const filePath = cliPath || relativePath
   console.log(`Leyendo archivo: ${filePath}`)
+  console.log(`(Ruta alternativa CLI: ${cliPath ? 'SÍ' : 'NO'})`)
+
+  if (cliPath) {
+    console.log(`Ruta desde argumento: ${cliPath}`)
+  } else {
+    console.log(`Buscando en: ${relativePath}`)
+  }
   
-  const workbook = XLSX.readFile(filePath)
+  // Intentar filePath, luego fallbackPath
+  let workbook: XLSX.WorkBook
+  try {
+    workbook = XLSX.readFile(filePath)
+  } catch {
+    if (!cliPath && filePath !== fallbackPath) {
+      console.log(`No encontrado en ${filePath}, intentando: ${fallbackPath}`)
+      try {
+        workbook = XLSX.readFile(fallbackPath)
+      } catch {
+        console.error(`ERROR: No se encontró el archivo en ninguna ruta.`)
+        console.error(`  Intentó: ${filePath}`)
+        console.error(`  Fallback: ${fallbackPath}`)
+        console.error(`Uso: npx tsx prisma/seed-importar-animales.ts [ruta/al/archivo.xlsx]`)
+        process.exit(1)
+      }
+    } else {
+      console.error(`ERROR: No se encontró el archivo: ${filePath}`)
+      console.error(`Uso: npx tsx prisma/seed-importar-animales.ts [ruta/al/archivo.xlsx]`)
+      process.exit(1)
+    }
+  }
   const sheetName = 'ANIMALES'
   const sheet = workbook.Sheets[sheetName]
   
