@@ -152,7 +152,7 @@ async function main() {
 
   // Cargar datos necesarios de BD
   const tropasBD = await db.tropa.findMany({
-    select: { id: true, numero: true, codigo: true, dte: true, guia: true, fechaRecepcion: true, productorId: true, usuarioFaenaId: true, corralId: true },
+    select: { id: true, numero: true, codigo: true, dte: true, guia: true, fechaRecepcion: true, productorId: true, usuarioFaenaId: true, corralId: true, pesoBruto: true, pesoNeto: true },
   })
   const tropaByCodigo = new Map(tropasBD.map(t => [t.codigo, t]))
   // También buscar por número para las tropas que tengan código diferente
@@ -291,15 +291,15 @@ async function main() {
     console.log(`Tropas no encontradas en BD: ${noEncontradas}`)
   }
 
-  // Estado final
-  const conDte = await db.tropa.count({ where: { AND: [{ dte: { not: null } }, { dte: { not: 'PENDIENTE' } }] } })
-  const conGuia = await db.tropa.count({ where: { AND: [{ guia: { not: null } }, { guia: { not: 'PENDIENTE' } }] } })
-  const conFechaRecepcion = await db.tropa.count({ where: { NOT: { fechaRecepcion: null } } })
-  const conPesoBruto = await db.tropa.count({ where: { NOT: { pesoBruto: null } } })
-  const conPesoNeto = await db.tropa.count({ where: { NOT: { pesoNeto: null } } })
-  const conProductor = await db.tropa.count({ where: { NOT: { productorId: null } } })
-  const conUsuarioFaena = await db.tropa.count({ where: { NOT: { usuarioFaenaId: null } } })
-  const conCorral = await db.tropa.count({ where: { NOT: { corralId: null } } })
+  // Estado final — usar los datos ya cargados en tropasBD para evitar errores de Prisma 6
+  const conDte = tropasBD.filter(t => t.dte && t.dte !== 'PENDIENTE').length
+  const conGuia = tropasBD.filter(t => t.guia && t.guia !== 'PENDIENTE').length
+  const conFechaRecepcion = tropasBD.filter(t => t.fechaRecepcion !== null).length
+  const conPesoBruto = tropasBD.filter(t => t.pesoBruto !== null).length
+  const conPesoNeto = tropasBD.filter(t => t.pesoNeto !== null).length
+  const conProductor = tropasBD.filter(t => t.productorId !== null).length
+  const conUsuarioFaena = tropasBD.filter(t => t.usuarioFaenaId !== null).length
+  const conCorral = tropasBD.filter(t => t.corralId !== null).length
 
   console.log(`\n=== ESTADO FINAL ===`)
   console.log(`Con DTE real: ${conDte} / ${tropasBD.length}`)
