@@ -346,23 +346,9 @@ export function imprimirTicketPesajeA4({ tropa, animales, choferNombre, patente 
         }
         
         .logo-img {
-          width: 60px;
-          height: 60px;
+          width: 70px;
+          height: 70px;
           object-fit: contain;
-        }
-        
-        .logo-placeholder {
-          width: 60px;
-          height: 60px;
-          border: 2px solid #1a365d;
-          border-radius: 5px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 18px;
-          background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
-          color: white;
         }
         
         .empresa-info h1 {
@@ -552,12 +538,12 @@ export function imprimirTicketPesajeA4({ tropa, animales, choferNombre, patente 
       <!-- Header -->
       <div class="header">
         <div class="logo-section">
-          <div class="logo-placeholder">SA</div>
+          <img id="logo-img" class="logo-img" src="" alt="Solemar Alimentaria" />
           <div class="empresa-info">
             <h1>Solemar Alimentaria</h1>
-            <p>Ruta Provincial N° 11 - Km 45.5 | San Martín, Mendoza</p>
-            <p>CUIT: 23-12345678-9 | Tel: (0263) 442-1234</p>
-            <p>N° Establecimiento: 12-0345</p>
+            <p>Ruta Nacional N° 22, Km 1043, Chimpay, Río Negro</p>
+            <p>CUIT: 30-70919450-6 | Tel: (02946) 494-100</p>
+            <p>N° Establecimiento: 3986</p>
           </div>
         </div>
         <div class="ticket-info">
@@ -678,6 +664,16 @@ export function imprimirTicketPesajeA4({ tropa, animales, choferNombre, patente 
       </div>
       
       <script>
+        // Cargar logo desde la app principal
+        try {
+          var origin = window.opener ? window.opener.location.origin : '';
+          var logo = document.getElementById('logo-img');
+          if (logo && origin) { logo.src = origin + '/logo.png'; }
+          else if (logo) { logo.style.display = 'none'; }
+        } catch(e) {
+          var logo = document.getElementById('logo-img');
+          if (logo) { logo.style.display = 'none'; }
+        }
         window.onload = function() { 
           setTimeout(function() {
             window.print(); 
@@ -1081,8 +1077,9 @@ export function imprimirPlanilla01({ tropa, animales, romaneos, fechaFaena }: Im
       <!-- Header del Establecimiento -->
       <div class="header-estab">
         <div class="empresa">Estab. Faenador: Solemar Alimentaria S.A.</div>
-        <div>Matrícula: 300</div>
-        <div>Nº SENASA: 3986</div>
+        <div>Ruta Nacional N° 22, Km 1043, Chimpay, Río Negro</div>
+        <div>CUIT: 30-70919450-6 | Tel: (02946) 494-100</div>
+        <div>Nº Establecimiento: 3986</div>
       </div>
       
       <!-- Datos básicos izquierda/derecha -->
