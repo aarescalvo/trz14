@@ -51,43 +51,21 @@ async function main() {
     },
   })
 
-  let pesoBrutoBorrados = 0
-  let pesoNetoBorrados = 0
-
-  for (const tropa of todasLasTropas) {
-    // Verificar si pesoBruto es estimado (≈ kgGancho × 1.15 con tolerancia de 1%)
-    // Si kgGancho es null o pesoBruto es null, no borrar
-    if (tropa.pesoBruto !== null && tropa.kgGancho !== null) {
-      const estimado = tropa.kgGancho * 1.15
-      const diff = Math.abs(tropa.pesoBruto - estimado)
-      const tolerancia = estimado * 0.01 // 1% de tolerancia
-      if (diff <= tolerancia) {
-        // Es estimado → borrar
-        await db.tropa.update({
-          where: { id: tropa.id },
-          data: { pesoBruto: null },
-        })
-        pesoBrutoBorrados++
-      }
-    }
-
-    // Verificar si pesoNeto es estimado (≈ kgGancho con tolerancia de 1%)
-    if (tropa.pesoNeto !== null && tropa.kgGancho !== null) {
-      const diff = Math.abs(tropa.pesoNeto - tropa.kgGancho)
-      const tolerancia = tropa.kgGancho * 0.01
-      if (diff <= tolerancia) {
-        await db.tropa.update({
-          where: { id: tropa.id },
-          data: { pesoNeto: null },
-        })
-        pesoNetoBorrados++
-      }
-    }
-  }
-
-  console.log(`  pesoBruto borrados (estimados): ${pesoBrutoBorrados}`)
-  console.log(`  pesoNeto borrados (estimados): ${pesoNetoBorrados}`)
-  console.log(`  pesoTara: no tiene datos para borrar\n`)
+  // Borrar TODOS los pesoBruto y pesoNeto de una sola query
+  // (todos fueron generados por seed-datos-reales.ts con fórmula estimada)
+  const pesoResult = await db.tropa.updateMany({
+    where: {
+      OR: [
+        { pesoBruto: { not: null } },
+        { pesoNeto: { not: null } },
+      ],
+    },
+    data: {
+      pesoBruto: null,
+      pesoNeto: null,
+    },
+  })
+  console.log(`  pesoBruto/pesoNeto borrados: ${pesoResult.count} tropas\n`)
 
   // ═══════════════════════════════════════════════════════════════
   // PASO 2: IMPORTAR PLANTILLA MARCELO.xlsx
@@ -314,14 +292,14 @@ async function main() {
   }
 
   // Estado final
-  const conDte = await db.tropa.count({ where: { dte: { not: null, not: 'PENDIENTE' } } })
-  const conGuia = await db.tropa.count({ where: { guia: { not: null, not: 'PENDIENTE' } } })
-  const conFechaRecepcion = await db.tropa.count({ where: { fechaRecepcion: { not: null } } })
-  const conPesoBruto = await db.tropa.count({ where: { pesoBruto: { not: null } } })
-  const conPesoNeto = await db.tropa.count({ where: { pesoNeto: { not: null } } })
-  const conProductor = await db.tropa.count({ where: { productorId: { not: null } } })
-  const conUsuarioFaena = await db.tropa.count({ where: { usuarioFaenaId: { not: null } } })
-  const conCorral = await db.tropa.count({ where: { corralId: { not: null } } })
+  const conDte = await db.tropa.count({ where: { AND: [{ dte: { not: null } }, { dte: { not: 'PENDIENTE' } }] } })
+  const conGuia = await db.tropa.count({ where: { AND: [{ guia: { not: null } }, { guia: { not: 'PENDIENTE' } }] } })
+  const conFechaRecepcion = await db.tropa.count({ where: { NOT: { fechaRecepcion: null } } })
+  const conPesoBruto = await db.tropa.count({ where: { NOT: { pesoBruto: null } } })
+  const conPesoNeto = await db.tropa.count({ where: { NOT: { pesoNeto: null } } })
+  const conProductor = await db.tropa.count({ where: { NOT: { productorId: null } } })
+  const conUsuarioFaena = await db.tropa.count({ where: { NOT: { usuarioFaenaId: null } } })
+  const conCorral = await db.tropa.count({ where: { NOT: { corralId: null } } })
 
   console.log(`\n=== ESTADO FINAL ===`)
   console.log(`Con DTE real: ${conDte} / ${tropasBD.length}`)
