@@ -112,19 +112,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted) setLoading(false)
     }
 
-    const refreshSessionPeriodic = async () => {
-      try {
-        const res = await fetch('/api/auth', { method: 'PATCH' })
-        if (!mounted) return
-        if (res.ok) {
-          const data = await res.json()
-          if (data.success && data.data) {
+    // Refresh periódico: fire-and-forget — no bloquea la UI
+    const refreshSessionPeriodic = () => {
+      fetch('/api/auth', { method: 'PATCH' })
+        .then(res => {
+          if (!mounted) return
+          if (res.status === 401) { updateOperador(null); return }
+          if (!res.ok) return
+          return res.json()
+        })
+        .then(data => {
+          if (mounted && data?.success && data.data) {
             updateOperador(data.data)
           }
-        }
-      } catch {
-        // Ignore
-      }
+        })
+        .catch(() => { /* Ignore */ })
     }
 
     validateSession()
@@ -140,26 +142,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    const handleVisibility = async () => {
+    // Visibility change: fire-and-forget — no bloquea la UI al volver a la pestaña
+    const handleVisibility = () => {
       if (document.visibilityState === 'visible' && operadorRef.current) {
-        try {
-          const res = await fetch('/api/auth', { method: 'PATCH' })
-          if (!mounted) return
-          if (res.ok) {
-            const data = await res.json()
-            if (data.success && data.data) updateOperador(data.data)
-          } else if (res.status === 401) {
-            // Retry once before forcing logout
-            setTimeout(async () => {
-              if (!mounted) return
-              try {
-                const retryRes = await fetch('/api/auth')
+        fetch('/api/auth', { method: 'PATCH' })
+          .then(res => {
+            if (!mounted) return
+            if (res.ok) {
+              return res.json().then(data => {
+                if (data?.success && data.data) updateOperador(data.data)
+              })
+            } else if (res.status === 401) {
+              // Retry once before forcing logout
+              setTimeout(() => {
                 if (!mounted) return
-                if (retryRes.status === 401) updateOperador(null)
-              } catch { /* keep logged in */ }
-            }, 3000)
-          }
-        } catch { /* keep logged in */ }
+                fetch('/api/auth')
+                  .then(retryRes => {
+                    if (mounted && retryRes.status === 401) updateOperador(null)
+                  })
+                  .catch(() => { /* keep logged in */ })
+              }, 3000)
+            }
+          })
+          .catch(() => { /* keep logged in */ })
       }
     }
 

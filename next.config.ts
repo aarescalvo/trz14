@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import os from "os";
 
 // Obtener origins permitidos desde variable de entorno, con fallback para desarrollo
 const getAllowedOrigins = (): string[] => {
@@ -13,6 +14,31 @@ const getAllowedOrigins = (): string[] => {
   ];
 };
 
+// Detectar dinámicamente todas las IPs de red local para evitar warnings cross-origin
+// cuando se accede desde una IP que cambia (DHCP) o desde otra PC en la red local.
+const getDevOrigins = (): string[] => {
+  const origins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+  ];
+  try {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          origins.push(`http://${iface.address}:3000`);
+          origins.push(`http://${iface.address}:3001`);
+        }
+      }
+    }
+  } catch {
+    // Si no se pueden leer interfaces, seguir con los defaults
+  }
+  return origins;
+};
+
 // Version: 3.18.0 - Security hardening + quality improvements
 const nextConfig: NextConfig = {
   typescript: {
@@ -20,7 +46,8 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
   // Permitir requests cross-origin en desarrollo (red local, IP dinámica)
-  allowedDevOrigins: ['http://192.168.1.153:3000'],
+  // Detecta automáticamente todas las interfaces de red IPv4 del servidor.
+  allowedDevOrigins: getDevOrigins(),
   experimental: {
     serverActions: {
       allowedOrigins: getAllowedOrigins(),

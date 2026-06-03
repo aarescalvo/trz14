@@ -40,43 +40,29 @@ function buildPermisos(operador: any) {
   }
 }
 
-// GET - Validate operator session (now verifies JWT cookie)
+// GET - Validate operator session (verifies JWT cookie, no DB query)
+// Los datos del operador vienen del payload JWT (firmado y verificado).
+// Si un operador es desactivado, su sesión expira con el JWT (24h max).
 export async function GET(request: NextRequest) {
   try {
     const cookieConfig = getSessionCookieConfig()
     const token = request.cookies.get(cookieConfig.name)?.value
     
-    // Try JWT cookie first (new method)
     if (token) {
       const payload = await verifySessionToken(token)
       if (payload) {
-        // Verify operator still exists and is active
-        const operador = await db.operador.findUnique({
-          where: { id: payload.operadorId }
+        // JWT válido — devolver datos directamente del payload sin consultar DB
+        return NextResponse.json({
+          success: true,
+          data: {
+            id: payload.operadorId,
+            nombre: payload.nombre,
+            usuario: payload.usuario,
+            rol: payload.rol,
+            email: payload.email,
+            permisos: payload.permisos
+          }
         })
-        
-        if (operador && operador.activo) {
-          return NextResponse.json({
-            success: true,
-            data: {
-              id: operador.id,
-              nombre: operador.nombre,
-              usuario: operador.usuario,
-              rol: operador.rol,
-              email: operador.email,
-              permisos: buildPermisos(operador)
-            }
-          })
-        }
-        
-        // Operator no longer valid - clear cookie
-        const logoutConfig = getLogoutCookieConfig()
-        const response = NextResponse.json(
-          { success: false, error: 'Sesión expirada' },
-          { status: 401 }
-        )
-        response.cookies.set(logoutConfig.name, '', logoutConfig.options)
-        return response
       }
     }
     
@@ -166,9 +152,10 @@ export async function POST(request: NextRequest) {
         nombre: operador.nombre,
         usuario: operador.usuario,
         rol: operador.rol,
+        email: operador.email ?? undefined,
         permisos
       })
-      
+
       // Registrar login en auditoría
       await db.auditoria.create({
         data: {
@@ -312,9 +299,10 @@ export async function POST(request: NextRequest) {
         nombre: operador.nombre,
         usuario: operador.usuario,
         rol: operador.rol,
+        email: operador.email ?? undefined,
         permisos
       })
-      
+
       // Registrar login en auditoría
       await db.auditoria.create({
         data: {
@@ -361,8 +349,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH - Refresh session token (renew JWT without re-authentication)
-// Called periodically by the client to keep the session alive
+// PATCH - Refresh session token (renew JWT without DB query)
+// Called periodically by the client to keep the session alive.
+// Los datos del operador se leen del JWT existente (firmado, válido).
+// No se consulta la DB — si el operador fue desactivado, expira con el JWT (24h max).
 export async function PATCH(request: NextRequest) {
   try {
     const cookieConfig = getSessionCookieConfig()
@@ -387,40 +377,25 @@ export async function PATCH(request: NextRequest) {
       return response
     }
 
-    // Verify operator still exists and is active
-    const operador = await db.operador.findUnique({
-      where: { id: payload.operadorId }
-    })
-
-    if (!operador || !operador.activo) {
-      const logoutConfig = getLogoutCookieConfig()
-      const response = NextResponse.json(
-        { success: false, error: 'Operador inactivo' },
-        { status: 401 }
-      )
-      response.cookies.set(logoutConfig.name, '', logoutConfig.options)
-      return response
-    }
-
-    // Issue a new JWT token with fresh expiration
-    const permisos = buildPermisos(operador)
+    // Re-emitar un nuevo JWT con los datos del payload actual (sin consultar DB)
     const newToken = await createSessionToken({
-      operadorId: operador.id,
-      nombre: operador.nombre,
-      usuario: operador.usuario,
-      rol: operador.rol,
-      permisos
+      operadorId: payload.operadorId,
+      nombre: payload.nombre,
+      usuario: payload.usuario,
+      rol: payload.rol,
+      email: payload.email,
+      permisos: payload.permisos
     })
 
     const response = NextResponse.json({
       success: true,
       data: {
-        id: operador.id,
-        nombre: operador.nombre,
-        usuario: operador.usuario,
-        rol: operador.rol,
-        email: operador.email,
-        permisos
+        id: payload.operadorId,
+        nombre: payload.nombre,
+        usuario: payload.usuario,
+        rol: payload.rol,
+        email: payload.email,
+        permisos: payload.permisos
       }
     })
     // Set new token cookie (replaces the old one)
