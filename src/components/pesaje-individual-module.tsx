@@ -907,10 +907,8 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
             display: flex; align-items: center; justify-content: space-between;
             border-bottom: 3px solid #1a365d; padding-bottom: 6mm; margin-bottom: 6mm;
           }
-          .logo-placeholder {
-            width: 55px; height: 55px; border: 2px solid #1a365d; border-radius: 5px;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 16px; background: linear-gradient(135deg, #1a365d, #2c5282); color: white;
+          .logo-img {
+            width: 65px; height: 65px; object-fit: contain;
           }
           .empresa-info h1 { font-size: 22px; font-weight: 900; color: #1a365d; text-transform: uppercase; letter-spacing: 1px; }
           .empresa-info p { font-size: 9px; color: #555; }
@@ -958,10 +956,12 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       <body>
         <div class="header">
           <div style="display: flex; align-items: center; gap: 4mm;">
-            <div class="logo-placeholder">SA</div>
+            <img id="logo-img" class="logo-img" src="" alt="Solemar Alimentaria" />
             <div class="empresa-info">
               <h1>Solemar Alimentaria</h1>
-              <p>Ruta Provincial N 11 - Km 45.5 | San Martin, Mendoza</p>
+              <p>Ruta Nacional N° 22, Km 1043, Chimpay, Río Negro</p>
+              <p>CUIT: 30-70919450-6 | Tel: (02946) 494-100</p>
+              <p>N° Establecimiento: 3986</p>
             </div>
           </div>
           <div class="ticket-info">
@@ -1042,6 +1042,16 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
         </div>
 
         <script>
+          // Cargar logo desde la app principal
+          try {
+            var origin = window.opener ? window.opener.location.origin : '';
+            var logo = document.getElementById('logo-img');
+            if (logo && origin) { logo.src = origin + '/logo.png'; }
+            else if (logo) { logo.style.display = 'none'; }
+          } catch(e) {
+            var logo = document.getElementById('logo-img');
+            if (logo) { logo.style.display = 'none'; }
+          }
           window.onload = function() {
             setTimeout(function() {
               window.print();
