@@ -50,6 +50,20 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Buscar tropas que comparten el mismo ticket de pesaje
+    let ticketCompartidoCon: Array<{ numero: number; codigo: string }> = []
+    if (tropa.pesajeCamion?.numeroTicket) {
+      const hermanas = await db.tropa.findMany({
+        where: {
+          pesajeCamionId: { not: tropa.pesajeCamionId },
+          pesajeCamion: { numeroTicket: tropa.pesajeCamion.numeroTicket }
+        },
+        select: { numero: true, codigo: true },
+        orderBy: { numero: 'asc' }
+      })
+      ticketCompartidoCon = hermanas
+    }
+
     // Obtener configuración del frigorífico
     const config = await db.configuracionFrigorifico.findFirst()
 
@@ -210,6 +224,14 @@ export async function GET(request: NextRequest) {
     doc.text('N\u00b0 Pesada:', margin + 220, y)
     doc.setFont('helvetica', 'normal')
     doc.text(String(tropa.pesajeCamion?.numeroTicket || '-'), margin + 245, y)
+    if (ticketCompartidoCon.length > 0) {
+      const compStr = ticketCompartidoCon.map(t => `Tropa ${t.numero}`).join(', ')
+      doc.setFontSize(6)
+      doc.setTextColor(180, 100, 0)
+      doc.text(`(Compartido c/ ${compStr})`, margin + 245, y + 3)
+      doc.setTextColor(0)
+      doc.setFontSize(8)
+    }
     y += datosRow + 1
 
     // Línea separadora

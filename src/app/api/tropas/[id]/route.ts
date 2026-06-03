@@ -44,10 +44,25 @@ export async function GET(
       )
     }
 
+    // Buscar tropas que comparten el mismo ticket de pesaje
+    let ticketCompartidoCon: Array<{ numero: number; codigo: string }> = []
+    if (tropa.pesajeCamion?.numeroTicket) {
+      const hermanas = await db.tropa.findMany({
+        where: {
+          pesajeCamionId: { not: tropa.pesajeCamionId },
+          pesajeCamion: { numeroTicket: tropa.pesajeCamion.numeroTicket }
+        },
+        select: { numero: true, codigo: true },
+        orderBy: { numero: 'asc' }
+      })
+      ticketCompartidoCon = hermanas
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         ...tropa,
+        ticketCompartidoCon,
         animales: tropa.animales.map(a => ({
           id: a.id,
           numero: a.numero,

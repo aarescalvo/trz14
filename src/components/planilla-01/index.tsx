@@ -14,6 +14,7 @@ import {
   Eye, FileSpreadsheet, FileDown
 } from 'lucide-react'
 import { TextoEditable, EditableBlock, useEditor } from '@/components/ui/editable-screen'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface Operador { id: string; nombre: string; rol: string }
 
@@ -30,6 +31,7 @@ interface Tropa {
   corral?: { nombre: string }
   productor?: { nombre: string; cuit: string }
   usuarioFaena?: { nombre: string; cuit: string }
+  ticketCompartidoCon?: Array<{ numero: number; codigo: string }>
   pesajeCamion?: {
     patenteChasis: string
     patenteAcoplado?: string
@@ -275,6 +277,14 @@ export function Planilla01Module({ operador }: Props) {
       doc.text('N\u00b0 PESADA:', m + 190, y)
       doc.setFont('helvetica', 'normal')
       doc.text(String(tropaSeleccionada.pesajeCamion?.numeroTicket || '-'), m + 215, y)
+      if (tropaSeleccionada.ticketCompartidoCon && tropaSeleccionada.ticketCompartidoCon.length > 0) {
+        const compStr = tropaSeleccionada.ticketCompartidoCon.map(t => `Tropa ${t.numero}`).join(', ')
+        doc.setFontSize(6)
+        doc.setTextColor(180, 100, 0)
+        doc.text(`(Compartido c/ ${compStr})`, m + 215, y + 3)
+        doc.setTextColor(0)
+        doc.setFontSize(7)
+      }
       y += 5
 
       // --- Documentaci\u00f3n ---
@@ -632,7 +642,28 @@ export function Planilla01Module({ operador }: Props) {
                           <span>DTE: {tropaSeleccionada.dte || '-'}</span>
                           <span>Guía: {tropaSeleccionada.guia || '-'}</span>
                           <span>Corral: {tropaSeleccionada.corral?.nombre || '-'}</span>
-                          <span>Pesada N°: {tropaSeleccionada.pesajeCamion?.numeroTicket || '-'}</span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-1.5">
+                                  Pesada N°: {tropaSeleccionada.pesajeCamion?.numeroTicket || '-'}
+                                  {tropaSeleccionada.ticketCompartidoCon && tropaSeleccionada.ticketCompartidoCon.length > 0 && (
+                                    <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] px-1.5 py-0">COMPARTIDO</Badge>
+                                  )}
+                                </span>
+                              </TooltipTrigger>
+                              {tropaSeleccionada.ticketCompartidoCon && tropaSeleccionada.ticketCompartidoCon.length > 0 && (
+                                <TooltipContent>
+                                  <p className="text-xs">Ticket compartido con:</p>
+                                  <ul className="text-xs mt-1">
+                                    {tropaSeleccionada.ticketCompartidoCon.map(t => (
+                                      <li key={t.numero}>Tropa {t.numero} ({t.codigo})</li>
+                                    ))}
+                                  </ul>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </div>
 

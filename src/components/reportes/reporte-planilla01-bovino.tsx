@@ -18,6 +18,7 @@ import { ExcelExporter } from '@/lib/export-excel'
 import { PDFExporter } from '@/lib/export-pdf'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 // ==================== TIPOS ====================
 
@@ -34,6 +35,7 @@ interface TropaCompleta {
   productor?: { id: string; nombre: string; cuit?: string; numeroRenspa?: string; direccion?: string; localidad?: string; provincia?: string }
   usuarioFaena?: { id: string; nombre: string; cuit?: string }
   corral?: { id: string; nombre: string }
+  ticketCompartidoCon?: Array<{ numero: number; codigo: string }>
   pesajeCamion?: {
     id: string
     numeroTicket?: number
@@ -190,7 +192,11 @@ export function ReportePlanilla01Bovino() {
         ['N Guia', tropa.guia || '-'],
         ['Fecha Guia', tropa.pesajeCamion?.fechaGuia || '-'],
         ['Precintos', tropa.pesajeCamion?.precintos || '-'],
-        ['N Pesada Camion', String(tropa.pesajeCamion?.numeroTicket || '-')],
+        ['N Pesada Camion', tropa.pesajeCamion?.numeroTicket
+          ? (tropa.ticketCompartidoCon && tropa.ticketCompartidoCon.length > 0
+              ? `${tropa.pesajeCamion.numeroTicket} (Compartido c/ Tropa ${tropa.ticketCompartidoCon.map(t => t.numero).join(', ')})`
+              : String(tropa.pesajeCamion.numeroTicket))
+          : '-'],
         ['Peso Bruto', tropa.pesajeCamion?.pesoBruto ? tropa.pesajeCamion.pesoBruto.toFixed(0) + ' kg' : '-'],
         ['Peso Tara', tropa.pesajeCamion?.pesoTara ? tropa.pesajeCamion.pesoTara.toFixed(0) + ' kg' : '-'],
         ['Peso Neto', tropa.pesajeCamion?.pesoNeto ? tropa.pesajeCamion.pesoNeto.toFixed(0) + ' kg' : '-'],
@@ -416,6 +422,14 @@ export function ReportePlanilla01Bovino() {
       doc.text('N\u00b0 Pesada:', leftCol, y)
       doc.setFont('helvetica', 'normal')
       doc.text(String(tropa.pesajeCamion?.numeroTicket || '-'), leftCol + 32, y)
+      if (tropa.ticketCompartidoCon && tropa.ticketCompartidoCon.length > 0) {
+        const compStr = tropa.ticketCompartidoCon.map(t => `Tropa ${t.numero}`).join(', ')
+        doc.setFontSize(6)
+        doc.setTextColor(180, 100, 0)
+        doc.text(`(Compartido c/ ${compStr})`, leftCol + 50, y)
+        doc.setTextColor(0)
+        doc.setFontSize(8)
+      }
       y += rowH + 2
 
       // Línea separadora
@@ -813,6 +827,23 @@ export function ReportePlanilla01Bovino() {
                     <div>
                       <span className="text-stone-500">N Pesada:</span>
                       <span className="ml-2 font-medium">{tropa.pesajeCamion?.numeroTicket || '-'}</span>
+                      {tropa.ticketCompartidoCon && tropa.ticketCompartidoCon.length > 0 && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] px-1.5 py-0 ml-2 cursor-default">COMPARTIDO</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Ticket compartido con:</p>
+                              <ul className="text-xs mt-1">
+                                {tropa.ticketCompartidoCon.map(t => (
+                                  <li key={t.numero}>Tropa {t.numero} ({t.codigo})</li>
+                                ))}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </div>
                   </div>
                 </div>

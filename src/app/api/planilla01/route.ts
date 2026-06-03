@@ -92,6 +92,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Tropa no encontrada' }, { status: 404 })
     }
 
+    // Buscar tropas que comparten el mismo ticket de pesaje
+    let ticketCompartidoCon: Array<{ numero: number; codigo: string }> = []
+    if (tropa.pesajeCamion?.numeroTicket) {
+      const hermanas = await db.tropa.findMany({
+        where: {
+          pesajeCamionId: { not: tropa.pesajeCamionId },
+          pesajeCamion: { numeroTicket: tropa.pesajeCamion.numeroTicket }
+        },
+        select: { numero: true, codigo: true },
+        orderBy: { numero: 'asc' }
+      })
+      ticketCompartidoCon = hermanas
+    }
+
     // ===== CÁLCULOS =====
     const kgNetosCamion = tropa.pesajeCamion?.pesoNeto ?? null
     const kgNetosIndividuales = (tropa.animales || []).reduce((sum, a) => {
@@ -256,7 +270,11 @@ export async function POST(request: NextRequest) {
       { v: 'DTE:', c: 6, w: 1, bold: true },
       { v: tropa.dte || '-', c: 7, w: 2 },
       { v: 'N° Pesada:', c: 10, w: 1, bold: true },
-      { v: String(tropa.pesajeCamion?.numeroTicket || '-'), c: 11, w: 2 },
+      { v: tropa.pesajeCamion?.numeroTicket
+        ? (ticketCompartidoCon.length > 0
+            ? `${tropa.pesajeCamion.numeroTicket} (Compartido c/ Tropa ${ticketCompartidoCon.map(t => t.numero).join(', ')})`
+            : String(tropa.pesajeCamion.numeroTicket))
+        : '-', c: 11, w: 2 },
     ])
     r += 2
 
@@ -364,7 +382,11 @@ export async function POST(request: NextRequest) {
     // N° Pesada camión
     writeDataRow(ws, r, [
       { v: 'N° PESADA CAMIÓN:', c: 1, w: 3, bold: true },
-      { v: String(tropa.pesajeCamion?.numeroTicket || '-'), c: 4, w: 2 },
+      { v: tropa.pesajeCamion?.numeroTicket
+        ? (ticketCompartidoCon.length > 0
+            ? `${tropa.pesajeCamion.numeroTicket} (Compartido c/ Tropa ${ticketCompartidoCon.map(t => t.numero).join(', ')})`
+            : String(tropa.pesajeCamion.numeroTicket))
+        : '-', c: 4, w: 2 },
     ])
     r += 1
 
