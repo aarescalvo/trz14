@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import os from "os";
+import dns from "dns";
 
 // Obtener origins permitidos desde variable de entorno, con fallback para desarrollo
 const getAllowedOrigins = (): string[] => {
@@ -15,9 +16,7 @@ const getAllowedOrigins = (): string[] => {
 };
 
 // Detectar dinámicamente todas las IPs de red local para evitar warnings cross-origin.
-// 1) Lee NEXT_PUBLIC_APP_URL (o APP_URL) desde .env — fuente principal.
-// 2) Lee os.networkInterfaces() — detección automática.
-// 3) Fallback a localhost.
+// 3 fuentes: (1) APP_URL de .env, (2) os.networkInterfaces(), (3) DNS por hostname
 const getDevOrigins = (): string[] => {
   const origins = new Set<string>([
     'http://localhost:3000',
@@ -32,6 +31,9 @@ const getDevOrigins = (): string[] => {
     for (const url of appUrl.split(',').map(u => u.trim())) {
       if (url) origins.add(url);
     }
+    console.log(`[config] APP_URL detectada: ${appUrl}`);
+  } else {
+    console.log(`[config] APP_URL no encontrada en .env. APP_URL=${process.env.APP_URL} NEXT_PUBLIC_APP_URL=${process.env.NEXT_PUBLIC_APP_URL}`);
   }
 
   // Fuente 2: Detección automática de interfaces de red
@@ -44,14 +46,32 @@ const getDevOrigins = (): string[] => {
         if (isIPv4 && !iface.internal) {
           origins.add(`http://${iface.address}:3000`);
           origins.add(`http://${iface.address}:3001`);
+          console.log(`[config] Interface detectada: ${name} → ${iface.address} (family: ${iface.family})`);
         }
       }
     }
-  } catch {
-    // Si no se pueden leer interfaces, seguir con los defaults
+  } catch (e) {
+    console.log(`[config] Error leyendo networkInterfaces:`, e);
   }
 
-  return Array.from(origins);
+  // Fuente 3: DNS lookup del hostname local
+  try {
+    const hostname = os.hostname();
+    const addresses = dns.lookupSync(hostname, { all: true });
+    for (const addr of addresses) {
+      if (addr.family === 4 && addr.address !== '127.0.0.1') {
+        origins.add(`http://${addr.address}:3000`);
+        origins.add(`http://${addr.address}:3001`);
+        console.log(`[config] DNS hostname "${hostname}" → ${addr.address}`);
+      }
+    }
+  } catch {
+    // DNS lookup puede fallar sin conexión de red
+  }
+
+  const result = Array.from(origins);
+  console.log(`[config] allowedDevOrigins final:`, JSON.stringify(result, null, 2));
+  return result;
 };
 
 // Version: 3.18.0 - Security hardening + quality improvements
