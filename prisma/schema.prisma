@@ -660,7 +660,7 @@ model MovimientoCorral {
 model PesajeCamion {
   id           String           @id @default(cuid())
   tipo         TipoPesajeCamion @default(INGRESO_HACIENDA)
-  numeroTicket Int              @unique
+  numeroTicket Int
 
   // Datos del vehículo
   patenteChasis   String

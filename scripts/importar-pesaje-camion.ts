@@ -66,18 +66,13 @@ async function main() {
 
   console.log(`\n📋 Tropas a importar: ${tropasAImportar.map(t => t.numero).join(', ')}`)
 
-  // ─── 2. Obtener último número de ticket ───
+  // ─── 2. Obtener último número de ticket (para auto-generar si falta) ───
   const lastPesaje = await db.pesajeCamion.findFirst({
     orderBy: { numeroTicket: 'desc' }
   })
   let nextTicket = (lastPesaje?.numeroTicket || 0) + 1
-  console.log(`📋 Último ticket en DB: ${lastPesaje?.numeroTicket ?? 0}, siguiente: ${nextTicket}`)
-
-  // ─── 3. Mapeo de tickets usados para evitar duplicados ───
-  const ticketsUsados = new Set<number>()
-  // Cargar tickets ya existentes
-  const allTickets = await db.pesajeCamion.findMany({ select: { numeroTicket: true } })
-  for (const t of allTickets) ticketsUsados.add(t.numeroTicket)
+  console.log(`📋 Último ticket en DB: ${lastPesaje?.numeroTicket ?? 0}, siguiente auto: ${nextTicket}`)
+  // Nota: los tickets pueden repetirse (un camión trae varias tropas con mismo ticket)
 
   // ─── 4. Obtener transportistas para matching por nombre ───
   const transportistas = await db.transportista.findMany()
@@ -135,17 +130,8 @@ async function main() {
         continue // ya tiene, saltar silenciosamente
       }
 
-      // Determinar número de ticket (manejar duplicados)
-      let ticketNum = d.ticketOriginal || nextTicket
-      // Si el ticket ya fue usado, asignar uno nuevo
-      let intentos = 0
-      while (ticketsUsados.has(ticketNum) && intentos < 10) {
-        ticketNum = nextTicket
-        nextTicket++
-        intentos++
-      }
-      ticketsUsados.add(ticketNum)
-      if (!d.ticketOriginal) nextTicket++
+      // Número de ticket: usar el original (puede repetirse entre tropas del mismo camión)
+      const ticketNum = d.ticketOriginal || nextTicket++
 
       // Determinar transportista
       let transportistaId: string | undefined
