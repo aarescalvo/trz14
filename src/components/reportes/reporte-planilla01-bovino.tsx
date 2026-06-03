@@ -36,6 +36,7 @@ interface TropaCompleta {
   corral?: { id: string; nombre: string }
   pesajeCamion?: {
     id: string
+    numeroTicket?: number
     patenteChasis: string
     patenteAcoplado?: string
     choferNombre?: string
@@ -44,6 +45,9 @@ interface TropaCompleta {
     precintos?: string
     certificadoLavado?: string
     fechaGuia?: string
+    pesoBruto?: number
+    pesoTara?: number
+    pesoNeto?: number
     transportista?: { id: string; nombre: string; cuit?: string }
   }
   animales: Array<{
@@ -186,6 +190,10 @@ export function ReportePlanilla01Bovino() {
         ['N Guia', tropa.guia || '-'],
         ['Fecha Guia', tropa.pesajeCamion?.fechaGuia || '-'],
         ['Precintos', tropa.pesajeCamion?.precintos || '-'],
+        ['N Pesada Camion', String(tropa.pesajeCamion?.numeroTicket || '-')],
+        ['Peso Bruto', tropa.pesajeCamion?.pesoBruto ? tropa.pesajeCamion.pesoBruto.toFixed(0) + ' kg' : '-'],
+        ['Peso Tara', tropa.pesajeCamion?.pesoTara ? tropa.pesajeCamion.pesoTara.toFixed(0) + ' kg' : '-'],
+        ['Peso Neto', tropa.pesajeCamion?.pesoNeto ? tropa.pesajeCamion.pesoNeto.toFixed(0) + ' kg' : '-'],
       ]
 
       // Hoja 2: Detalle de animales
@@ -402,6 +410,12 @@ export function ReportePlanilla01Bovino() {
       doc.text('Fecha Guia:', rightCol, y)
       doc.setFont('helvetica', 'normal')
       doc.text(tropa.pesajeCamion?.fechaGuia || '-', rightCol + 35, y)
+      y += rowH
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('N\u00b0 Pesada:', leftCol, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(tropa.pesajeCamion?.numeroTicket || '-'), leftCol + 32, y)
       y += rowH + 2
 
       // Línea separadora
@@ -795,6 +809,10 @@ export function ReportePlanilla01Bovino() {
                     <div>
                       <span className="text-stone-500">Precintos:</span>
                       <span className="ml-2 font-medium">{tropa.pesajeCamion?.precintos || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-500">N Pesada:</span>
+                      <span className="ml-2 font-medium">{tropa.pesajeCamion?.numeroTicket || '-'}</span>
                     </div>
                   </div>
                 </div>
