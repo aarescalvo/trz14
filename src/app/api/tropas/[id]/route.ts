@@ -24,7 +24,8 @@ export async function GET(
           select: {
             id: true, numeroTicket: true, tipo: true, patenteChasis: true, patenteAcoplado: true,
             choferNombre: true, choferDni: true, transportista: { select: { id: true, nombre: true, cuit: true } },
-            precintos: true, pesoBruto: true, pesoTara: true, pesoNeto: true, estado: true
+            precintos: true, pesoBruto: true, pesoTara: true, pesoNeto: true, estado: true,
+            observaciones: true, fecha: true, fechaTara: true
           }
         },
         animales: {
@@ -80,6 +81,7 @@ export async function GET(
         pesajeCamion: tropa.pesajeCamion ? {
           id: tropa.pesajeCamion.id,
           numeroTicket: tropa.pesajeCamion.numeroTicket,
+          tipo: tropa.pesajeCamion.tipo,
           patenteChasis: tropa.pesajeCamion.patenteChasis,
           patenteAcoplado: tropa.pesajeCamion.patenteAcoplado,
           choferNombre: tropa.pesajeCamion.choferNombre,
@@ -93,7 +95,10 @@ export async function GET(
           pesoBruto: tropa.pesajeCamion.pesoBruto,
           pesoTara: tropa.pesajeCamion.pesoTara,
           pesoNeto: tropa.pesajeCamion.pesoNeto,
-          estado: tropa.pesajeCamion.estado
+          estado: tropa.pesajeCamion.estado,
+          observaciones: tropa.pesajeCamion.observaciones ?? null,
+          fecha: tropa.pesajeCamion.fecha,
+          fechaTara: tropa.pesajeCamion.fechaTara ?? null
         } : null
       }
     })
