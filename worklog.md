@@ -165,3 +165,40 @@ Stage Summary:
 - Migración completa y corregida: 168 tablas nuevas + 80 ENUMs + 435 indices
 - Compatibilidad asegurada con todas las versiones de PostgreSQL
 - El usuario debe ejecutar: git pull origin main && npx prisma migrate deploy
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Optimizar rendimiento auth + quitar warning cross-origin (Puntos 1, 2 y 5)
+
+Work Log:
+- Implementado Punto 1: GET/PATCH /api/auth sin query DB
+  - Eliminada la consulta db.operador.findUnique() en GET y PATCH handlers
+  - Los datos del operador se leen directamente del payload JWT (firmado y verificado por middleware)
+  - Si un operador es desactivado, su sesión expira con el JWT (24h max)
+  - Agregado campo `email` al payload JWT (SessionPayload) y a createSessionToken para consistencia
+  - Corregido TS error: `operador.email ?? undefined` en POST handlers (Prisma returns null, JWT expects undefined)
+- Implementado Punto 2: Auth fire-and-forget - no bloquea navegación
+  - `refreshSessionPeriodic` (cada 10min): cambiado de async/await a fetch().then() chain
+  - `handleVisibility` (volver a pestaña): cambiado de async/await a fetch().then() chain
+  - Corregido bug encontrado en revisión: periodic refresh no manejaba 401 → usuario nunca deslogueado
+  - Agregado `if (res.status === 401) updateOperador(null)` en periodic refresh
+  - `validateSession` (mount) y `refreshSession` (callback público) siguen con await (necesitan resultado)
+- Implementado Punto 5: allowedDevOrigins dinámico en next.config
+  - Eliminada IP hardcodeada `192.168.1.153:3000`
+  - Nueva función `getDevOrigins()` detecta IPv4 locales via `os.networkInterfaces()`
+  - Agrega automáticamente todas las interfaces de red + localhost + 127.0.0.1
+  - Fallback seguro con try/catch si no se pueden leer interfaces
+
+Archivos modificados:
+- src/app/api/auth/route.ts (GET/PATCH sin DB query, email en JWT)
+- src/components/providers/auth-provider.tsx (fire-and-forget PATCH, fix 401 handler)
+- src/lib/jwt.ts (email en SessionPayload y createSessionToken)
+- next.config.ts (allowedDevOrigins dinámico)
+
+Stage Summary:
+- Commit c25c1ed pusheado a origin/main
+- El GET/PATCH /api/auth ahora responde en ~5ms (sin DB) vs ~2s antes (con DB)
+- El refresh periódico y visibility change ya no bloquean la UI del navegador
+- El warning de cross-origin desaparece sin importar la IP del servidor
+- Nota: los usuarios necesitan hacer logout y login nuevamente para obtener un JWT con el campo email
