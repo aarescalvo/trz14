@@ -202,3 +202,30 @@ Stage Summary:
 - El refresh periódico y visibility change ya no bloquean la UI del navegador
 - El warning de cross-origin desaparece sin importar la IP del servidor
 - Nota: los usuarios necesitan hacer logout y login nuevamente para obtener un JWT con el campo email
+
+---
+Task ID: 9
+Agent: Main Agent
+Task: Agregar filtros de búsqueda por N° de pesaje y tipo de pesaje en historial de pesaje de camiones
+
+Work Log:
+- Leído archivo src/components/pesaje-camiones-module.tsx (1854 líneas) para entender la estructura del historial
+- Identificada la sección de filtros (líneas 1348-1430) que solo tenía filtros de fecha
+- Agregado import del icono Search desde lucide-react
+- Agregados 2 nuevos estados: filtroNumeroTicket (string) y filtroTipoPesaje (string)
+- Actualizado el useEffect de filtrado para incluir los 2 nuevos filtros (búsqueda parcial por número de ticket, filtro exacto por tipo)
+- Agregado campo "N° Pesada" con Input de texto + icono lupa (búsqueda parcial por numeroTicket)
+- Agregado campo "Tipo de Pesaje" con Select dropdown (TODOS / INGRESO_HACIENDA / PESAJE_PARTICULAR / SALIDA_MERCADERIA)
+- Actualizado botón "Limpiar" para resetear los 4 filtros (fechaDesde, fechaHasta, filtroNumeroTicket, filtroTipoPesaje)
+- Verificado que no hay errores TypeScript en el archivo modificado
+
+Archivos modificados:
+- src/components/pesaje-camiones-module.tsx (import Search, 2 nuevos estados, useEffect actualizado, UI filtros)
+
+Stage Summary:
+- Los 2 filtros nuevos funcionan client-side junto con los filtros de fecha existentes
+- Búsqueda por N° de pesada: parcial (escribe "15" y encuentra tickets que contengan "15")
+- Filtro por tipo de pesaje: exacto, con opción "Todos los tipos" para resetear
+- El botón "Limpiar" resetea todos los filtros a la vez
+- Build pre-existente en next.config.ts (error de tipos) no relacionado con estos cambios
+

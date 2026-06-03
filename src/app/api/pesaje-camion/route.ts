@@ -571,14 +571,108 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - Update pesaje (add tara) — now with transaction
+// PUT - Update pesaje (add tara or edit fields)
 export async function PUT(request: NextRequest) {
   const authError = await checkPermission(request, 'puedePesajeCamiones')
   if (authError) return authError
 
   try {
     const body = await request.json()
-    const { id, pesoTara, pesoNeto } = body
+    const { id, accion, ...fields } = body
+
+    // Modo edición general (desde historial)
+    if (accion === 'editar') {
+      const {
+        patenteChasis, patenteAcoplado, choferNombre, choferDni,
+        pesoBruto, pesoTara, pesoNeto, observaciones,
+        destino, remito, transportistaId
+      } = fields
+
+      // Construir data dinámicamente con solo los campos proporcionados
+      const updateData: any = {}
+      if (patenteChasis !== undefined) updateData.patenteChasis = patenteChasis.toUpperCase()
+      if (patenteAcoplado !== undefined) updateData.patenteAcoplado = patenteAcoplado?.toUpperCase() || null
+      if (choferNombre !== undefined) updateData.choferNombre = choferNombre || null
+      if (choferDni !== undefined) updateData.choferDni = choferDni || null
+      if (pesoBruto !== undefined) updateData.pesoBruto = pesoBruto ? parseFloat(pesoBruto) : null
+      if (pesoTara !== undefined) updateData.pesoTara = pesoTara ? parseFloat(pesoTara) : null
+      if (pesoNeto !== undefined) updateData.pesoNeto = pesoNeto ? parseFloat(pesoNeto) : null
+      if (observaciones !== undefined) updateData.observaciones = observaciones || null
+      if (destino !== undefined) updateData.destino = destino || null
+      if (remito !== undefined) updateData.remito = remito || null
+      if (transportistaId !== undefined) updateData.transportistaId = transportistaId || null
+
+      const result = await db.$transaction(async (tx) => {
+        const pesaje = await tx.pesajeCamion.update({
+          where: { id },
+          data: updateData,
+          include: {
+            transportista: true,
+            operador: true,
+            tropa: {
+              include: {
+                productor: true,
+                usuarioFaena: true,
+                tiposAnimales: true,
+                corral: true
+              }
+            }
+          }
+        })
+
+        // Actualizar pesos en tropa vinculada si se modificaron
+        if (pesaje.tropa && (pesoBruto !== undefined || pesoTara !== undefined || pesoNeto !== undefined)) {
+          const tropaData: any = {}
+          if (pesoBruto !== undefined) tropaData.pesoBruto = pesoBruto ? parseFloat(pesoBruto) : null
+          if (pesoTara !== undefined) tropaData.pesoTara = pesoTara ? parseFloat(pesoTara) : null
+          if (pesoNeto !== undefined) tropaData.pesoNeto = pesoNeto ? parseFloat(pesoNeto) : null
+          await tx.tropa.update({
+            where: { id: pesaje.tropa.id },
+            data: tropaData
+          })
+        }
+
+        return pesaje
+      })
+
+      // Auditoría: edición de pesaje
+      const { ip: auditIpEdit } = extractAuditInfo(request)
+      auditUpdate({
+        operadorId: getOperadorId(request) || undefined,
+        modulo: 'PESAJE_CAMION',
+        entidad: 'PesajeCamion',
+        entidadId: result.id,
+        entidadNombre: `Ticket #${result.numeroTicket}`,
+        datosAntes: {},
+        datosDespues: updateData,
+        descripcion: `Pesaje editado - Ticket #${result.numeroTicket} - Patente: ${result.patenteChasis || 'N/A'}`,
+        ip: auditIpEdit
+      }).catch(() => {})
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...result,
+          chofer: result.choferNombre,
+          dniChofer: result.choferDni,
+          descripcion: result.observaciones,
+          tropa: result.tropa ? {
+            id: result.tropa.id,
+            codigo: result.tropa.codigo,
+            productor: result.tropa.productor,
+            usuarioFaena: result.tropa.usuarioFaena,
+            especie: result.tropa.especie,
+            cantidadCabezas: result.tropa.cantidadCabezas,
+            corral: result.tropa.corral?.nombre || null,
+            tiposAnimales: result.tropa.tiposAnimales,
+            observaciones: result.tropa.observaciones
+          } : null
+        }
+      })
+    }
+
+    // Modo original: registrar tara (cerrar pesaje)
+    const { pesoTara, pesoNeto } = body
     
     const result = await db.$transaction(async (tx) => {
       const pesaje = await tx.pesajeCamion.update({
