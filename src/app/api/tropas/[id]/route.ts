@@ -64,6 +64,7 @@ export async function GET(
         })),
         pesajeCamion: tropa.pesajeCamion ? {
           id: tropa.pesajeCamion.id,
+          numeroTicket: tropa.pesajeCamion.numeroTicket,
           patenteChasis: tropa.pesajeCamion.patenteChasis,
           patenteAcoplado: tropa.pesajeCamion.patenteAcoplado,
           choferNombre: tropa.pesajeCamion.choferNombre,
@@ -76,7 +77,8 @@ export async function GET(
           precintos: tropa.pesajeCamion.precintos,
           pesoBruto: tropa.pesajeCamion.pesoBruto,
           pesoTara: tropa.pesajeCamion.pesoTara,
-          pesoNeto: tropa.pesajeCamion.pesoNeto
+          pesoNeto: tropa.pesajeCamion.pesoNeto,
+          estado: tropa.pesajeCamion.estado
         } : null
       }
     })
