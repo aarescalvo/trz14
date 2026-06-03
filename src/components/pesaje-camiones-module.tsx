@@ -194,7 +194,8 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
   
   // Computed
   const pesoNeto = pesoBruto > 0 && pesoTara > 0 ? pesoBruto - pesoTara : 0
-  const usuariosFaena = clientes
+  const usuariosFaena = clientes.filter((c: any) => c.esUsuarioFaena)
+  const productoresList = clientes.filter((c: any) => c.esProductor)
   const totalCabezas = tiposAnimales.reduce((acc, t) => acc + t.cantidad, 0)
 
   // Fetch data
@@ -227,19 +228,17 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
 
   const fetchData = async () => {
     try {
-      const [pesajesRes, transRes, clientesRes, corralesRes, productoresRes] = await Promise.all([
+      const [pesajesRes, transRes, clientesRes, corralesRes] = await Promise.all([
         fetch('/api/pesaje-camion'),
         fetch('/api/transportistas'),
         fetch('/api/clientes'),
-        fetch('/api/corrales'),
-        fetch('/api/productores')
+        fetch('/api/corrales')
       ])
       
       const pesajesData = await pesajesRes.json()
       const transData = await transRes.json()
       const clientesData = await clientesRes.json()
       const corralesData = await corralesRes.json()
-      const productoresData = await productoresRes.json()
       
       if (pesajesData.success) {
         setPesajesAbiertos(pesajesData.data.filter((p: any) => p.estado === 'ABIERTO'))
@@ -257,10 +256,6 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
       
       if (corralesData.success) {
         setCorrales(corralesData.data)
-      }
-      
-      if (productoresData.success) {
-        setProductores(productoresData.data)
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -319,7 +314,7 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
       setTransportistas([...transportistas, data])
       setTransportistaId(data.id)
     } else if (tipo === 'productor') {
-      setProductores([...productores, data])
+      setClientes([...clientes, { ...data, esProductor: true, esUsuarioFaena: false }])
       setProductorId(data.id)
     } else if (tipo === 'usuarioFaena') {
       setClientes([...clientes, data])
@@ -925,7 +920,7 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
                             <SelectValue placeholder="Seleccionar..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {productores.map((p) => (
+                            {productoresList.map((p) => (
                               <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
                             ))}
                           </SelectContent>
