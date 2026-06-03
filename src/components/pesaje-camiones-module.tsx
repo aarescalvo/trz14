@@ -1695,12 +1695,12 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
               </div>
               <div className="space-y-1">
                 <Label className="text-sm">Transportista</Label>
-                <Select value={editForm.transportistaId || ''} onValueChange={(v) => setEditForm({ ...editForm, transportistaId: v })}>
+                <Select value={editForm.transportistaId || '__NINGUNO__'} onValueChange={(v) => setEditForm({ ...editForm, transportistaId: v === '__NINGUNO__' ? '' : v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sin transportista" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin transportista</SelectItem>
+                    <SelectItem value="__NINGUNO__">Sin transportista</SelectItem>
                     {transportistas.map((t) => (
                       <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
                     ))}
