@@ -14,29 +14,44 @@ const getAllowedOrigins = (): string[] => {
   ];
 };
 
-// Detectar dinámicamente todas las IPs de red local para evitar warnings cross-origin
-// cuando se accede desde una IP que cambia (DHCP) o desde otra PC en la red local.
+// Detectar dinámicamente todas las IPs de red local para evitar warnings cross-origin.
+// 1) Lee NEXT_PUBLIC_APP_URL (o APP_URL) desde .env — fuente principal.
+// 2) Lee os.networkInterfaces() — detección automática.
+// 3) Fallback a localhost.
 const getDevOrigins = (): string[] => {
-  const origins = [
+  const origins = new Set<string>([
     'http://localhost:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
-  ];
+  ]);
+
+  // Fuente 1: Variable de entorno (APP_URL o NEXT_PUBLIC_APP_URL)
+  const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) {
+    for (const url of appUrl.split(',').map(u => u.trim())) {
+      if (url) origins.add(url);
+    }
+  }
+
+  // Fuente 2: Detección automática de interfaces de red
   try {
     const interfaces = os.networkInterfaces();
     for (const name of Object.keys(interfaces)) {
       for (const iface of interfaces[name] || []) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-          origins.push(`http://${iface.address}:3000`);
-          origins.push(`http://${iface.address}:3001`);
+        // En Windows, family puede ser 'IPv4' (string) o 4 (número)
+        const isIPv4 = iface.family === 'IPv4' || iface.family === 4;
+        if (isIPv4 && !iface.internal) {
+          origins.add(`http://${iface.address}:3000`);
+          origins.add(`http://${iface.address}:3001`);
         }
       }
     }
   } catch {
     // Si no se pueden leer interfaces, seguir con los defaults
   }
-  return origins;
+
+  return Array.from(origins);
 };
 
 // Version: 3.18.0 - Security hardening + quality improvements
