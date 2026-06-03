@@ -138,7 +138,18 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
             if (v.choferTelefono) setChoferTelefono(v.choferTelefono)
             if (v.habilitacion) setHabilitacion(v.habilitacion)
             if (v.empresa) setEmpresa(v.empresa)
-            if (v.transportistaId) setTransportistaId(v.transportistaId)
+            if (v.transportistaId) {
+              setTransportistaId(v.transportistaId)
+              // Asegurar que el transportista esté en la lista del dropdown
+              if (v.transportista) {
+                setTransportistas(prev => {
+                  if (!prev.some(t => t.id === v.transportista.id)) {
+                    return [...prev, { id: v.transportista.id, nombre: v.transportista.nombre }]
+                  }
+                  return prev
+                })
+              }
+            }
             setVehiculoEncontrado(true)
             toast.info(`Vehículo conocido - ${v.vecesVisita} visita${v.vecesVisita > 1 ? 's' : ''}`, { duration: 2000 })
           } else {
@@ -228,17 +239,17 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
 
   const fetchData = async () => {
     try {
-      const [pesajesRes, transRes, clientesRes, corralesRes] = await Promise.all([
-        fetch('/api/pesaje-camion'),
-        fetch('/api/transportistas'),
-        fetch('/api/clientes'),
-        fetch('/api/corrales')
+      // Fetch cada endpoint por separado para que un error no afecte a los demás
+      const results = await Promise.allSettled([
+        fetch('/api/pesaje-camion').then(r => r.json()),
+        fetch('/api/transportistas').then(r => r.json()),
+        fetch('/api/clientes').then(r => r.json()),
+        fetch('/api/corrales').then(r => r.json())
       ])
       
-      const pesajesData = await pesajesRes.json()
-      const transData = await transRes.json()
-      const clientesData = await clientesRes.json()
-      const corralesData = await corralesRes.json()
+      const [pesajesData, transData, clientesData, corralesData] = results.map(r => 
+        r.status === 'fulfilled' ? r.value : { success: false }
+      )
       
       if (pesajesData.success) {
         setPesajesAbiertos(pesajesData.data.filter((p: any) => p.estado === 'ABIERTO'))
@@ -248,6 +259,8 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
       
       if (transData.success) {
         setTransportistas(transData.data)
+      } else {
+        console.warn('No se pudieron cargar transportistas:', transData.error || 'Error desconocido')
       }
       
       if (clientesData.success) {
@@ -638,6 +651,15 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
   // Abrir dialog de edición
   const handleOpenEdit = async (pesaje: any) => {
     setPesajeAccion(pesaje)
+    // Asegurar que el transportista del pesaje esté en la lista del dropdown
+    if (pesaje.transportista) {
+      setTransportistas(prev => {
+        if (!prev.some(t => t.id === pesaje.transportista.id)) {
+          return [...prev, { id: pesaje.transportista.id, nombre: pesaje.transportista.nombre }]
+        }
+        return prev
+      })
+    }
     // Precargar formulario con datos actuales del pesaje
     setEditForm({
       patenteChasis: pesaje.patenteChasis || '',
@@ -868,6 +890,11 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
                           <SelectValue placeholder="Seleccionar..." />
                         </SelectTrigger>
                         <SelectContent>
+                          {transportistas.length === 0 && (
+                            <div className="px-2 py-3 text-sm text-stone-400 text-center">
+                              Sin transportistas. Use '+' para agregar.
+                            </div>
+                          )}
                           {transportistas.map((t) => (
                             <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
                           ))}
@@ -1225,12 +1252,20 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Transportista</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Transportista</Label>
+                        <QuickAddButton tipo="transportista" onAdd={(data) => handleQuickAdd('transportista', data)} />
+                      </div>
                       <Select value={transportistaId} onValueChange={setTransportistaId}>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar..." />
                         </SelectTrigger>
                         <SelectContent>
+                          {transportistas.length === 0 && (
+                            <div className="px-2 py-3 text-sm text-stone-400 text-center">
+                              Sin transportistas. Use '+' para agregar.
+                            </div>
+                          )}
                           {transportistas.map((t) => (
                             <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
                           ))}
