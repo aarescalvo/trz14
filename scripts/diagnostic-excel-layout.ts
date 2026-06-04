@@ -13,8 +13,8 @@ async function main() {
 
   // List all sheet names
   console.log('\n=== HOJAS ===')
-  wb.eachWorksheet((ws, sheetId) => {
-    console.log(`  [${sheetId}] "${ws.name}" (rows: ${ws.rowCount}, cols: ${ws.columnCount})`)
+  wb.worksheets.forEach((ws, idx) => {
+    console.log(`  [${idx}] "${ws.name}" (rows: ${ws.rowCount}, cols: ${ws.columnCount})`)
   })
 
   // For the first target sheet (T 175), print cells
