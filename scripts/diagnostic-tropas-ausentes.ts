@@ -17,7 +17,7 @@ async function main() {
   console.log('--- 1) TROPAS 192-203 en tabla Tropa ---')
   const tropas192_203 = await prisma.tropa.findMany({
     where: { numero: { gte: 192, lte: 203 } },
-    select: { id: true, numero: true, codigo: true, cantidadCabezas: true, fechaRecepcion: true, anio: true },
+    select: { id: true, numero: true, codigo: true, cantidadCabezas: true, fechaRecepcion: true },
     orderBy: { numero: 'asc' }
   })
   console.log(`Encontradas: ${tropas192_203.length} tropas`)
