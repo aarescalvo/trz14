@@ -88,6 +88,7 @@ export function ListaFaenaModule({ operador }: { operador: Operador }) {
   const [restarCantidadOpen, setRestarCantidadOpen] = useState(false)
   const [tropaARestar, setTropaARestar] = useState<{id: string; codigo: string; cantidadActual: number} | null>(null)
   const [cantidadARestar, setCantidadARestar] = useState(0)
+  const [fechaNuevaLista, setFechaNuevaLista] = useState<string>(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
     fetchData()
@@ -161,7 +162,7 @@ export function ListaFaenaModule({ operador }: { operador: Operador }) {
       const res = await fetch('/api/lista-faena', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operadorId: operador.id })
+        body: JSON.stringify({ operadorId: operador.id, fecha: fechaNuevaLista })
       })
 
       const data = await res.json()
@@ -879,19 +880,33 @@ export function ListaFaenaModule({ operador }: { operador: Operador }) {
         </Tabs>
 
         {/* Dialog Nueva Lista */}
-        <Dialog open={nuevaListaOpen} onOpenChange={setNuevaListaOpen}>
+        <Dialog open={nuevaListaOpen} onOpenChange={(open) => {
+          setNuevaListaOpen(open)
+          if (open) setFechaNuevaLista(new Date().toISOString().split('T')[0])
+        }}>
           <DialogContent maximizable>
             <DialogHeader>
               <DialogTitle>
                 <TextoEditable id="dialog-nueva-lista-titulo" original="Nueva Lista de Faena" tag="span" />
               </DialogTitle>
               <DialogDescription>
-                <TextoEditable id="dialog-nueva-lista-desc" original="Se creará una nueva lista para el día de hoy" tag="span" />
+                <TextoEditable id="dialog-nueva-lista-desc" original="Seleccione la fecha para la nueva lista de faena" tag="span" />
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4">
-              <p className="text-stone-600">
-                <TextoEditable id="dialog-nueva-lista-msg" original="Esta acción creará una lista de faena con fecha" tag="span" /> {new Date().toLocaleDateString('es-AR')}.
+            <div className="py-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Label className="text-sm font-medium text-stone-700 whitespace-nowrap">
+                  <TextoEditable id="label-fecha-faena" original="Fecha de faena" tag="span" />
+                </Label>
+                <Input
+                  type="date"
+                  value={fechaNuevaLista}
+                  onChange={(e) => setFechaNuevaLista(e.target.value)}
+                  className="max-w-[200px]"
+                />
+              </div>
+              <p className="text-stone-500 text-sm">
+                La lista se creará para el {new Date(fechaNuevaLista + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.
               </p>
             </div>
             <DialogFooter>
