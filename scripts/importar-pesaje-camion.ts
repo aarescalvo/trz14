@@ -185,7 +185,75 @@ async function main() {
   let nextAutoTicket = (lastTicket?.numeroTicket || 0) + 1
   console.log(`   Último ticket: ${lastTicket?.numeroTicket || 'ninguno'}, próximo auto: ${nextAutoTicket}`)
 
-  // 4. Procesar filas de datos (empiezan en fila 6)
+  // 4. Pre-leer todas las filas para armar mapa de tickets compartidos
+  console.log('\n3. Pre-leyendo filas para resolución de tickets compartidos...')
+  const filasMap = new Map<number, any>() // tropaNumero → datos de fila
+  const filasSinTicket: number[] = []
+  
+  for (let rowNum = 6; rowNum <= sheet.rowCount; rowNum++) {
+    const row = sheet.getRow(rowNum)
+    const tNum = parseNumber(getCellValue(row, 1))
+    if (!tNum || tNum <= 0) continue
+    
+    const ticket = parseTicket(getCellValue(row, 9))
+    const filaData = {
+      rowNum,
+      tropaNumero: tNum,
+      fechaRaw: getCellValue(row, 2),
+      horaRaw: getCellValue(row, 3),
+      patenteChasis: parseString(getCellValue(row, 4)),
+      choferNombre: parseString(getCellValue(row, 6)),
+      observaciones: parseString(getCellValue(row, 16)),
+      ticket
+    }
+    filasMap.set(tNum, filaData)
+    if (!ticket) filasSinTicket.push(tNum)
+  }
+  
+  // Resolver tickets compartidos
+  const ticketCompartido = new Map<number, number>() // tropaNumero → ticket compartido
+  for (const tNum of filasSinTicket) {
+    const fila = filasMap.get(tNum)!
+    let resuelto = false
+    
+    // Estrategia 1: observaciones "PESADA TROPA 74 - 75"
+    if (fila.observaciones) {
+      const nums = fila.observaciones.match(/\d+/g)
+      if (nums) {
+        for (const numStr of nums) {
+          const num = parseInt(numStr)
+          if (num !== tNum && filasMap.has(num)) {
+            const otraFila = filasMap.get(num)!
+            if (otraFila.ticket) {
+              ticketCompartido.set(tNum, otraFila.ticket)
+              resuelto = true
+              break
+            }
+          }
+        }
+      }
+    }
+    
+    // Estrategia 2: misma patente en el Excel
+    if (!resuelto && fila.patenteChasis && fila.fechaRaw) {
+      Array.from(filasMap.entries()).find(([otroNum, otraFila]) => {
+        if (otroNum !== tNum && otraFila.ticket && otraFila.patenteChasis === fila.patenteChasis) {
+          ticketCompartido.set(tNum, otraFila.ticket)
+          resuelto = true
+          return true
+        }
+        return false
+      })
+    }
+    
+    if (!resuelto) {
+      console.log(`   ⚠️ Tropa ${tNum}: no se pudo resolver ticket compartido, se generará auto`)
+    } else {
+      console.log(`   ℹ️ Tropa ${tNum}: ticket compartido resuelto → ${ticketCompartido.get(tNum)}`)
+    }
+  }
+
+  // 5. Procesar filas de datos
   console.log('\n3. Procesando filas de datos...')
   
   let creados = 0
@@ -224,9 +292,14 @@ async function main() {
     const observaciones = parseString(getCellValue(row, 16))
     let numeroTicket = parseTicket(ticketRaw)
     
-    // Si no hay ticket, generar uno auto-incremental
+    // Si no hay ticket, usar el mapa de tickets compartidos o generar auto
     if (!numeroTicket) {
-      numeroTicket = nextAutoTicket++
+      const compartido = ticketCompartido.get(tropaNumero)
+      if (compartido) {
+        numeroTicket = compartido
+      } else {
+        numeroTicket = nextAutoTicket++
+      }
     }
 
     // Combinar fecha + hora
