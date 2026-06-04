@@ -1,11 +1,26 @@
 /**
  * Script de importación: Cargar datos de rinde desde Excel
- * - Tropa 175: CREAR solo romaneos faltantes (no sobreescribe existentes)
+ * - Tropa 175: CREAR romaneos faltantes + ACTUALIZAR existentes con datos null
  * - Tropas 192-203: CREAR todos los romaneos (no existen en DB)
- * - NO sobreescribe datos existentes
  *
- * Parser dinámico: busca labels ("Nº Tropa", "Fecha", "Garrón") en vez de
- * posiciones fijas, para adaptarse al layout real del Excel.
+ * Layout del Excel (T 175, T 192-203, todas con 14 columnas):
+ *   Col 2(B): vacío
+ *   Col 3(C): GARRON
+ *   Col 4(D): Nº ANIMAL
+ *   Col 5(E): RAZA
+ *   Col 6(F): Denticion (ej: "2D - NT")
+ *   Col 7(G): Clasificacion (ej: "NT")
+ *   Col 8(H): Nº CARAVANA
+ *   Col 9(I): KG ENTRADA (pesoVivo)
+ *   Col 10(J): KG 1/2 A (pesoMediaIzq)
+ *   Col 11(K): KG 1/2 B (pesoMediaDer)
+ *   Col 12(L): TOTAL KG (pesoTotal)
+ *   Col 13(M): RINDE FAENA
+ *
+ * Parser: escanea fila 23 (header) + fila 24 (sub-header) para mapear columnas.
+ * - UPDATE registros existentes que tengan pesoMediaIzq=null (datos incompletos)
+ * - SKIP registros existentes con datos completos (no sobreescribe)
+ * - CREATE registros nuevos
  *
  * Ejecutar con: npx tsx scripts/importar-rindes-excel.ts
  */
@@ -36,11 +51,9 @@ interface RowData {
 
 function getCellValue(cell: ExcelJS.Cell): any {
   if (cell.value === null || cell.value === undefined) return null
-  // Handle formula results
   if (typeof cell.value === 'object' && 'result' in cell.value) {
     return (cell.value as any).result
   }
-  // Handle rich text
   if (typeof cell.value === 'object' && 'richText' in cell.value) {
     return (cell.value as any).richText.map((r: any) => r.text).join('')
   }
@@ -53,38 +66,24 @@ function getCellText(cell: ExcelJS.Cell): string {
   return String(val).trim()
 }
 
-/**
- * Scan cells in a range to find a label and return the value from the same or next cell.
- * Searches rows [startRow, endRow] and columns [startCol, endCol].
- * Returns the first numeric value found after the label in the same row.
- */
 function findValueByLabel(
   ws: ExcelJS.Worksheet,
   labelText: string,
   startRow: number,
   endRow: number,
   startCol: number,
-  endCol: number,
-  lookAhead: boolean = true
+  endCol: number
 ): number | null {
   for (let r = startRow; r <= endRow; r++) {
     const row = ws.getRow(r)
     for (let c = startCol; c <= endCol; c++) {
       const text = getCellText(row.getCell(c))
       if (text.toUpperCase().includes(labelText.toUpperCase())) {
-        // Found the label, now look for a numeric value in same row, columns [c+1, endCol]
-        if (lookAhead) {
-          for (let nc = c + 1; nc <= endCol + 3; nc++) {
-            const nextVal = getCellValue(row.getCell(nc))
-            if (nextVal !== null && nextVal !== undefined && !isNaN(Number(nextVal))) {
-              return Number(nextVal)
-            }
+        for (let nc = c + 1; nc <= endCol + 3; nc++) {
+          const nextVal = getCellValue(row.getCell(nc))
+          if (nextVal !== null && nextVal !== undefined && !isNaN(Number(nextVal))) {
+            return Number(nextVal)
           }
-        }
-        // If no look-ahead, try this cell's value
-        const thisVal = getCellValue(row.getCell(c))
-        if (thisVal !== null && thisVal !== undefined && !isNaN(Number(thisVal))) {
-          return Number(thisVal)
         }
       }
     }
@@ -92,9 +91,6 @@ function findValueByLabel(
   return null
 }
 
-/**
- * Find a date value by label
- */
 function findDateByLabel(
   ws: ExcelJS.Worksheet,
   labelText: string,
@@ -108,13 +104,10 @@ function findDateByLabel(
     for (let c = startCol; c <= endCol; c++) {
       const text = getCellText(row.getCell(c))
       if (text.toUpperCase().includes(labelText.toUpperCase())) {
-        // Look for a date in the same row, next columns
         for (let nc = c + 1; nc <= endCol + 3; nc++) {
           const nextVal = getCellValue(row.getCell(nc))
           if (nextVal instanceof Date) return nextVal
-          // Try parsing as date string
           if (typeof nextVal === 'number' && nextVal > 40000 && nextVal < 60000) {
-            // Excel serial date number
             return new Date((nextVal - 25569) * 86400 * 1000)
           }
           if (typeof nextVal === 'string') {
@@ -129,27 +122,15 @@ function findDateByLabel(
 }
 
 /**
- * Find the header row that contains column labels like "Garrón", "Garron", "Caravana", etc.
- * Returns the column mapping and the header row number.
+ * Find data header row and map columns.
+ * Scans the header row AND the next row (sub-header) to handle merged cells.
+ * Uses priority-based matching: more specific keywords take precedence.
+ * Never overwrites an already-mapped column key.
  */
 function findDataHeaderRow(
   ws: ExcelJS.Worksheet,
   maxRow: number = 30
 ): { headerRow: number; colMap: Map<string, number> } | null {
-  const headerKeywords = [
-    ['garron', 'garrón', 'garr\u00f3n', 'garr', 'n'],
-    ['animal', 'nro', 'nº', 'numero'],
-    ['raza'],
-    ['dent', 'dentic'],
-    ['clasif', 'tipo'],
-    ['caravana', 'carav'],
-    ['kg ent', 'entrada', 'peso vivo', 'pv', 'kg.entr'],
-    ['media', 'izq', 'izquierda', 'med a'],
-    ['media', 'der', 'derecha', 'med b'],
-    ['total', 'kg total'],
-    ['rinde', '%', 'rendim']
-  ]
-
   for (let r = 1; r <= maxRow; r++) {
     const row = ws.getRow(r)
     if (!row || row.cellCount === 0) continue
@@ -163,27 +144,68 @@ function findDataHeaderRow(
 
     if (colTexts.size === 0) continue
 
-    // Check if this row looks like a header (contains at least "garron" and one weight keyword)
+    // Check if this row looks like a header (contains "garr" AND "kg")
     const allTexts = Array.from(colTexts.values()).join(' ')
     if (!allTexts.includes('garr')) continue
-    if (!allTexts.includes('kg') && !allTexts.includes('peso') && !allTexts.includes('media')) continue
+    if (!allTexts.includes('kg')) continue
 
-    // Found the header row! Now map columns
+    // Found header row! Now collect texts from header row + sub-header row
+    const colTextsCombined: Map<number, string> = new Map()
+    for (let scanR = r; scanR <= Math.min(r + 1, maxRow); scanR++) {
+      const scanRow = ws.getRow(scanR)
+      for (let c = 1; c <= 20; c++) {
+        const text = getCellText(scanRow.getCell(c)).toLowerCase()
+        if (text.length > 0) {
+          const prev = colTextsCombined.get(c) || ''
+          colTextsCombined.set(c, (prev + ' ' + text).trim())
+        }
+      }
+    }
+
+    // Map columns using priority matching (most specific first)
+    // Never overwrite an already-assigned key
     const colMap = new Map<string, number>()
 
-    // For each keyword group, find the matching column
-    for (const [c, text] of colTexts) {
-      if (text.includes('garr')) colMap.set('GARRON', c)
-      else if (text.includes('animal') || text.includes('nro') || text.includes('numero') || (text.includes('n') && text.includes('º'))) colMap.set('ANIMAL', c)
-      else if (text.includes('raza')) colMap.set('RAZA', c)
-      else if (text.includes('dent')) colMap.set('DENTICION', c)
-      else if (text.includes('clasif') || text.includes('tipo')) colMap.set('CLASIF', c)
-      else if (text.includes('carav')) colMap.set('CARAVANA', c)
-      else if (text.includes('ent') || text.includes('vivo') || text.includes('pv')) colMap.set('KG_ENTRADA', c)
-      else if (text.includes('izq') || text.includes('medi') && text.includes('a')) colMap.set('KG_MEDIA_A', c)
-      else if (text.includes('der') || text.includes('medi') && text.includes('b')) colMap.set('KG_MEDIA_B', c)
-      else if (text.includes('total')) colMap.set('TOTAL_KG', c)
-      else if (text.includes('rinde') || text.includes('%')) colMap.set('RINDE', c)
+    for (const [c, combined] of colTextsCombined) {
+      if (combined.includes('garr') && !colMap.has('GARRON')) {
+        colMap.set('GARRON', c)
+      }
+      // ANIMAL: match "animal" but NOT "caravana" or "tipo de animal"
+      else if (combined.includes('animal') && !combined.includes('caravana') && !combined.includes('tipo') && !colMap.has('ANIMAL')) {
+        colMap.set('ANIMAL', c)
+      }
+      else if (combined.includes('raza') && !colMap.has('RAZA')) {
+        colMap.set('RAZA', c)
+      }
+      else if (combined.includes('dent') && !colMap.has('DENTICION')) {
+        colMap.set('DENTICION', c)
+      }
+      else if (combined.includes('clasif') && !colMap.has('CLASIF')) {
+        colMap.set('CLASIF', c)
+      }
+      else if (combined.includes('tipo') && !colMap.has('CLASIF') && !colMap.has('DENTICION')) {
+        colMap.set('CLASIF', c)
+      }
+      else if (combined.includes('carav') && !colMap.has('CARAVANA')) {
+        colMap.set('CARAVANA', c)
+      }
+      // KG 1/2 A / KG 1/2 B: the actual column names in this Excel
+      else if ((combined.includes('1/2 a') || combined.includes('½ a')) && !colMap.has('KG_MEDIA_A')) {
+        colMap.set('KG_MEDIA_A', c)
+      }
+      else if ((combined.includes('1/2 b') || combined.includes('½ b')) && !colMap.has('KG_MEDIA_B')) {
+        colMap.set('KG_MEDIA_B', c)
+      }
+      // KG ENTRADA: "kg entrada" or "kg ent"
+      else if ((combined.includes('entrada') || combined.includes('kg ent')) && !colMap.has('KG_ENTRADA')) {
+        colMap.set('KG_ENTRADA', c)
+      }
+      else if (combined.includes('total') && !colMap.has('TOTAL_KG')) {
+        colMap.set('TOTAL_KG', c)
+      }
+      else if (combined.includes('rinde') && !colMap.has('RINDE')) {
+        colMap.set('RINDE', c)
+      }
     }
 
     if (colMap.has('GARRON')) {
@@ -197,7 +219,7 @@ function findDataHeaderRow(
 function parseSheet(ws: ExcelJS.Worksheet, sheetName: string): { tropaNumero: number; fechaFaena: Date | null; rows: RowData[] } | null {
   console.log(`\n🔍 Analizando hoja "${sheetName}"...`)
 
-  // 1. Try to extract tropa number from sheet name first: "T 175" → 175
+  // 1. Extract tropa number from sheet name: "T 175" → 175
   const nameMatch = sheetName.match(/(\d+)/)
   const tropaFromName = nameMatch ? parseInt(nameMatch[1]) : null
 
@@ -229,15 +251,19 @@ function parseSheet(ws: ExcelJS.Worksheet, sheetName: string): { tropaNumero: nu
     console.log(`      ${key} → columna ${col}`)
   }
 
-  // 5. Parse data rows (start after header row)
-  const rows: RowData[] = []
-  const garronCol = colMap.get('GARRON')
-  if (!garronCol) {
-    console.log(`   ⚠️ No se encontró columna de garrón`)
-    return null
+  // Validate critical columns
+  const critical = ['GARRON', 'KG_ENTRADA', 'KG_MEDIA_A', 'KG_MEDIA_B']
+  const missing = critical.filter(k => !colMap.has(k))
+  if (missing.length > 0) {
+    console.log(`   ⚠️ Columnas críticas faltantes: ${missing.join(', ')}`)
   }
 
-  for (let r = headerRow + 1; r <= 80; r++) {
+  // 5. Parse data rows (start after sub-header row: headerRow + 2)
+  const rows: RowData[] = []
+  const garronCol = colMap.get('GARRON')!
+  const dataStartRow = headerRow + 2 // skip header + sub-header
+
+  for (let r = dataStartRow; r <= 80; r++) {
     const row = ws.getRow(r)
     const garronVal = getCellValue(row.getCell(garronCol))
 
@@ -246,7 +272,7 @@ function parseSheet(ws: ExcelJS.Worksheet, sheetName: string): { tropaNumero: nu
     const garron = Number(garronVal)
     if (isNaN(garron) || garron <= 0) continue
 
-    // Check if this is a totals row or subheader (skip)
+    // Skip totals/subtotals rows
     const garronText = String(garronVal).trim().toLowerCase()
     if (garronText.includes('total') || garronText.includes('promed')) continue
 
@@ -256,9 +282,8 @@ function parseSheet(ws: ExcelJS.Worksheet, sheetName: string): { tropaNumero: nu
     const totalKg = colMap.has('TOTAL_KG') ? getCellValue(row.getCell(colMap.get('TOTAL_KG')!)) : null
     const rindeVal = colMap.has('RINDE') ? getCellValue(row.getCell(colMap.get('RINDE')!)) : null
 
-    // Denticion
+    // Denticion: extract number from "2D - NT" → "2"
     const dentCell = colMap.has('DENTICION') ? getCellText(row.getCell(colMap.get('DENTICION')!)) : ''
-    const clasifCell = colMap.has('CLASIF') ? getCellText(row.getCell(colMap.get('CLASIF')!)) : ''
     const denticionMatch = dentCell.match(/(\d+)\s*D/i)
     const denticion = denticionMatch ? denticionMatch[1] : null
 
@@ -267,18 +292,29 @@ function parseSheet(ws: ExcelJS.Worksheet, sheetName: string): { tropaNumero: nu
     const pesoTotalCalc = totalKg !== null && totalKg !== undefined ? Number(totalKg)
       : (pesoMediaIzq !== null && pesoMediaDer !== null ? pesoMediaIzq + pesoMediaDer : null)
 
+    // ANIMAL: safely convert (may be text like caravana codes)
+    let numeroAnimal: number | null = null
+    if (colMap.has('ANIMAL')) {
+      const animalVal = getCellValue(row.getCell(colMap.get('ANIMAL')!))
+      if (animalVal !== null && animalVal !== undefined && typeof animalVal === 'number') {
+        numeroAnimal = animalVal
+      } else if (animalVal !== null && animalVal !== undefined && !isNaN(Number(animalVal))) {
+        numeroAnimal = Number(animalVal)
+      }
+    }
+
     rows.push({
       garron,
-      numeroAnimal: colMap.has('ANIMAL') && getCellValue(row.getCell(colMap.get('ANIMAL')!)) ? Number(getCellValue(row.getCell(colMap.get('ANIMAL')!))) : null,
+      numeroAnimal,
       raza: colMap.has('RAZA') ? getCellText(row.getCell(colMap.get('RAZA')!)) || null : null,
       denticion,
-      tipoAnimal: clasifCell || null,
+      tipoAnimal: colMap.has('CLASIF') ? getCellText(row.getCell(colMap.get('CLASIF')!)) || null : null,
       caravana: colMap.has('CARAVANA') ? getCellText(row.getCell(colMap.get('CARAVANA')!)) || null : null,
       pesoVivo: kgEntrada !== null && kgEntrada !== undefined ? Number(kgEntrada) : null,
       pesoMediaIzq,
       pesoMediaDer,
       pesoTotal: pesoTotalCalc,
-      rinde: rindeVal !== null && rindeVal !== undefined ? Number(rindeVal) * 100 : null // decimal → %
+      rinde: rindeVal !== null && rindeVal !== undefined ? Number(rindeVal) * 100 : null
     })
   }
 
@@ -291,21 +327,22 @@ async function main() {
   console.log('  IMPORTACIÓN: RINDES DESDE EXCEL')
   console.log('============================================\n')
 
-  // 1. Read Excel file
   const excelPath = process.argv[2] || './upload/RINDE FAENA BOVINO.xlsx'
   console.log('Leyendo archivo:', excelPath)
 
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.readFile(excelPath)
 
-  // List sheets
-  console.log('\nHojas encontradas:')
+  // List target sheets
+  console.log('\nHojas objetivo:')
   for (const ws of wb.worksheets) {
-    const isTarget = TARGET_SHEETS.includes(ws.name)
-    console.log(`  ${isTarget ? '✅' : '  '} "${ws.name}" (${ws.rowCount} filas)`)
+    if (TARGET_SHEETS.includes(ws.name)) {
+      console.log(`  ✅ "${ws.name}" (${ws.rowCount} filas, ${ws.columnCount} cols)`)
+    }
   }
 
   let totalCreated = 0
+  let totalUpdated = 0
   let totalSkipped = 0
   let totalErrors = 0
 
@@ -340,7 +377,7 @@ async function main() {
     // Check existing romaneos
     const existingRomaneos = await prisma.romaneo.findMany({
       where: { tropaCodigo: tropa.codigo },
-      select: { id: true, garron: true, pesoVivo: true, pesoTotal: true }
+      select: { id: true, garron: true, pesoVivo: true, pesoMediaIzq: true, pesoMediaDer: true, pesoTotal: true }
     })
     const existingByGarron = new Map(existingRomaneos.map(r => [r.garron, r]))
     console.log(`   Romaneos existentes: ${existingRomaneos.length}`)
@@ -350,32 +387,54 @@ async function main() {
       try {
         const existing = existingByGarron.get(row.garron)
 
-        const data = {
-          tropaCodigo: tropa.codigo,
-          fecha: fechaFaena || tropa.fechaRecepcion || new Date(),
-          garron: row.garron,
-          numeroAnimal: row.numeroAnimal,
-          raza: row.raza,
-          denticion: row.denticion,
-          tipoAnimal: row.tipoAnimal as any || undefined,
-          pesoVivo: row.pesoVivo,
-          pesoMediaIzq: row.pesoMediaIzq,
-          pesoMediaDer: row.pesoMediaDer,
-          pesoTotal: row.pesoTotal,
-          rinde: row.rinde,
-          estado: 'PENDIENTE' as const,
-        }
-
         if (existing) {
-          // SKIP existing - no overwrite
-          totalSkipped++
-          const warnNulls = existing.pesoVivo === null ? ' ⚠️ (pesoVivo=null en DB)' : ''
-          console.log(`   ⏭️ garron=${row.garron}: OMITIDO (ya existe en DB)${warnNulls}`)
+          // Check if existing record has incomplete data (missing media weights)
+          if (existing.pesoMediaIzq === null && row.pesoMediaIzq !== null) {
+            // UPDATE: fill in missing media data
+            await prisma.romaneo.update({
+              where: { id: existing.id },
+              data: {
+                numeroAnimal: row.numeroAnimal ?? existing.numeroAnimal ?? undefined,
+                raza: row.raza ?? undefined,
+                denticion: row.denticion ?? undefined,
+                tipoAnimal: (row.tipoAnimal as any) ?? undefined,
+                caravana: row.caravana ?? undefined,
+                pesoVivo: row.pesoVivo ?? existing.pesoVivo ?? undefined,
+                pesoMediaIzq: row.pesoMediaIzq,
+                pesoMediaDer: row.pesoMediaDer,
+                pesoTotal: row.pesoTotal ?? existing.pesoTotal ?? undefined,
+                rinde: row.rinde ?? undefined,
+              }
+            })
+            totalUpdated++
+            console.log(`   ✏️ garron=${row.garron}: ACTUALIZADO (mediaIzq=${existing.pesoMediaIzq}→${row.pesoMediaIzq}, mediaDer=${existing.pesoMediaDer}→${row.pesoMediaDer})`)
+          } else {
+            // SKIP: already has complete data
+            totalSkipped++
+            console.log(`   ⏭️ garron=${row.garron}: OMITIDO (ya tiene datos)`)
+          }
         } else {
-          // CREATE
-          await prisma.romaneo.create({ data })
+          // CREATE: new romaneo
+          await prisma.romaneo.create({
+            data: {
+              tropaCodigo: tropa.codigo,
+              fecha: fechaFaena || tropa.fechaRecepcion || new Date(),
+              garron: row.garron,
+              numeroAnimal: row.numeroAnimal,
+              raza: row.raza,
+              denticion: row.denticion,
+              tipoAnimal: row.tipoAnimal as any || undefined,
+              caravana: row.caravana,
+              pesoVivo: row.pesoVivo,
+              pesoMediaIzq: row.pesoMediaIzq,
+              pesoMediaDer: row.pesoMediaDer,
+              pesoTotal: row.pesoTotal,
+              rinde: row.rinde,
+              estado: 'PENDIENTE' as const,
+            }
+          })
           totalCreated++
-          console.log(`   ✅ garron=${row.garron}: CREADO (pesoVivo=${row.pesoVivo}, mediaIzq=${row.pesoMediaIzq}, mediaDer=${row.pesoMediaDer})`)
+          console.log(`   ✅ garron=${row.garron}: CREADO (vivo=${row.pesoVivo}, medA=${row.pesoMediaIzq}, medB=${row.pesoMediaDer}, total=${row.pesoTotal})`)
         }
       } catch (err: any) {
         console.log(`   ❌ garron=${row.garron}: ERROR - ${err.message}`)
@@ -388,6 +447,7 @@ async function main() {
   console.log('  RESUMEN')
   console.log('============================================')
   console.log(`Romaneos CREADOS:       ${totalCreated}`)
+  console.log(`Romaneos ACTUALIZADOS:  ${totalUpdated}`)
   console.log(`Romaneos OMITIDOS:      ${totalSkipped}`)
   console.log(`Errores:               ${totalErrors}`)
   console.log('============================================')
