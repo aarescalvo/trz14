@@ -46,6 +46,8 @@ const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
 const tropaFiltro = parseInt(args[args.indexOf('--tropa') + 1] || '0')
 const desdeFiltro = parseInt(args[args.indexOf('--desde') + 1] || '0')
+// Ruta del archivo: primer argumento que no empiece con "--"
+const positionalArgs = args.filter(a => !a.startsWith('--'))
 
 function getCellValue(row: any, col: number): any {
   const cell = row.getCell(col)
@@ -148,7 +150,7 @@ async function main() {
   // 1. Leer Excel
   console.log('1. Leyendo archivo Excel...')
   const workbook = new ExcelJS.Workbook()
-  const excelPath = process.argv[2] || './upload/PLANTILLA_PESAJE_CAMION.xlsx'
+  const excelPath = positionalArgs[0] || './upload/PLANTILLA_PESAJE_CAMION.xlsx'
   console.log(`   Archivo: ${excelPath}`)
   await workbook.xlsx.readFile(excelPath)
   
