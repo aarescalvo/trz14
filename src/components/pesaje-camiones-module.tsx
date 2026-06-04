@@ -205,8 +205,8 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
   
   // Computed
   const pesoNeto = pesoBruto > 0 && pesoTara > 0 ? pesoBruto - pesoTara : 0
-  const usuariosFaena = clientes.filter((c: any) => c.esUsuarioFaena)
-  const productoresList = clientes.filter((c: any) => c.esProductor)
+  const usuariosFaena = clientes.filter((c: any) => c.esUsuarioFaena && c.activo)
+  const productoresList = clientes.filter((c: any) => c.esProductor && c.activo)
   const totalCabezas = tiposAnimales.reduce((acc, t) => acc + t.cantidad, 0)
 
   // Fetch data
@@ -243,7 +243,7 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
       const results = await Promise.allSettled([
         fetch('/api/pesaje-camion').then(r => r.json()),
         fetch('/api/transportistas').then(r => r.json()),
-        fetch('/api/clientes').then(r => r.json()),
+        fetch('/api/clientes?activos=true').then(r => r.json()),
         fetch('/api/corrales').then(r => r.json())
       ])
       
