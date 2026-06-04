@@ -270,7 +270,6 @@ async function main() {
   const listasFaena = await db.listaFaena.findMany({
     include: {
       supervisor: { select: { nombre: true } },
-      operador: { select: { nombre: true } },
       vbRomaneoOperador: { select: { nombre: true } },
       tropas: {
         include: {
@@ -292,13 +291,12 @@ async function main() {
     vbRomaneo: l.vbRomaneo,
     vbRomaneoFecha: l.vbRomaneoFecha,
     vbRomaneoOperadorNombre: l.vbRomaneoOperador?.nombre || '',
-    operadorNombre: l.operador?.nombre || '',
     observaciones: l.observaciones || '',
     tropasStr: l.tropas.map(t => `${t.tropa.numero}(${t.corral?.nombre || '-'})`).join(', '),
     tropasIds: l.tropas.map(t => t.tropaId).join(', ')
   })), [
     'id', 'numero', 'fecha', 'estado', 'cantidadTotal', 'supervisorNombre', 'fechaCierre',
-    'vbRomaneo', 'vbRomaneoFecha', 'vbRomaneoOperadorNombre', 'operadorNombre', 'observaciones',
+    'vbRomaneo', 'vbRomaneoFecha', 'vbRomaneoOperadorNombre', 'observaciones',
     'tropasStr', 'tropasIds'
   ])
 
