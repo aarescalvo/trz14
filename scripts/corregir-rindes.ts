@@ -141,10 +141,7 @@ async function main() {
   if (casoEspecifico) {
     console.log(`  PV actual: ${casoEspecifico.pesoVivo}, PT: ${casoEspecifico.pesoTotal}`)
     if (casoEspecifico.pesoVivo === 51 && casoEspecifico.pesoTotal === 206) {
-      console.log(`  ❌ Error detectado: pesoVivo=51 debería ser 351`)
-      console.log(`  ¿Desea corregir? (Descomente la línea abajo para ejecutar)`)
-      // DESCOMENTAR ESTAS LÍNEAS PARA CORREGIR:
-      /*
+      console.log(`  Corrigiendo pesoVivo=51 → 351...`)
       const nuevoPeso = 351
       const nuevoRinde = Math.round((206 / nuevoPeso) * 10000) / 100
       await prisma.romaneo.update({
@@ -160,7 +157,6 @@ async function main() {
         await prisma.asignacionGarron.updateMany({ where: { tropaCodigo: 'B 2026 0017', garron: 63 }, data: { pesoVivo: nuevoPeso } })
       }
       console.log(`  ✅ Corregido: pesoVivo=351, rinde=${nuevoRinde}%`)
-      */
     } else {
       console.log(`  ✅ PesoVivo ya corregido o diferente al esperado`)
     }
