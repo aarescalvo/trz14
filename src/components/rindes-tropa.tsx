@@ -187,7 +187,8 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
     setDialogOpen(true)
     
     try {
-      const tropaRes = await fetch(`/api/tropas`)
+      // Buscar tropa por código directamente (evita traer todas las tropas paginadas)
+      const tropaRes = await fetch(`/api/tropas?busqueda=${encodeURIComponent(tropaCodigo)}&limit=5`)
       const tropaData = await tropaRes.json()
       const tropa = tropaData.data?.find((t: { codigo: string }) => t.codigo === tropaCodigo)
       
