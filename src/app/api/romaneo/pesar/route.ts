@@ -20,11 +20,12 @@ export async function POST(request: NextRequest) {
       tipificadorId, 
       camaraId, 
       operadorId,
-      sobrescribir = false // Nuevo parámetro para modo edición
+      sobrescribir = false, // Nuevo parámetro para modo edición
+      fecha // Permite post-datado (simulación)
     } = body
 
     log.info('=== INICIO PESAJE ===')
-    log.info('Datos recibidos:', { garron, lado, peso, camaraId, denticion, tipificadorId, operadorId })
+    log.info('Datos recibidos:', { garron, lado, peso, camaraId, denticion, tipificadorId, operadorId, fecha })
 
     if (!garron || !lado || !peso || !camaraId) {
       log.info('Error: Faltan datos requeridos')
@@ -75,16 +76,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Buscar la asignación del garrón para hoy
-      const hoy = new Date()
-      hoy.setHours(0, 0, 0, 0)
+      // Buscar la asignación del garrón para la fecha indicada (o hoy)
+      const fechaRef = fecha ? new Date(fecha) : new Date()
+      fechaRef.setHours(0, 0, 0, 0)
 
       const asignacion = await tx.asignacionGarron.findFirst({
         where: {
           garron: parseInt(garron),
           horaIngreso: {
-            gte: hoy,
-            lt: new Date(hoy.getTime() + 24 * 60 * 60 * 1000)
+            gte: fechaRef,
+            lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
           }
         },
         include: {
@@ -110,14 +111,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Verificar si ya existe romaneo para este garrón DE HOY
+      // Verificar si ya existe romaneo para este garrón de la fecha indicada
       // Filtrar por fecha para no encontrar romaneos de días anteriores
       let romaneo = await tx.romaneo.findFirst({
         where: { 
           garron: parseInt(garron),
           createdAt: {
-            gte: hoy,
-            lt: new Date(hoy.getTime() + 24 * 60 * 60 * 1000)
+            gte: fechaRef,
+            lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
           }
         },
         include: { mediasRes: true }
@@ -205,9 +206,9 @@ export async function POST(request: NextRequest) {
         throw new Error(`MEDIA_YA_EXISTE:${lado}:${garron}`)
       }
 
-      // Generar código para la media
-      const fecha = new Date()
-      const codigoBase = `${fecha.getFullYear().toString().slice(-2)}${(fecha.getMonth() + 1).toString().padStart(2, '0')}${fecha.getDate().toString().padStart(2, '0')}-${garron.toString().padStart(4, '0')}-${lado.charAt(0)}`
+      // Generar código para la media (usar fecha indicada o actual)
+      const fechaCodigo = fecha ? new Date(fecha) : new Date()
+      const codigoBase = `${fechaCodigo.getFullYear().toString().slice(-2)}${(fechaCodigo.getMonth() + 1).toString().padStart(2, '0')}${fechaCodigo.getDate().toString().padStart(2, '0')}-${garron.toString().padStart(4, '0')}-${lado.charAt(0)}`
 
       // Crear la media res
       const mediaRes = await tx.mediaRes.create({

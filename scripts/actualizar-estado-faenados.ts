@@ -148,6 +148,39 @@ async function main() {
   })
   console.log(`   Animales restantes en RECIBIDO/PESADO con romaneo: ${restantes}`)
 
+  // 7. Recalcular stock de corrales
+  console.log('\n7. Recalculando stock de corrales...')
+  const corrales = await prisma.corral.findMany()
+  let corralesActualizados = 0
+  
+  for (const corral of corrales) {
+    const bovinosEnCorral = await prisma.animal.count({
+      where: {
+        corralId: corral.id,
+        estado: { in: ['RECIBIDO', 'PESADO'] },
+        tropa: { especie: 'BOVINO' }
+      }
+    })
+    
+    const equinosEnCorral = await prisma.animal.count({
+      where: {
+        corralId: corral.id,
+        estado: { in: ['RECIBIDO', 'PESADO'] },
+        tropa: { especie: 'EQUINO' }
+      }
+    })
+    
+    if (corral.stockBovinos !== bovinosEnCorral || corral.stockEquinos !== equinosEnCorral) {
+      console.log(`   Corral ${corral.nombre}: bovinos ${corral.stockBovinos}→${bovinosEnCorral}, equinos ${corral.stockEquinos}→${equinosEnCorral}`)
+      await prisma.corral.update({
+        where: { id: corral.id },
+        data: { stockBovinos: bovinosEnCorral, stockEquinos: equinosEnCorral }
+      })
+      corralesActualizados++
+    }
+  }
+  console.log(`   ✅ ${corralesActualizados} corrales actualizados`)
+
   console.log('\n============================================')
   console.log('  RESUMEN')
   console.log('============================================')

@@ -154,8 +154,12 @@ export async function POST(request: NextRequest) {
       remito,
       descripcion,
       operadorId,
-      forzarCapacidad // Permite sobrepasar capacidad del corral
+      forzarCapacidad, // Permite sobrepasar capacidad del corral
+      fecha // Permite post-datado (simulación)
     } = body
+    
+    // Fecha personalizada o actual
+    const fechaRegistro = fecha ? new Date(fecha) : new Date()
     
     // Obtener último número de ticket
     const lastPesaje = await db.pesajeCamion.findFirst({
@@ -210,7 +214,8 @@ export async function POST(request: NextRequest) {
       pesoNeto: pesoNeto ? parseFloat(pesoNeto) : null,
       observaciones: observaciones || descripcion || null,
       estado,
-      fechaTara: pesoTara ? new Date() : null
+      fecha: fechaRegistro,
+      fechaTara: pesoTara ? fechaRegistro : null
     }
     
     if (validTransportistaId) pesajeData.transportistaId = validTransportistaId
