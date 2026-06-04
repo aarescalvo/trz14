@@ -1,18 +1,13 @@
 /**
  * Script: Separar tickets compartidos de pesaje de camión
  * 
- * Cuando un camión trae varias tropas y se pesó como un solo ticket,
- * este script separa los tickets para que cada tropa tenga su propio
- * pesaje individual.
+ * 1. Corrige tickets con errores de tipeo (tropas con ticket equivocado)
+ * 2. Separa tickets duplicados asignando sufijos B, C, D...
  * 
- * Lógica:
- * - Busca tickets de pesaje que están duplicados (mismo numeroTicket en varias filas)
- * - Ordena las tropas por numero (asume orden de descarga: primero pesado = primero descargado)
- * - La primera tropa queda con el ticket original
- * - Las demás reciben sufijo B, C, D... (ej: "6171" → "6171B", "6171C")
- * - Los pesos (bruto/tara/neto) de las tropas que NO son la primera se setean a null
- *   para que se carguen individualmente después
- * - El ticket original se guarda en observaciones como referencia
+ * Correcciones conocidas:
+ *   Tropa 9:   0001-00014469 → 0001-00014468
+ *   Tropa 12:  0001-00014472 → 0001-00014471
+ *   Tropa 188: 0001-00015033 → 0001-00015032
  * 
  * USO:
  *   npx tsx scripts/separar-tickets-compartidos.ts
@@ -26,6 +21,13 @@ const db = new PrismaClient()
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
 
+// Correcciones de tipeo: tropaNumero → ticket correcto
+const CORRECCIONES_TICKET: Record<number, string> = {
+  9: '0001-00014468',
+  12: '0001-00014471',
+  188: '0001-00015032',
+}
+
 async function main() {
   console.log('============================================')
   console.log('  SEPARAR TICKETS COMPARTIDOS DE PESAJE')
@@ -33,8 +35,41 @@ async function main() {
   console.log(`Modo: ${dryRun ? 'DRY RUN (sin cambios)' : 'EJECUCIÓN'}`)
   console.log('')
 
-  // 1. Encontrar tickets duplicados
-  console.log('1. Buscando tickets compartidos...')
+  // ── PASO 0: Corregir errores de tipeo ──
+  console.log('0. Corrigiendo errores de tipeo en tickets...')
+  let corregidos = 0
+  for (const [tropaNum, ticketCorrecto] of Object.entries(CORRECCIONES_TICKET)) {
+    const tropa = await db.tropa.findFirst({
+      where: { numero: parseInt(tropaNum) },
+      include: { pesajeCamion: { select: { id: true, numeroTicket: true } } }
+    })
+    if (!tropa?.pesajeCamionId || !tropa.pesajeCamion) {
+      console.log(`   ⚠️ Tropa ${tropaNum}: sin pesaje camión, salteando`)
+      continue
+    }
+    const ticketActual = tropa.pesajeCamion.numeroTicket
+    if (ticketActual === ticketCorrecto) {
+      console.log(`   ℹ️ Tropa ${tropaNum}: ya tiene ticket correcto "${ticketCorrecto}"`)
+      continue
+    }
+    console.log(`   Tropa ${tropaNum}: "${ticketActual}" → "${ticketCorrecto}"`)
+    if (!dryRun) {
+      await db.pesajeCamion.update({
+        where: { id: tropa.pesajeCamion.id },
+        data: {
+          numeroTicket: ticketCorrecto,
+          observaciones: tropa.pesajeCamion.numeroTicket !== ticketActual
+            ? `[Corregido de ${ticketActual}]`
+            : undefined
+        }
+      })
+      corregidos++
+    }
+  }
+  console.log(`   Correcciones aplicadas: ${dryRun ? '(dry-run)' : corregidos}`)
+
+  // ── PASO 1: Encontrar tickets duplicados ──
+  console.log('\n1. Buscando tickets compartidos...')
   const duplicados = await db.$queryRawUnsafe<Array<{ numeroTicket: string; count: bigint }>>(`
     SELECT "numeroTicket", COUNT(*) as count
     FROM "PesajeCamion"
@@ -51,7 +86,7 @@ async function main() {
     return
   }
 
-  // 2. Listar detalles
+  // ── PASO 2: Listar detalles ──
   for (const dup of duplicados) {
     const pesajes = await db.pesajeCamion.findMany({
       where: { numeroTicket: dup.numeroTicket },
@@ -76,7 +111,7 @@ async function main() {
     return
   }
 
-  // 3. Separar tickets
+  // ── PASO 3: Separar tickets ──
   console.log('\n3. Separando tickets...')
   let separados = 0
   let errores = 0
@@ -105,8 +140,6 @@ async function main() {
       if (i === 0) {
         // Primera tropa: queda con el ticket original
         console.log(`     ✅ ${pesaje.tropa ? `Tropa ${pesaje.tropa.numero}` : 'Sin tropa'}: mantiene ticket "${ticketOriginal}"`)
-        // Limpiar pesos de esta tropa si tenía los pesos compartidos
-        // (dejamos los que tiene, el usuario editará después)
         continue
       }
 
@@ -153,15 +186,16 @@ async function main() {
     }
   }
 
-  // 4. Resumen
+  // ── PASO 4: Resumen ──
   console.log('\n============================================')
   console.log('  RESUMEN')
   console.log('============================================')
+  console.log(`Correcciones de tipeo: ${corregidos}`)
   console.log(`Tickets compartidos encontrados: ${duplicados.length}`)
   console.log(`Pesajes separados: ${separados}`)
   console.log(`Errores: ${errores}`)
 
-  // 5. Verificación
+  // ── PASO 5: Verificación ──
   console.log('\n--- Verificación post-migración ---')
   const dupPost = await db.$queryRawUnsafe<Array<{ numeroTicket: string; count: bigint }>>(`
     SELECT "numeroTicket", COUNT(*) as count
