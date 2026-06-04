@@ -350,14 +350,15 @@ async function main() {
   const romaneos = await db.romaneo.findMany({
     include: {
       tipificador: { select: { nombre: true } },
-      operador: { select: { nombre: true } },
-      listaFaena: { select: { numero: true, fecha: true } }
+      operador: { select: { nombre: true } }
     },
     orderBy: { fecha: 'asc' }
   })
+  // Lookup manual: listaFaenaId es String sin @relation
+  const listaFaenaMap = new Map(listasFaena.map(l => [l.id, { numero: l.numero, fecha: l.fecha }]))
   addSheet(wb, 'Romaneos', romaneos.map(r => ({
     id: r.id,
-    listaFaenaNumero: r.listaFaena.numero,
+    listaFaenaNumero: (r.listaFaenaId && listaFaenaMap.get(r.listaFaenaId))?.numero || '',
     listaFaenaId: r.listaFaenaId,
     fecha: r.fecha,
     garron: r.garron,
