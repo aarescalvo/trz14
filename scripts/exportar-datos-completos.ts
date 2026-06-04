@@ -520,33 +520,46 @@ async function main() {
       usuarioFaena: { select: { nombre: true, cuit: true } },
       factura: { select: { numero: true } }
     },
-    orderBy: { fecha: 'asc' }
+    orderBy: { fechaFaena: 'asc' }
   })
   addSheet(wb, 'PlanillasFaena', planillas.map(p => ({
     id: p.id,
-    numero: p.numero,
-    fecha: p.fecha,
-    tropaNumero: p.tropa.numero,
-    tropaCodigo: p.tropa.codigo,
+    numeroTropa: p.numeroTropa,
+    fechaFaena: p.fechaFaena,
+    tropaNumero: p.tropa?.numero || '',
+    tropaCodigo: p.tropa?.codigo || '',
+    tropaId: p.tropaId || '',
+    usuario: p.usuario,
     clienteNombre: p.usuarioFaena?.nombre || '',
     clienteCuit: p.usuarioFaena?.cuit || '',
-    especie: p.especie,
-    cantidadCabezas: p.cantidadCabezas,
-    kgVivo: p.kgVivo,
-    kgFrio: p.kgFrio,
-    rindePct: p.rindePct,
-    tarifaKg: p.tarifaKg,
-    tarifaCabeza: p.tarifaCabeza,
-    importeTotal: p.importeTotal,
-    ivaPct: p.ivaPct,
-    ivaImporte: p.ivaImporte,
-    totalGeneral: p.totalGeneral,
+    cantidadAnimales: p.cantidadAnimales,
+    kgPie: p.kgPie,
+    kgGancho: p.kgGancho,
+    rindePorcentaje: p.rindePorcentaje,
+    precioServicioKg: p.precioServicioKg,
+    precioServicioKgConRecupero: p.precioServicioKgConRecupero,
+    totalServicioIva: p.totalServicioIva,
+    tasaInspeccionVet: p.tasaInspeccionVet,
+    arancelIpcva: p.arancelIpcva,
+    totalFacturaImp: p.totalFacturaImp,
     estado: p.estado,
-    facturaNumero: p.factura?.numero || ''
+    plazoPagoDias: p.plazoPagoDias,
+    numeroFactura: p.numeroFactura,
+    fechaFactura: p.fechaFactura,
+    facturaNumero: p.factura?.numero || '',
+    fechaPago: p.fechaPago,
+    diasPago: p.diasPago,
+    montoDepositado: p.montoDepositado,
+    estadoPago: p.estadoPago,
+    observaciones: p.observaciones || ''
   })), [
-    'id', 'numero', 'fecha', 'tropaNumero', 'tropaCodigo', 'clienteNombre', 'clienteCuit',
-    'especie', 'cantidadCabezas', 'kgVivo', 'kgFrio', 'rindePct', 'tarifaKg', 'tarifaCabeza',
-    'importeTotal', 'ivaPct', 'ivaImporte', 'totalGeneral', 'estado', 'facturaNumero'
+    'id', 'numeroTropa', 'fechaFaena', 'tropaNumero', 'tropaCodigo', 'tropaId',
+    'usuario', 'clienteNombre', 'clienteCuit',
+    'cantidadAnimales', 'kgPie', 'kgGancho', 'rindePorcentaje',
+    'precioServicioKg', 'precioServicioKgConRecupero', 'totalServicioIva',
+    'tasaInspeccionVet', 'arancelIpcva', 'totalFacturaImp',
+    'estado', 'plazoPagoDias', 'numeroFactura', 'fechaFactura', 'facturaNumero',
+    'fechaPago', 'diasPago', 'montoDepositado', 'estadoPago', 'observaciones'
   ])
 
   // ── 13. LIQUIDACIONES ──
