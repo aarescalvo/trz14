@@ -109,7 +109,9 @@ async function fetchFaenaData(filters: ExportRequestBody['filters']): Promise<{ 
       r.raza || '-',
       r.pesoVivo || 0,
       r.pesoTotal || 0,
-      r.rinde || 0,
+      (r.pesoVivo && r.pesoVivo > 0 && r.pesoTotal && r.pesoTotal > 0)
+        ? Math.round((r.pesoTotal / r.pesoVivo) * 10000) / 100
+        : (r.rinde || 0),
       r.denticion || '-',
       r.tipificador ? `${r.tipificador.nombre} ${r.tipificador.apellido}` : '-',
       r.estado || '-',
@@ -261,7 +263,9 @@ async function fetchRendimientoData(filters: ExportRequestBody['filters']): Prom
       r.tipoAnimal || '-',
       r.pesoVivo || 0,
       r.pesoTotal || 0,
-      r.rinde || 0,
+      (r.pesoVivo && r.pesoVivo > 0 && r.pesoTotal && r.pesoTotal > 0)
+        ? Math.round((r.pesoTotal / r.pesoVivo) * 10000) / 100
+        : (r.rinde || 0),
       r.denticion || '-',
     ]),
     resumen: {

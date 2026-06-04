@@ -276,7 +276,9 @@ async function exportarConExcelJS(tipo: string, filtros: Record<string, any>) {
         f.garron || '-',
         f.numeroAnimal || '-',
         `${f.pesoTotal || 0} kg`,
-        f.rinde ? `${Math.round(f.rinde * 100) / 100}%` : '-',
+        (f.pesoVivo && f.pesoVivo > 0 && f.pesoTotal && f.pesoTotal > 0)
+          ? `${Math.round((f.pesoTotal / f.pesoVivo) * 10000) / 100}%`
+          : '-',
         f.fecha?.toLocaleDateString('es-AR') || '-'
       ])
       break

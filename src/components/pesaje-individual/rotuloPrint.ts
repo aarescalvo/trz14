@@ -1235,7 +1235,7 @@ export function imprimirPlanilla01({ tropa, animales, romaneos, fechaFaena }: Im
                 <td class="text-right">${r.pesoMediaIzq ? r.pesoMediaIzq.toFixed(1) : '-'}</td>
                 <td class="text-right">${r.pesoMediaDer ? r.pesoMediaDer.toFixed(1) : '-'}</td>
                 <td class="text-right"><strong>${r.pesoTotal ? r.pesoTotal.toFixed(1) : '-'}</strong></td>
-                <td class="text-right">${r.rinde ? (r.rinde * 100).toFixed(2) + '%' : '-'}</td>
+                <td class="text-right">${r.pesoVivo && r.pesoTotal && r.pesoVivo > 0 ? ((r.pesoTotal / r.pesoVivo) * 100).toFixed(2) + '%' : '-'}</td>
               </tr>
             `).join('')}
             <!-- Totales Row -->

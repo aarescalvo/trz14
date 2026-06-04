@@ -861,8 +861,8 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
                         <TableCell className="text-right font-medium">{romaneo.pesoTotal ? formatNumber(romaneo.pesoTotal, 1) : '-'}</TableCell>
                         <TableCell className="text-right">
                           {romaneo.rinde ? (
-                            <Badge className={getRindeBadge(romaneo.rinde * 100)}>
-                              {formatNumber(romaneo.rinde * 100, 2)}%
+                            <Badge className={getRindeBadge(romaneo.rinde)}>
+                              {formatNumber(romaneo.rinde, 2)}%
                             </Badge>
                           ) : '-'}
                         </TableCell>

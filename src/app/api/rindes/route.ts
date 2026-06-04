@@ -66,10 +66,14 @@ export async function GET(request: NextRequest) {
         orderBy: { garron: 'asc' }
       })
 
-      // Calcular estadísticas
+      // Calcular estadísticas - rindes calculados dinámicamente desde pesos
       const pesoVivoTotal = romaneosTropa.reduce((sum, r) => sum + (r.pesoVivo || 0), 0)
       const pesoFaenaTotal = romaneosTropa.reduce((sum, r) => sum + (r.pesoTotal || 0), 0)
-      const rindes = romaneosTropa.filter(r => r.rinde).map(r => r.rinde!)
+      
+      // Calcular rinde por animal dinámicamente
+      const rindesCalculados = romaneosTropa
+        .filter(r => r.pesoVivo && r.pesoVivo > 0 && r.pesoTotal && r.pesoTotal > 0)
+        .map(r => Math.round((r.pesoTotal! / r.pesoVivo!) * 10000) / 100)
       
       // Distribución por tipo de animal
       const distribucionTipo: Record<string, number> = {}
@@ -82,14 +86,20 @@ export async function GET(request: NextRequest) {
         success: true,
         data: {
           tropa,
-          romaneos: romaneosTropa,
+          romaneos: romaneosTropa.map(r => ({
+            ...r,
+            // Sobreescribir rinde con valor calculado dinámicamente
+            rinde: (r.pesoVivo && r.pesoVivo > 0 && r.pesoTotal && r.pesoTotal > 0)
+              ? Math.round((r.pesoTotal / r.pesoVivo) * 10000) / 100
+              : null
+          })),
           estadisticas: {
             cantidadAnimales: romaneosTropa.length,
             pesoVivoTotal,
             pesoFaenaTotal,
             rindePromedio: pesoVivoTotal > 0 ? Math.round((pesoFaenaTotal / pesoVivoTotal) * 10000) / 100 : 0,
-            rindeMinimo: rindes.length > 0 ? Math.min(...rindes) : 0,
-            rindeMaximo: rindes.length > 0 ? Math.max(...rindes) : 0,
+            rindeMinimo: rindesCalculados.length > 0 ? Math.min(...rindesCalculados) : 0,
+            rindeMaximo: rindesCalculados.length > 0 ? Math.max(...rindesCalculados) : 0,
             pesoVivoPromedio: romaneosTropa.length > 0 ? Math.round(pesoVivoTotal / romaneosTropa.length) : 0,
             pesoFaenaPromedio: romaneosTropa.length > 0 ? Math.round(pesoFaenaTotal / romaneosTropa.length) : 0,
             distribucionTipo
@@ -199,9 +209,11 @@ export async function GET(request: NextRequest) {
       grupo.pesoVivoTotal += romaneo.pesoVivo || 0
       grupo.pesoFaenaTotal += romaneo.pesoTotal || 0
 
-      if (romaneo.rinde) {
-        grupo.rindeMinimo = Math.min(grupo.rindeMinimo, romaneo.rinde)
-        grupo.rindeMaximo = Math.max(grupo.rindeMaximo, romaneo.rinde)
+      // Calcular rinde dinámicamente desde pesos (no usar campo almacenado)
+      if (romaneo.pesoVivo && romaneo.pesoVivo > 0 && romaneo.pesoTotal && romaneo.pesoTotal > 0) {
+        const rindeCalc = Math.round((romaneo.pesoTotal / romaneo.pesoVivo) * 10000) / 100
+        grupo.rindeMinimo = Math.min(grupo.rindeMinimo, rindeCalc)
+        grupo.rindeMaximo = Math.max(grupo.rindeMaximo, rindeCalc)
       }
     }
 
