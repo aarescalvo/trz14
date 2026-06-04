@@ -350,7 +350,6 @@ async function main() {
   const romaneos = await db.romaneo.findMany({
     include: {
       tipificador: { select: { nombre: true } },
-      supervisor: { select: { nombre: true } },
       operador: { select: { nombre: true } },
       listaFaena: { select: { numero: true, fecha: true } }
     },
@@ -374,13 +373,12 @@ async function main() {
     pesoTotal: r.pesoTotal,
     rinde: r.rinde,
     estado: r.estado,
-    supervisorNombre: r.supervisor?.nombre || '',
     fechaConfirmacion: r.fechaConfirmacion,
     operadorNombre: r.operador?.nombre || ''
   })), [
     'id', 'listaFaenaNumero', 'listaFaenaId', 'fecha', 'garron', 'tropaCodigo', 'numeroAnimal',
     'tipoAnimal', 'raza', 'pesoVivo', 'denticion', 'tipificadorNombre', 'pesoMediaIzq',
-    'pesoMediaDer', 'pesoTotal', 'rinde', 'estado', 'supervisorNombre', 'fechaConfirmacion',
+    'pesoMediaDer', 'pesoTotal', 'rinde', 'estado', 'fechaConfirmacion',
     'operadorNombre'
   ])
 
@@ -469,7 +467,7 @@ async function main() {
     include: {
       cliente: { select: { nombre: true, cuit: true } },
       operador: { select: { nombre: true } },
-      items: true
+      detalles: true
     },
     orderBy: { fecha: 'asc' }
   })
@@ -490,15 +488,15 @@ async function main() {
     puntoVenta: f.puntoVenta || '',
     cae: f.cae || '',
     operadorNombre: f.operador?.nombre || '',
-    totalItems: f.items.length,
-    itemsStr: f.items.slice(0, 5).map(i => `${i.descripcion} x${i.cantidad}`).join('; ')
+    totalItems: f.detalles.length,
+    itemsStr: f.detalles.slice(0, 5).map(i => `${i.descripcion} x${i.cantidad}`).join('; ')
   })), [
     'id', 'numero', 'numeroInterno', 'clienteNombre', 'clienteCuit', 'clienteId', 'fecha',
     'fechaEmision', 'subtotal', 'iva', 'total', 'estado', 'tipoComprobante', 'puntoVenta',
     'cae', 'operadorNombre', 'totalItems', 'itemsStr'
   ])
 
-  addSheet(wb, 'FacturaItems', facturas.flatMap(f => f.items.map(i => ({
+  addSheet(wb, 'FacturaItems', facturas.flatMap(f => f.detalles.map(i => ({
     id: i.id,
     facturaNumero: f.numero,
     facturaId: f.id,
@@ -674,20 +672,21 @@ async function main() {
   console.log('17. Exportando Movimientos de Corral...')
   const movimientos = await db.movimientoCorral.findMany({
     include: {
-      tropa: { select: { numero: true, codigo: true } },
-      animal: { select: { codigo: true, numero: true } },
       corralOrigen: { select: { nombre: true } },
       corralDestino: { select: { nombre: true } },
       operador: { select: { nombre: true } }
     },
     orderBy: { fecha: 'asc' }
   })
+  // Lookup manual: tropaId y animalId son strings sin @relation
+  const tropaMap = new Map(tropas.map(t => [t.id, { numero: t.numero, codigo: t.codigo }]))
+  const animalMap = new Map(animales.map(a => [a.id, { codigo: a.codigo, numero: a.numero }]))
   addSheet(wb, 'MovCorral', movimientos.map(m => ({
     id: m.id,
-    tropaNumero: m.tropa?.numero || '',
-    tropaCodigo: m.tropa?.codigo || '',
-    animalCodigo: m.animal?.codigo || '',
-    animalNumero: m.animal?.numero || '',
+    tropaNumero: (m.tropaId && tropaMap.get(m.tropaId))?.numero || '',
+    tropaCodigo: (m.tropaId && tropaMap.get(m.tropaId))?.codigo || '',
+    animalCodigo: (m.animalId && animalMap.get(m.animalId))?.codigo || '',
+    animalNumero: (m.animalId && animalMap.get(m.animalId))?.numero || '',
     corralOrigenNombre: m.corralOrigen?.nombre || '',
     corralDestinoNombre: m.corralDestino?.nombre || '',
     cantidad: m.cantidad,
