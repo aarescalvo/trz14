@@ -7,38 +7,18 @@ async function main() {
   console.log('  DIAGNOSTICO DE 3 PUNTOS');
   console.log('=====================================================\n');
 
-  // 1. CLIENTES SIN IDENTIFICACION
-  console.log('--- 1. CLIENTES SIN IDENTIFICACION / CON NOMBRE VACIO ---');
-  const sinNombre = await prisma.cliente.findMany({
-    where: {
-      OR: [
-        { nombre: { equals: null } },
-        { nombre: { equals: '' } },
-        { nombre: { equals: ' ' } },
-        { nombre: { startsWith: 'Cliente' } },
-        { nombre: { startsWith: 'Sin identificar' } },
-      ]
-    },
+  // 1. LISTAR TODOS LOS ACTIVOS PARA IDENTIFICAR EL SIN NOMBRE
+  console.log('--- 1. TODOS LOS CLIENTES ACTIVOS (identificar el sin nombre) ---');
+  const todos = await prisma.cliente.findMany({
+    where: { activo: true },
+    select: { id: true, nombre: true, cuit: true, esProductor: true, esUsuarioFaena: true },
     orderBy: { nombre: 'asc' }
   });
-
-  if (sinNombre.length === 0) {
-    console.log('  No se encontraron clientes sin identificacion obvia.');
-    console.log('  Mostrando todos los clientes activos para revisar:');
-    const todos = await prisma.cliente.findMany({
-      where: { activo: true },
-      select: { id: true, nombre: true, cuit: true, esProductor: true, esUsuarioFaena: true },
-      orderBy: { nombre: 'asc' }
-    });
-    for (const c of todos) {
-      const tipo = [c.esProductor ? 'Productor' : '', c.esUsuarioFaena ? 'UsuarioFaena' : ''].filter(Boolean).join(', ') || 'Sin tipo';
-      console.log(`  ${c.nombre} | ${c.cuit || 'S/C'} | ${tipo}`);
-    }
-  } else {
-    for (const c of sinNombre) {
-      console.log(`  ⚠️ ID: ${c.id} | nombre: "${c.nombre}" | CUIT: ${c.cuit || 'S/C'} | activo: ${c.activo}`);
-    }
+  for (const c of todos) {
+    const tipo = [c.esProductor ? 'Productor' : '', c.esUsuarioFaena ? 'UsuarioFaena' : ''].filter(Boolean).join(', ') || 'Sin tipo';
+    console.log(`  ${c.nombre} | ${c.cuit || 'S/C'} | ${tipo}`);
   }
+  console.log(`  Total activos: ${todos.length}`);
 
   // 2. FERREYRA DUPLICADOS
   console.log('\n--- 2. BUSQUEDA FERREYRA ---');
