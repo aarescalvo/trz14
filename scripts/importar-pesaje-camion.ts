@@ -116,15 +116,18 @@ function parseTime(value: any): { hours: number; minutes: number } | null {
   return null
 }
 
-function parseTicket(value: any): number | null {
+function parseTicket(value: any): string | null {
   if (!value) return null
   const str = String(value).trim()
-  // Formato "0001-XXXXXXXX" → extraer número
-  const match = str.match(/(\d+)$/)
-  if (match) return parseInt(match[1])
-  // Si es solo un número
-  const num = parseInt(str)
-  return isNaN(num) ? null : num
+  // Formato "0001-XXXXXXXX" → usar completo
+  const match = str.match(/^(\d+-\d+)$/)
+  if (match) return match[1]
+  // Si tiene solo números
+  if (/^\d+$/.test(str)) return str
+  // Cualquier otro string con dígitos al final
+  const numMatch = str.match(/(\d+)$/)
+  if (numMatch) return numMatch[1]
+  return null
 }
 
 function parseString(value: any): string | null {
@@ -279,7 +282,7 @@ async function main() {
       pesajeData.fechaTara = pesoTara ? fechaIngreso : null
     }
     
-    pesajeData.numeroTicket = numeroTicket!
+    pesajeData.numeroTicket = numeroTicket
     if (transportistaId) pesajeData.transportistaId = transportistaId
 
     // Preparar datos de la tropa a actualizar

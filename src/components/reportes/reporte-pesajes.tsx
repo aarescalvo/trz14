@@ -16,7 +16,7 @@ import { PDFExporter } from '@/lib/export-pdf'
 
 interface PesajeData {
   id: string
-  numeroTicket: number
+  numeroTicket: string
   tipo: string
   estado: string
   patenteChasis: string

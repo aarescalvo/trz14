@@ -43,7 +43,7 @@ interface Tropa {
     pesoBruto?: number
     pesoTara?: number
     pesoNeto?: number
-    numeroTicket?: number
+    numeroTicket?: string
     transportista?: { nombre: string; cuit: string }
     precintos?: string
     estado: string

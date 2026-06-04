@@ -39,7 +39,7 @@ interface TropaCompleta {
   ticketCompartidoCon?: Array<{ numero: number; codigo: string }>
   pesajeCamion?: {
     id: string
-    numeroTicket?: number
+    numeroTicket?: string
     tipo?: string
     patenteChasis: string
     patenteAcoplado?: string

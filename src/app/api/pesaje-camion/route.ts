@@ -68,10 +68,14 @@ export async function GET(request: NextRequest) {
       }
     })
     
-    const lastPesaje = await db.pesajeCamion.findFirst({
-      orderBy: { numeroTicket: 'desc' }
-    })
-    const nextTicketNumber = (lastPesaje?.numeroTicket || 0) + 1
+    // Auto-increment: extraer parte numérica de todos los tickets y calcular el próximo
+    const allTickets = await db.pesajeCamion.findMany({ select: { numeroTicket: true } })
+    let maxTicketNum = 0
+    for (const p of allTickets) {
+      const num = parseInt(String(p.numeroTicket).replace(/\D/g, ''), 10)
+      if (!isNaN(num) && num > maxTicketNum) maxTicketNum = num
+    }
+    const nextTicketNumber = String(maxTicketNum + 1)
     
     // Mapear al formato que espera el frontend
     const formatted = pesajes.map(p => ({
@@ -162,10 +166,14 @@ export async function POST(request: NextRequest) {
     const fechaRegistro = fecha ? new Date(fecha) : new Date()
     
     // Obtener último número de ticket
-    const lastPesaje = await db.pesajeCamion.findFirst({
-      orderBy: { numeroTicket: 'desc' }
-    })
-    const numeroTicket = (lastPesaje?.numeroTicket || 0) + 1
+    // Auto-increment: extraer parte numérica de todos los tickets y calcular el próximo
+    const allTickets = await db.pesajeCamion.findMany({ select: { numeroTicket: true } })
+    let maxTicketNum = 0
+    for (const p of allTickets) {
+      const num = parseInt(String(p.numeroTicket).replace(/\D/g, ''), 10)
+      if (!isNaN(num) && num > maxTicketNum) maxTicketNum = num
+    }
+    const numeroTicket = String(maxTicketNum + 1)
     
     // Determinar estado
     const estado: EstadoPesaje = pesoBruto && pesoTara ? 'CERRADO' : 'ABIERTO'
