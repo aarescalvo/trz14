@@ -12,7 +12,7 @@ async function main() {
   const sinNombre = await prisma.cliente.findMany({
     where: {
       OR: [
-        { nombre: { isNull: true } },
+        { nombre: null },
         { nombre: { equals: '' } },
         { nombre: { equals: ' ' } },
         { nombre: { startsWith: 'Cliente' } },
