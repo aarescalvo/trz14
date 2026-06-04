@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const romaneos = await db.romaneo.findMany({
-      where: { tropaCodigo: tropa.codigo, estado: 'CONFIRMADO' },
+      where: { tropaCodigo: tropa.codigo, estado: { in: ['CONFIRMADO', 'PENDIENTE'] } },
       include: { tipificador: true },
       orderBy: { garron: 'asc' }
     })
