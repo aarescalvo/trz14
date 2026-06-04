@@ -59,6 +59,7 @@ interface TropaDetalle {
   numero: number
   codigo: string
   cantidadCabezas: number
+  fechaFaena: string | null
   productor: { nombre: string } | null
   usuarioFaena: { nombre: string } | null
 }
@@ -94,8 +95,11 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
   const [proveedor, setProveedor] = useState('')
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   
-  // Ordenamiento
-  const [ordenCampo, setOrdenCampo] = useState<'rindePromedio' | 'cantidadAnimales' | 'tropaCodigo'>('rindePromedio')
+  // Busqueda rapida por tropa
+  const [busquedaTropa, setBusquedaTropa] = useState('')
+
+  // Ordenamiento - por defecto tropa descendente (ultimas primero)
+  const [ordenCampo, setOrdenCampo] = useState<'rindePromedio' | 'cantidadAnimales' | 'tropaCodigo'>('tropaCodigo')
   const [ordenAsc, setOrdenAsc] = useState(false)
   
   // Detalle
@@ -181,6 +185,7 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
     setTropaHasta('')
     setUsuario('')
     setProveedor('')
+    setBusquedaTropa('')
   }
 
   const fetchDetalleTropa = async (tropaCodigo: string) => {
@@ -214,11 +219,26 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
     }
   }
 
+  // Extraer numero de tropa del codigo (ej: "B 2026 0203" -> 203)
+  const extraerNumeroTropa = (codigo: string): number => {
+    const parts = codigo.trim().split(/\s+/)
+    return parseInt(parts[parts.length - 1]) || 0
+  }
+
   const ordenarRindes = (rindesList: RindeTropa[]) => {
-    return [...rindesList].sort((a, b) => {
+    // Filtrar por busqueda rapida de tropa
+    const filtrados = busquedaTropa
+      ? rindesList.filter(r => {
+          const num = extraerNumeroTropa(r.tropaCodigo)
+          const busq = parseInt(busquedaTropa)
+          return !isNaN(busq) && String(num).includes(busquedaTropa)
+        })
+      : rindesList
+
+    return [...filtrados].sort((a, b) => {
       let comparacion = 0
       if (ordenCampo === 'tropaCodigo') {
-        comparacion = a.tropaCodigo.localeCompare(b.tropaCodigo)
+        comparacion = extraerNumeroTropa(a.tropaCodigo) - extraerNumeroTropa(b.tropaCodigo)
       } else {
         comparacion = a[ordenCampo] - b[ordenCampo]
       }
@@ -391,6 +411,18 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
           <p className="text-stone-500">Análisis de rendimiento por tropa faenada</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {/* Busqueda rapida por tropa */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+            <Input
+              placeholder="Buscar tropa..."
+              value={busquedaTropa}
+              onChange={(e) => setBusquedaTropa(e.target.value)}
+              className="pl-9 w-36 h-9"
+              type="number"
+              min={1}
+            />
+          </div>
           <Button 
             variant="outline" 
             size="sm" 
@@ -738,6 +770,9 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
             </DialogTitle>
             <DialogDescription>
               <div className="space-y-1">
+                {tropaDetalle?.tropa?.fechaFaena && (
+                  <p>Fecha Faena: {new Date(tropaDetalle.tropa.fechaFaena).toLocaleDateString('es-AR')}</p>
+                )}
                 {tropaDetalle?.tropa?.productor?.nombre && (
                   <p>Productor: {tropaDetalle.tropa.productor.nombre}</p>
                 )}
