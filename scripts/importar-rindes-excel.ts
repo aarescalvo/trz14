@@ -1,7 +1,8 @@
 /**
  * Script de importación: Cargar datos de rinde desde Excel
- * - Tropa 175: ACTUALIZAR los romaneos existentes (null weights) + crear faltantes
+ * - Tropa 175: CREAR solo romaneos faltantes (no sobreescribe existentes)
  * - Tropas 192-203: CREAR todos los romaneos (no existen en DB)
+ * - NO sobreescribe datos existentes
  *
  * Parser dinámico: busca labels ("Nº Tropa", "Fecha", "Garrón") en vez de
  * posiciones fijas, para adaptarse al layout real del Excel.
@@ -299,13 +300,13 @@ async function main() {
 
   // List sheets
   console.log('\nHojas encontradas:')
-  wb.eachWorksheet((ws) => {
+  for (const ws of wb.worksheets) {
     const isTarget = TARGET_SHEETS.includes(ws.name)
     console.log(`  ${isTarget ? '✅' : '  '} "${ws.name}" (${ws.rowCount} filas)`)
-  })
+  }
 
   let totalCreated = 0
-  let totalUpdated = 0
+  let totalSkipped = 0
   let totalErrors = 0
 
   for (const sheetName of TARGET_SHEETS) {
@@ -366,13 +367,10 @@ async function main() {
         }
 
         if (existing) {
-          // UPDATE
-          await prisma.romaneo.update({
-            where: { id: existing.id },
-            data
-          })
-          totalUpdated++
-          console.log(`   ✏️ garron=${row.garron}: ACTUALIZADO (pesoVivo=${existing.pesoVivo}→${row.pesoVivo}, total=${existing.pesoTotal}→${row.pesoTotal})`)
+          // SKIP existing - no overwrite
+          totalSkipped++
+          const warnNulls = existing.pesoVivo === null ? ' ⚠️ (pesoVivo=null en DB)' : ''
+          console.log(`   ⏭️ garron=${row.garron}: OMITIDO (ya existe en DB)${warnNulls}`)
         } else {
           // CREATE
           await prisma.romaneo.create({ data })
@@ -390,7 +388,7 @@ async function main() {
   console.log('  RESUMEN')
   console.log('============================================')
   console.log(`Romaneos CREADOS:       ${totalCreated}`)
-  console.log(`Romaneos ACTUALIZADOS:  ${totalUpdated}`)
+  console.log(`Romaneos OMITIDOS:      ${totalSkipped}`)
   console.log(`Errores:               ${totalErrors}`)
   console.log('============================================')
 }
