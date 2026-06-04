@@ -28,6 +28,7 @@
  * - Si no → CREATE un nuevo PesajeCamion y lo vincula
  * - Actualiza campos de la tropa: fechaRecepcion, pesos, DTE, guía, patente, chofer
  * - NO crea animales (ya existen), NO modifica estados
+ * - numeroTicket es obligatorio: si falta en el Excel, se skip con error
  * 
  * USO:
  *   npx tsx scripts/importar-pesaje-camion.ts
@@ -180,80 +181,7 @@ async function main() {
   }
   console.log(`   ${transportistas.length} transportistas cargados`)
 
-  // 3b. Obtener último número de ticket para auto-generar los faltantes
-  const lastTicket = await db.pesajeCamion.findFirst({ orderBy: { numeroTicket: 'desc' } })
-  let nextAutoTicket = (lastTicket?.numeroTicket || 0) + 1
-  console.log(`   Último ticket: ${lastTicket?.numeroTicket || 'ninguno'}, próximo auto: ${nextAutoTicket}`)
-
-  // 4. Pre-leer todas las filas para armar mapa de tickets compartidos
-  console.log('\n3. Pre-leyendo filas para resolución de tickets compartidos...')
-  const filasMap = new Map<number, any>() // tropaNumero → datos de fila
-  const filasSinTicket: number[] = []
-  
-  for (let rowNum = 6; rowNum <= sheet.rowCount; rowNum++) {
-    const row = sheet.getRow(rowNum)
-    const tNum = parseNumber(getCellValue(row, 1))
-    if (!tNum || tNum <= 0) continue
-    
-    const ticket = parseTicket(getCellValue(row, 9))
-    const filaData = {
-      rowNum,
-      tropaNumero: tNum,
-      fechaRaw: getCellValue(row, 2),
-      horaRaw: getCellValue(row, 3),
-      patenteChasis: parseString(getCellValue(row, 4)),
-      choferNombre: parseString(getCellValue(row, 6)),
-      observaciones: parseString(getCellValue(row, 16)),
-      ticket
-    }
-    filasMap.set(tNum, filaData)
-    if (!ticket) filasSinTicket.push(tNum)
-  }
-  
-  // Resolver tickets compartidos
-  const ticketCompartido = new Map<number, number>() // tropaNumero → ticket compartido
-  for (const tNum of filasSinTicket) {
-    const fila = filasMap.get(tNum)!
-    let resuelto = false
-    
-    // Estrategia 1: observaciones "PESADA TROPA 74 - 75"
-    if (fila.observaciones) {
-      const nums = fila.observaciones.match(/\d+/g)
-      if (nums) {
-        for (const numStr of nums) {
-          const num = parseInt(numStr)
-          if (num !== tNum && filasMap.has(num)) {
-            const otraFila = filasMap.get(num)!
-            if (otraFila.ticket) {
-              ticketCompartido.set(tNum, otraFila.ticket)
-              resuelto = true
-              break
-            }
-          }
-        }
-      }
-    }
-    
-    // Estrategia 2: misma patente en el Excel
-    if (!resuelto && fila.patenteChasis && fila.fechaRaw) {
-      Array.from(filasMap.entries()).find(([otroNum, otraFila]) => {
-        if (otroNum !== tNum && otraFila.ticket && otraFila.patenteChasis === fila.patenteChasis) {
-          ticketCompartido.set(tNum, otraFila.ticket)
-          resuelto = true
-          return true
-        }
-        return false
-      })
-    }
-    
-    if (!resuelto) {
-      console.log(`   ⚠️ Tropa ${tNum}: no se pudo resolver ticket compartido, se generará auto`)
-    } else {
-      console.log(`   ℹ️ Tropa ${tNum}: ticket compartido resuelto → ${ticketCompartido.get(tNum)}`)
-    }
-  }
-
-  // 5. Procesar filas de datos
+  // 4. Procesar filas de datos
   console.log('\n3. Procesando filas de datos...')
   
   let creados = 0
@@ -292,14 +220,13 @@ async function main() {
     const observaciones = parseString(getCellValue(row, 16))
     let numeroTicket = parseTicket(ticketRaw)
     
-    // Si no hay ticket, usar el mapa de tickets compartidos o generar auto
+    // Si no hay ticket en el Excel, skip (es campo obligatorio)
     if (!numeroTicket) {
-      const compartido = ticketCompartido.get(tropaNumero)
-      if (compartido) {
-        numeroTicket = compartido
-      } else {
-        numeroTicket = nextAutoTicket++
-      }
+      errores++
+      const msg = `Tropa ${tropaNumero}: sin número de ticket en Excel (campo obligatorio)`
+      detalleErrores.push(`Fila ${rowNum}: ${msg}`)
+      console.log(`   ❌ ${msg}`)
+      continue
     }
 
     // Combinar fecha + hora
@@ -352,7 +279,7 @@ async function main() {
       pesajeData.fechaTara = pesoTara ? fechaIngreso : null
     }
     
-    if (numeroTicket) pesajeData.numeroTicket = numeroTicket
+    pesajeData.numeroTicket = numeroTicket!
     if (transportistaId) pesajeData.transportistaId = transportistaId
 
     // Preparar datos de la tropa a actualizar
