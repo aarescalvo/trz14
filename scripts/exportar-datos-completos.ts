@@ -318,8 +318,7 @@ async function main() {
   const asignaciones = await db.asignacionGarron.findMany({
     include: {
       animal: { select: { codigo: true, numero: true, tropa: { select: { numero: true } } } },
-      listaFaena: { select: { numero: true, fecha: true } },
-      operador: { select: { nombre: true } }
+      listaFaena: { select: { numero: true, fecha: true } }
     },
     orderBy: { garron: 'asc' }
   })
@@ -335,14 +334,14 @@ async function main() {
     animalNumeroAlt: a.animalNumero,
     tipoAnimal: a.tipoAnimal || '',
     pesoVivo: a.pesoVivo,
-    operadorNombre: a.operador?.nombre || '',
+    operadorNombre: '',
     tieneMediaDer: a.tieneMediaDer,
     tieneMediaIzq: a.tieneMediaIzq,
     completado: a.completado,
     horaIngreso: a.horaIngreso || ''
   })), [
     'id', 'listaFaenaNumero', 'listaFaenaId', 'garron', 'animalCodigo', 'animalNumero', 'tropaNumero',
-    'tropaCodigo', 'animalNumeroAlt', 'tipoAnimal', 'pesoVivo', 'operadorNombre',
+    'tropaCodigo', 'animalNumeroAlt', 'tipoAnimal', 'pesoVivo',
     'tieneMediaDer', 'tieneMediaIzq', 'completado', 'horaIngreso'
   ])
 
@@ -519,8 +518,7 @@ async function main() {
   const planillas = await db.planillaServicioFaena.findMany({
     include: {
       tropa: { select: { numero: true, codigo: true } },
-      cliente: { select: { nombre: true, cuit: true } },
-      operador: { select: { nombre: true } },
+      usuarioFaena: { select: { nombre: true, cuit: true } },
       factura: { select: { numero: true } }
     },
     orderBy: { fecha: 'asc' }
@@ -531,8 +529,8 @@ async function main() {
     fecha: p.fecha,
     tropaNumero: p.tropa.numero,
     tropaCodigo: p.tropa.codigo,
-    clienteNombre: p.cliente?.nombre || '',
-    clienteCuit: p.cliente?.cuit || '',
+    clienteNombre: p.usuarioFaena?.nombre || '',
+    clienteCuit: p.usuarioFaena?.cuit || '',
     especie: p.especie,
     cantidadCabezas: p.cantidadCabezas,
     kgVivo: p.kgVivo,
@@ -545,12 +543,11 @@ async function main() {
     ivaImporte: p.ivaImporte,
     totalGeneral: p.totalGeneral,
     estado: p.estado,
-    facturaNumero: p.factura?.numero || '',
-    operadorNombre: p.operador?.nombre || ''
+    facturaNumero: p.factura?.numero || ''
   })), [
     'id', 'numero', 'fecha', 'tropaNumero', 'tropaCodigo', 'clienteNombre', 'clienteCuit',
     'especie', 'cantidadCabezas', 'kgVivo', 'kgFrio', 'rindePct', 'tarifaKg', 'tarifaCabeza',
-    'importeTotal', 'ivaPct', 'ivaImporte', 'totalGeneral', 'estado', 'facturaNumero', 'operadorNombre'
+    'importeTotal', 'ivaPct', 'ivaImporte', 'totalGeneral', 'estado', 'facturaNumero'
   ])
 
   // ── 13. LIQUIDACIONES ──
