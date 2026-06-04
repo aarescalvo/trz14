@@ -197,10 +197,10 @@ async function main() {
           })
           movidos += exp.count
 
-          // LiquidacionFaena: usuarioFaenaId
+          // LiquidacionFaena: clienteId
           const liq = await tx.liquidacionFaena.updateMany({
-            where: { usuarioFaenaId: eliminarId },
-            data: { usuarioFaenaId: conservarId }
+            where: { clienteId: eliminarId },
+            data: { clienteId: conservarId }
           })
           movidos += liq.count
 
