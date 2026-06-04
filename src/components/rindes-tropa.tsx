@@ -22,6 +22,7 @@ import { PDFExporter } from '@/lib/export-pdf'
 
 interface RindeTropa {
   tropaCodigo: string
+  fechaFaena: string | null
   cantidadAnimales: number
   pesoVivoTotal: number
   pesoFaenaTotal: number
@@ -258,11 +259,12 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
   // ==================== EXPORTACIONES ====================
 
   const exportMainTableExcel = () => {
-    const headers = ['Tropa', 'Productor', 'Usuario Faena', 'Animales', 'Peso Vivo (kg)', 'Peso Faena (kg)', 'Rinde %', 'Rinde Mín. %', 'Rinde Máx. %']
+    const headers = ['Tropa', 'Productor', 'Usuario Faena', 'Fecha Faena', 'Animales', 'Peso Vivo (kg)', 'Peso Faena (kg)', 'Rinde %', 'Rinde Mín. %', 'Rinde Máx. %']
     const data = ordenarRindes(rindes).map(r => [
       r.tropaCodigo,
       r.productor || '-',
       r.usuario || '-',
+      r.fechaFaena ? new Date(r.fechaFaena).toLocaleDateString('es-AR') : '-',
       r.cantidadAnimales,
       Math.round(r.pesoVivoTotal),
       Math.round(r.pesoFaenaTotal),
@@ -273,7 +275,7 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
 
     if (estadisticas) {
       data.push([
-        '', 'TOTALES', '', estadisticas.totalAnimales,
+        '', 'TOTALES', '', '', estadisticas.totalAnimales,
         Math.round(estadisticas.totalPesoVivo),
         Math.round(estadisticas.totalPesoFaena),
         estadisticas.rindeGeneral.toFixed(2), '', '',
@@ -290,11 +292,12 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
   }
 
   const exportMainTablePDF = () => {
-    const headers = ['Tropa', 'Productor', 'Usuario', 'Anim.', 'P. Vivo', 'P. Faena', 'Rinde %']
+    const headers = ['Tropa', 'Productor', 'Usuario', 'F. Faena', 'Anim.', 'P. Vivo', 'P. Faena', 'Rinde %']
     const data = ordenarRindes(rindes).map(r => [
       r.tropaCodigo,
       (r.productor || '-').substring(0, 20),
       (r.usuario || '-').substring(0, 20),
+      r.fechaFaena ? new Date(r.fechaFaena).toLocaleDateString('es-AR') : '-',
       r.cantidadAnimales.toString(),
       formatNumber(Math.round(r.pesoVivoTotal)),
       formatNumber(Math.round(r.pesoFaenaTotal)),
@@ -640,6 +643,7 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
                     </TableHead>
                     <TableHead>Productor</TableHead>
                     <TableHead>Usuario</TableHead>
+                    <TableHead className="text-center">Fecha Faena</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-stone-50 text-center"
                       onClick={() => toggleOrden('cantidadAnimales')}
@@ -679,6 +683,9 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
                       </TableCell>
                       <TableCell className="text-sm text-stone-600 max-w-[150px] truncate" title={rinde.usuario || ''}>
                         {rinde.usuario || '-'}
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-stone-600">
+                        {rinde.fechaFaena ? new Date(rinde.fechaFaena).toLocaleDateString('es-AR') : '-'}
                       </TableCell>
                       <TableCell className="text-center">
                         {formatNumber(rinde.cantidadAnimales)}

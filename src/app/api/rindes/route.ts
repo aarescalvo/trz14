@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     // Buscar tropas que coincidan con los filtros
     const tropasFiltradas = await db.tropa.findMany({
       where: tropaWhere,
-      select: { codigo: true, productor: { select: { nombre: true } }, usuarioFaena: { select: { nombre: true } } }
+      select: { codigo: true, fechaFaena: true, productor: { select: { nombre: true } }, usuarioFaena: { select: { nombre: true } } }
     })
 
     const codigosTropas = new Set(tropasFiltradas.map(t => t.codigo))
@@ -164,6 +164,7 @@ export async function GET(request: NextRequest) {
     // Agrupar por tropaCodigo
     const rindesPorTropa: Record<string, {
       tropaCodigo: string
+      fechaFaena: Date | null
       cantidadAnimales: number
       pesoVivoTotal: number
       pesoFaenaTotal: number
@@ -181,6 +182,7 @@ export async function GET(request: NextRequest) {
         const tropaInfo = tropaMap.get(codigoTropa)
         rindesPorTropa[codigoTropa] = {
           tropaCodigo: codigoTropa,
+          fechaFaena: tropaInfo?.fechaFaena || null,
           cantidadAnimales: 0,
           pesoVivoTotal: 0,
           pesoFaenaTotal: 0,
