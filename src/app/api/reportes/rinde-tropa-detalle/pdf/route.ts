@@ -203,7 +203,9 @@ export async function GET(request: NextRequest) {
       const rindeVal = rom.pesoVivo && rom.pesoVivo > 0 ? pesoTotalVal / rom.pesoVivo : null
       const denticionStr = rom.denticion || ''
       const tipoStr = rom.tipoAnimal || ''
-      const clasif = denticionStr && tipoStr ? `${denticionStr} - ${tipoStr}` : tipoStr || denticionStr || ''
+      // Agregar "D" al denticion: "2" -> "2D", "4" -> "4D"
+      const denticionConD = denticionStr ? `${denticionStr.replace(/\D/g, '')}D` : ''
+      const clasif = denticionConD && tipoStr ? `${denticionConD} - ${tipoStr}` : tipoStr || denticionConD || ''
 
       return [
         rom.garron.toString(),

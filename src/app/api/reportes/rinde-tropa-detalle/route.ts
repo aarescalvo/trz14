@@ -477,7 +477,8 @@ export async function POST(request: NextRequest) {
       { col: 3, text: 'N\u00ba\nGARRON', span: true },
       { col: 4, text: 'N\u00ba\n ANIMAL', span: true },
       { col: 5, text: 'RAZA', span: true },
-      { col: 6, text: 'CLASIFICACION', span: true },
+      { col: 6, text: 'TIPO DE ANIMAL' },
+      // col 7 se llena via merge con "TIPO DE ANIMAL" (F23:G23)
       { col: 8, text: 'N\u00ba CARAVANA', span: true },
       { col: 9, text: 'KG ENTRADA', span: true },
       { col: 10, text: 'KG 1/2 A', span: true },
@@ -496,11 +497,23 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Merge headers for multi-row headers (CLASIFICACION spans F-G, rows 23-24)
-    ws.mergeCells(23, 6, 24, 7)   // CLASIFICACION spans F-G rows 23-24
+    // Merge headers for multi-row headers
     ws.mergeCells(23, 3, 24, 3)    // N GARRON
     ws.mergeCells(23, 4, 24, 4)    // N ANIMAL
     ws.mergeCells(23, 5, 24, 5)    // RAZA
+    // F23: "TIPO DE ANIMAL" (merge F23:G23 para encabezado principal)
+    ws.mergeCells(23, 6, 23, 7)
+    // F24: "Denticion", G24: "Clasificacion" (sub-encabezados)
+    ws.getCell('F24').value = 'Denticion'
+    ws.getCell('G24').value = 'Clasificacion'
+    // Estilo sub-headers
+    const subHeaderStyle = {
+      font: { name: fnt.familia, size: fnt.tamanoDatos, bold: true },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: { top: thinBorder.top, left: thinBorder.left, right: thinBorder.right }
+    }
+    applyCell(ws.getCell('F24'), subHeaderStyle)
+    applyCell(ws.getCell('G24'), subHeaderStyle)
     ws.mergeCells(23, 8, 24, 8)    // CARAVANA
     ws.mergeCells(23, 9, 24, 9)    // KG ENTRADA
     ws.mergeCells(23, 10, 24, 10)  // KG 1/2 A
@@ -531,7 +544,10 @@ export async function POST(request: NextRequest) {
       const rindeVal = rom.pesoVivo && rom.pesoVivo > 0 ? pesoTotalVal / rom.pesoVivo : null
       const denticionStr = rom.denticion || ''
       const tipoStr = rom.tipoAnimal || ''
-      const clasif = denticionStr && tipoStr ? `${denticionStr} - ${tipoStr}` : tipoStr || denticionStr || ''
+      // Agregar "D" al denticion: "2" -> "2D", "4" -> "4D"
+      const denticionConD = denticionStr ? `${denticionStr.replace(/\D/g, '')}D` : ''
+      // Columna F: clasificacion completa "2D - VQ"
+      const clasif = denticionConD && tipoStr ? `${denticionConD} - ${tipoStr}` : tipoStr || denticionConD || ''
 
       // N Garron (usar numero real del garron)
       ws.getCell(`C${r}`).value = rom.garron
@@ -557,12 +573,19 @@ export async function POST(request: NextRequest) {
         border: { top: thinBorder.top, left: thinBorder.left, right: thinBorder.right }
       })
 
-      // Clasificacion (denticion + tipo animal, merge F-G)
-      ws.mergeCells(r, 6, r, 7)
+      // Columna F: clasificacion completa "2D - VQ" (denticion con D + tipo)
       ws.getCell(`F${r}`).value = clasif
       applyCell(ws.getCell(`F${r}`), {
         font: { name: fnt.familia, size: fnt.tamanoDatos },
         alignment: { horizontal: alin(alAnim, 'F_G_clasif', 'center'), vertical: 'middle' },
+        border: { top: thinBorder.top, left: thinBorder.left, right: thinBorder.right }
+      })
+
+      // Columna G: solo tipo animal (VQ, NT, etc.) para COUNTIF/SUMIF
+      ws.getCell(`G${r}`).value = tipoStr
+      applyCell(ws.getCell(`G${r}`), {
+        font: { name: fnt.familia, size: fnt.tamanoDatos },
+        alignment: { horizontal: 'center', vertical: 'middle' },
         border: { top: thinBorder.top, left: thinBorder.left, right: thinBorder.right }
       })
 
