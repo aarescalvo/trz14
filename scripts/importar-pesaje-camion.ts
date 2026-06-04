@@ -180,6 +180,11 @@ async function main() {
   }
   console.log(`   ${transportistas.length} transportistas cargados`)
 
+  // 3b. Obtener último número de ticket para auto-generar los faltantes
+  const lastTicket = await db.pesajeCamion.findFirst({ orderBy: { numeroTicket: 'desc' } })
+  let nextAutoTicket = (lastTicket?.numeroTicket || 0) + 1
+  console.log(`   Último ticket: ${lastTicket?.numeroTicket || 'ninguno'}, próximo auto: ${nextAutoTicket}`)
+
   // 4. Procesar filas de datos (empiezan en fila 6)
   console.log('\n3. Procesando filas de datos...')
   
@@ -217,7 +222,12 @@ async function main() {
     const dte = parseString(getCellValue(row, 14))
     const guia = parseString(getCellValue(row, 15))
     const observaciones = parseString(getCellValue(row, 16))
-    const numeroTicket = parseTicket(ticketRaw)
+    let numeroTicket = parseTicket(ticketRaw)
+    
+    // Si no hay ticket, generar uno auto-incremental
+    if (!numeroTicket) {
+      numeroTicket = nextAutoTicket++
+    }
 
     // Combinar fecha + hora
     let fechaIngreso = parseDate(fechaRaw)
