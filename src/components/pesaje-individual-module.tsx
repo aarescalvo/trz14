@@ -465,6 +465,29 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     })
   }, [tiposConfirmados, tropaSeleccionada?.especie])
 
+  // Tipos no declarados de la especie actual (para botón +)
+  const tiposNoDeclarados = useMemo(() => {
+    const especie = tropaSeleccionada?.especie || 'BOVINO'
+    const todosTipos = TIPOS_ANIMALES[especie] || []
+    const confirmados = new Set(tiposConfirmados.map(tc => tc.tipoAnimal))
+    return todosTipos.filter(t => !confirmados.has(t.codigo))
+  }, [tiposConfirmados, tropaSeleccionada?.especie])
+
+  const [dropdownTiposOpen, setDropdownTiposOpen] = useState(false)
+
+  const agregarTipoAlVuelo = (tipoCodigo: string) => {
+    if (tiposConfirmados.some(tc => tc.tipoAnimal === tipoCodigo)) return
+    setTiposConfirmados(prev => [...prev, {
+      tipoAnimal: tipoCodigo,
+      cantidadDTE: 0,
+      cantidadConfirmada: 1
+    }])
+    setTipoAnimalSeleccionado(tipoCodigo)
+    setDropdownTiposOpen(false)
+    const nombreTipo = (TIPOS_ANIMALES[tropaSeleccionada?.especie || 'BOVINO'] || []).find(t => t.codigo === tipoCodigo)?.label || tipoCodigo
+    toast.success(`Tipo ${tipoCodigo} (${nombreTipo}) agregado`)
+  }
+
   const conteoPesadosPorTipo = useMemo(() => {
     const conteo: Record<string, number> = {}
     animales.filter(a => a.estado === 'PESADO').forEach(a => {
@@ -1884,6 +1907,34 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                               </button>
                             )
                           })}
+                          {/* Botón + para agregar tipo no declarado */}
+                          {tiposNoDeclarados.length > 0 && (
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setDropdownTiposOpen(!dropdownTiposOpen)}
+                                className="px-2 py-1 rounded text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-dashed border-amber-300 transition-all"
+                                title="Agregar tipo no declarado"
+                              >
+                                +
+                              </button>
+                              {dropdownTiposOpen && (
+                                <div className="absolute top-full left-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
+                                  {tiposNoDeclarados.map(t => (
+                                    <button
+                                      key={t.codigo}
+                                      type="button"
+                                      onClick={() => agregarTipoAlVuelo(t.codigo)}
+                                      className="w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-amber-50 transition-colors flex items-center justify-between"
+                                    >
+                                      <span className="font-bold">{t.codigo}</span>
+                                      <span className="text-stone-400 ml-2">{t.label}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -2531,6 +2582,32 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                       </button>
                     )
                   })}
+                  {/* Botón + para agregar tipo no declarado en modo producción */}
+                  {tiposNoDeclarados.length > 0 && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setDropdownTiposOpen(!dropdownTiposOpen)}
+                        className="px-3 py-1.5 rounded-lg text-sm font-bold bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200 border border-dashed border-stone-600 transition-all"
+                        title="Agregar tipo no declarado"
+                      >
+                        +
+                      </button>
+                      {dropdownTiposOpen && (
+                        <div className="absolute top-full left-0 mt-1 bg-stone-800 border border-stone-600 rounded-lg shadow-lg z-50 py-1 min-w-[160px]">
+                          {tiposNoDeclarados.map(t => (
+                            <button
+                              key={t.codigo}
+                              onClick={() => agregarTipoAlVuelo(t.codigo)}
+                              className="w-full text-left px-3 py-2 text-sm font-bold hover:bg-stone-700 transition-colors flex items-center justify-between"
+                            >
+                              <span>{t.codigo}</span>
+                              <span className="text-stone-500 ml-2 text-xs font-normal">{t.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
