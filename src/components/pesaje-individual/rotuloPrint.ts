@@ -210,17 +210,18 @@ export function imprimirRotulo({ animal, tropaCodigo }: ImprimirRotuloOptions) {
         }
         
         .barcode-label {
-          font-size: 6px;
+          font-size: 5px;
           color: #666;
           margin-bottom: 0.5mm;
         }
         
         .barcode-text {
           font-family: 'Courier New', monospace;
-          font-size: 6px;
+          font-size: 5px;
           font-weight: bold;
           letter-spacing: 0.5px;
-          margin-top: 1.5mm;
+          margin-top: 2mm;
+          line-height: 1.2;
         }
         
         @media print { 
@@ -266,11 +267,18 @@ export function imprimirRotulo({ animal, tropaCodigo }: ImprimirRotuloOptions) {
           JsBarcode("#barcode", "${codigoEAN128}", {
             format: "CODE128C",  // CODE128C es más eficiente para números
             width: 1.5,
-            height: 35,
+            height: 30,
             displayValue: false,
             margin: 0,
+            fontSize: 0,
+            textMargin: 0,
             background: "transparent"
           });
+          // Eliminar cualquier elemento de texto residual del SVG
+          var svg = document.getElementById('barcode');
+          if (svg) {
+            svg.querySelectorAll('text').forEach(function(t) { t.remove(); });
+          }
         } catch(e) {
           console.error("Error generando código de barras:", e);
         }
