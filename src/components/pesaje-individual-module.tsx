@@ -1127,13 +1127,14 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       padding: 1mm 2mm;
     }
     #barcode-canvas {
-      max-width: 90mm;
+      max-width: 85mm;
       height: auto;
     }
     .barcode-label {
-      font-size: 7px;
+      font-size: 6px;
       color: #666;
-      margin-top: 1mm;
+      margin-top: 1.5mm;
+      line-height: 1.2;
     }
     @media print { 
       body { padding: 0; }
@@ -1173,11 +1174,18 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       try {
         JsBarcode("#barcode-canvas", "${codigoEAN128}", {
           format: "CODE128",
-          width: 2,
-          height: 25,
+          width: 1.5,
+          height: 22,
           displayValue: false,
-          margin: 0
+          margin: 0,
+          fontSize: 0,
+          textMargin: 0
         });
+        // Eliminar cualquier elemento de texto residual del SVG
+        var svg = document.getElementById('barcode-canvas');
+        if (svg) {
+          svg.querySelectorAll('text').forEach(function(t) { t.remove(); });
+        }
       } catch(e) {
         // Fallback si JsBarcode falla
         document.getElementById('barcode-canvas').outerHTML = 
@@ -2486,6 +2494,24 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                   {tiposDisponiblesParaPesar.map((t) => {
                     const status = isTipoDisponible(t.codigo)
                     const selected = tipoAnimalSeleccionado === t.codigo
+                    const colorMap: Record<string, string> = {
+                      'TO': 'bg-red-500 shadow-lg shadow-red-500/25',
+                      'VA': 'bg-blue-500 shadow-lg shadow-blue-500/25',
+                      'VQ': 'bg-pink-500 shadow-lg shadow-pink-500/25',
+                      'MEJ': 'bg-orange-500 shadow-lg shadow-orange-500/25',
+                      'NO': 'bg-green-600 shadow-lg shadow-green-600/25',
+                      'NT': 'bg-teal-500 shadow-lg shadow-teal-500/25',
+                    }
+                    const colorAvailable: Record<string, string> = {
+                      'TO': 'bg-red-900/50 text-red-300 hover:bg-red-900/70',
+                      'VA': 'bg-blue-900/50 text-blue-300 hover:bg-blue-900/70',
+                      'VQ': 'bg-pink-900/50 text-pink-300 hover:bg-pink-900/70',
+                      'MEJ': 'bg-orange-900/50 text-orange-300 hover:bg-orange-900/70',
+                      'NO': 'bg-green-900/50 text-green-300 hover:bg-green-900/70',
+                      'NT': 'bg-teal-900/50 text-teal-300 hover:bg-teal-900/70',
+                    }
+                    const selColor = colorMap[t.codigo] || 'bg-amber-500 shadow-lg shadow-amber-500/25'
+                    const availColor = colorAvailable[t.codigo] || 'bg-stone-700 text-stone-300 hover:bg-stone-600'
                     return (
                       <button
                         key={t.codigo}
@@ -2494,9 +2520,9 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-sm font-bold transition-all",
                           selected
-                            ? "bg-amber-500 text-white shadow-lg shadow-amber-500/25"
+                            ? `${selColor} text-white`
                             : status.disponible
-                              ? "bg-stone-700 text-stone-300 hover:bg-stone-600"
+                              ? availColor
                               : "bg-stone-800 text-stone-600 cursor-not-allowed"
                         )}
                       >
