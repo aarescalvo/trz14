@@ -70,3 +70,48 @@ Stage Summary:
 - No dangling references to removed state/functions
 - New feature: Supervisor password invoice editing via lock-protected dialog
 - Lint: clean
+
+---
+Task ID: 7
+Agent: Super Z (main)
+Task: Corregir cálculo de rindes - calcular dinámicamente en vez de leer de BD
+
+Work Log:
+- Investigated how rindes are stored and calculated across the codebase
+- Found root cause: pesoVivo for tropa B 2026 0017 animal 8 stored as 51 instead of 351 (typo in seed data)
+- Found inconsistency: seed data stores rinde as decimal (0.5868), API calculates as percentage (58.69)
+- Found display code assumes decimal format (multiplies * 100), causing wrong display for API-calculated values
+- Modified API /api/rindes to calculate rinde dynamically from pesoTotal/pesoVivo instead of reading stored field
+- Modified 10+ API routes to calculate rinde dynamically: romaneo, romaneos-dia, faena, exportar-server, trazabilidad, busqueda
+- Modified frontend rindes-tropa.tsx to remove * 100 multiplier (API now returns percentage)
+- Modified rotuloPrint.ts to calculate rinde per animal dynamically
+- Modified reportes/excel/route.ts, romaneo-pdf/enviar/route.ts, lib/pdf/romaneo-tropa.ts
+- Created diagnostic script: scripts/diagnostic-rinde-consistencia.ts
+- Created correction script: scripts/corregir-rindes.ts (for user to run locally)
+
+Stage Summary:
+- All rindes now calculated dynamically from (pesoTotal / pesoVivo) * 100 at read/display time
+- 13 files modified to use dynamic calculation instead of stored rinde field
+- Stored rinde field kept for backward compatibility but not used for display
+- Correction script created for user to fix pesoVivo errors and standardize stored values
+---
+Task ID: 1
+Agent: main
+Task: Permitir fechas postdatadas en APIs + script importación pesaje camión
+
+Work Log:
+- Analizó estructura completa del sistema TrazaAlan (5947 líneas schema, 200+ rutas API)
+- Identificó 8 APIs que bloqueaban simulación postdatada (fechas auto-set a now())
+- Modificó APIs: pesaje-camion, pesaje-individual, romaneo, romaneo/pesar para aceptar `fecha` opcional
+- Modificó queries: romaneos-dia, romaneo/eliminar, corregir-correlatividad para aceptar fecha param
+- Creó scripts/consistencia-simulacion.ts (consistencia general + backdate)
+- Mejoró scripts/actualizar-estado-faenados.ts (agregó recálculo stock corrales)
+- Analizó PLANTILLA_PESAJE_CAMION.xlsx (203 tropas, 16 columnas)
+- Creó scripts/importar-pesaje-camion.ts (importa pesajes reales de camión)
+- Todo pusheado a GitHub (commits 4c2e103, 7010d1f)
+
+Stage Summary:
+- APIs modificadas para aceptar fecha opcional: pesaje-camion, pesaje-individual, romaneo, romaneo/pesar, romaneos-dia, romaneo/eliminar, corregir-correlatividad
+- Scripts creados: consistencia-simulacion.ts, importar-pesaje-camion.ts, diagnostic-pesaje-camion.ts
+- Script mejorado: actualizar-estado-faenados.ts (ahora recalcula stock corrales)
+

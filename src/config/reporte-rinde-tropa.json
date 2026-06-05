@@ -1,0 +1,156 @@
+{
+  "excel": {
+    "pagina": {
+      "orientacion": "landscape",
+      "ajustarAncho": true
+    },
+    "margenes": {
+      "izquierdo": 0.4,
+      "derecho": 0.4,
+      "superior": 0.3,
+      "inferior": 0.3
+    },
+    "anchoColumnas": {
+      "A": 4,
+      "B": 3.7,
+      "C_garron": 10,
+      "D_animal": 10,
+      "E_raza": 7,
+      "F_G_clasif": 14,
+      "H_caravana": 18,
+      "I_kgEntrada": 13,
+      "J_mediaA": 15,
+      "K_mediaB": 13,
+      "L_totalKg": 13,
+      "M_rinde": 13,
+      "N": 3.7
+    },
+    "fuentes": {
+      "familia": "Calibri",
+      "tamanoEncabezado": 10,
+      "tamanoDatos": 10,
+      "tamanoInfo": 12,
+      "tamanoMenudencia": 12
+    },
+    "formatosNumericos": {
+      "kgEntero": "#,##0",
+      "kgDecimal": "#,##0.0",
+      "porcentaje": "0.00%",
+      "fecha": "DD/MM/YYYY",
+      "hora": "HH:MM"
+    },
+    "separacion": {
+      "filasAntesMenudencia": 4
+    },
+    "alineacionAnimales": {
+      "C_garron": "center",
+      "D_animal": "center",
+      "E_raza": "center",
+      "F_G_clasif": "center",
+      "H_caravana": "center",
+      "I_kgEntrada": "center",
+      "J_mediaA": "center",
+      "K_mediaB": "center",
+      "L_totalKg": "center",
+      "M_rinde": "right"
+    },
+    "alineacionMenudencia": {
+      "tipo": "left",
+      "cantidades": "center",
+      "kg": "center",
+      "unidad": "center",
+      "kgDec": "center"
+    },
+    "alineacionResumen": {
+      "labels": "right",
+      "values": "left",
+      "tipos": "left",
+      "cuartos": "center",
+      "kgTipos": "right"
+    },
+    "logo": {
+      "visible": false,
+      "posicion": "arriba-izquierda",
+      "ancho": 100,
+      "alto": 50
+    },
+    "bordes": {
+      "encabezado": false,
+      "infoOperador": false,
+      "resumen": false,
+      "tablaAnimales": true,
+      "menudencia": true
+    },
+    "separadores": {
+      "despuesEncabezado": "ninguno",
+      "despuesInfoOperador": "ninguno",
+      "despuesResumen": "ninguno",
+      "antesMenudencia": "ninguno"
+    }
+  },
+  "pdf": {
+    "pagina": {
+      "orientacion": "landscape",
+      "tamano": "a4"
+    },
+    "margenes": {
+      "izquierdo": 8,
+      "derecho": 8,
+      "superior": 10,
+      "inferior": 5
+    },
+    "fuentes": {
+      "tamanoTitulo": 14,
+      "tamanoInfo": 9,
+      "tamanoTablaEncabezado": 7,
+      "tamanoTablaCuerpo": 7,
+      "tamanoMenudencia": 7,
+      "tamanoPie": 7
+    },
+    "tablaAnimales": {
+      "anchoColumnas": {
+        "garron": 16,
+        "animal": 16,
+        "raza": 18,
+        "clasificacion": 30,
+        "caravana": 25,
+        "kgEntrada": 20,
+        "mediaA": 22,
+        "mediaB": 22,
+        "totalKg": 22,
+        "rinde": 22
+      },
+      "alineacion": {
+        "garron": "center",
+        "animal": "center",
+        "raza": "center",
+        "clasificacion": "center",
+        "caravana": "center",
+        "kgEntrada": "right",
+        "mediaA": "right",
+        "mediaB": "right",
+        "totalKg": "right",
+        "rinde": "right"
+      }
+    },
+    "tablaMenudencia": {
+      "anchoColumnas": {
+        "tipo": 60,
+        "cantidades": 25,
+        "kg": 30,
+        "unidad": 25,
+        "kgDec": 30
+      }
+    },
+    "colores": {
+      "encabezadoTabla": [220, 220, 220],
+      "textoEncabezado": [0, 0, 0],
+      "filaTotales": [240, 240, 240],
+      "fechaFaena": [255, 0, 0]
+    },
+    "separacion": {
+      "antesDeTabla": 3,
+      "despuesDeTabla": 8
+    }
+  }
+}
