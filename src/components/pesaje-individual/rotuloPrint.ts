@@ -204,7 +204,7 @@ export function imprimirRotulo({ animal, tropaCodigo }: ImprimirRotuloOptions) {
           flex: 1;
           display: flex;
           flex-direction: column;
-          justify-content: center;
+          justify-content: flex-start;
           align-items: center;
           padding: 1mm 2mm;
         }
@@ -220,7 +220,7 @@ export function imprimirRotulo({ animal, tropaCodigo }: ImprimirRotuloOptions) {
           font-size: 6px;
           font-weight: bold;
           letter-spacing: 0.5px;
-          margin-top: 0.5mm;
+          margin-top: 1.5mm;
         }
         
         @media print { 
@@ -266,7 +266,7 @@ export function imprimirRotulo({ animal, tropaCodigo }: ImprimirRotuloOptions) {
           JsBarcode("#barcode", "${codigoEAN128}", {
             format: "CODE128C",  // CODE128C es más eficiente para números
             width: 1.5,
-            height: 40,
+            height: 35,
             displayValue: false,
             margin: 0,
             background: "transparent"

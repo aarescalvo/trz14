@@ -47,7 +47,7 @@ const TIPOS_ANIMALES: Record<string, { codigo: string; label: string }[]> = {
 
 const RAZAS_BOVINO = [
   'Angus', 'Hereford', 'Braford', 'Brangus', 'Charolais', 'Limousin',
-  'Santa Gertrudis', 'Nelore', 'Brahman', 'Cebú', 'Cruza', 'Otro'
+  'Santa Gertrudis', 'Nelore', 'Brahman', 'Cebú', 'Cruza', 'Careta', 'Otro'
 ]
 
 const RAZAS_EQUINO = [
@@ -672,6 +672,12 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       return
     }
 
+    // Raza obligatoria para registrar peso
+    if (!raza) {
+      toast.error('Seleccione la raza del animal')
+      return
+    }
+
     const tipoDisponible = isTipoDisponible(tipoAnimalSeleccionado)
     if (!tipoDisponible.disponible) {
       toast.error(`No puede asignar más de tipo ${tipoAnimalSeleccionado}`)
@@ -898,7 +904,7 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
 
       // Si hay plantilla de DB, usarla (TCP/IP o impresora predeterminada)
       if (rotulo) {
-        // TCP/IP directo con hardcoded ZPL
+        // TCP/IP directo con hardcoded ZPL (2 copias al registrar)
         if (!usarPredeterminada && impresoraIp) {
           const zplContenido = generarZPLPesaje(animal)
           
@@ -920,14 +926,28 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
             const printData = await printRes.json()
             
             if (printData.success) {
-              toast.success('Rótulo enviado a impresora', { duration: 1500 })
+              // Segunda copia al registrar
+              await fetch('/api/impresora/enviar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contenido: zplContenido,
+                  impresoraIp: impresoraIp,
+                  impresoraPuerto: impresoraPuerto,
+                  velocidad: impresoraVelocidad,
+                  calor: impresoraCalor,
+                  anchoEtiqueta: impresoraAncho,
+                  altoEtiqueta: impresoraAlto
+                })
+              })
+              toast.success('Rótulo enviado a impresora (2 copias)', { duration: 1500 })
               return
             }
           } catch (e) {
             console.error('Error impresora directa:', e)
           }
 
-          // También intentar con plantilla de DB via TCP
+          // También intentar con plantilla de DB via TCP (2 copias al registrar)
           try {
             const printRes = await fetch('/api/rotulos/imprimir', {
               method: 'POST',
@@ -935,7 +955,7 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
               body: JSON.stringify({
                 rotuloId: rotulo.id,
                 datos: datosRotulo,
-                cantidad: 1,
+                cantidad: 2,
                 impresoraIp: impresoraIp,
                 impresoraPuerto: impresoraPuerto
               })
@@ -979,8 +999,9 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
         }
       }
 
-      // Sin plantilla en DB: HTML hardcodeado como último recurso
+      // Sin plantilla en DB: HTML hardcodeado como último recurso (2 copias al registrar)
       imprimirRotuloHTML(animal)
+      setTimeout(() => imprimirRotuloHTML(animal), 500)
     } catch (error) {
       console.error('Error al imprimir rótulo:', error)
       imprimirRotuloHTML(animal)
@@ -1101,16 +1122,16 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
-      padding: 2mm;
+      padding: 1mm 2mm;
     }
     #barcode-canvas {
       max-width: 90mm;
       height: auto;
     }
     .barcode-label {
-      font-size: 8px;
+      font-size: 7px;
       color: #666;
       margin-top: 1mm;
     }
@@ -1153,7 +1174,7 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
         JsBarcode("#barcode-canvas", "${codigoEAN128}", {
           format: "CODE128",
           width: 2,
-          height: 30,
+          height: 25,
           displayValue: false,
           margin: 0
         });
@@ -1268,7 +1289,7 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       return
     }
 
-    // Si hay impresora TCP/IP configurada, imprimir directo (2 copias)
+    // Si hay impresora TCP/IP configurada, imprimir directo (1 copia al reimprimir)
     if (!usarPredeterminada && impresoraIp) {
       const zplContenido = generarZPLPesaje(animal)
       try {
@@ -1287,21 +1308,7 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
         })
         const printData = await printRes.json()
         if (printData.success) {
-          // Imprimir 2 copias: enviar de nuevo
-          await fetch('/api/impresora/enviar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contenido: zplContenido,
-              impresoraIp: impresoraIp,
-              impresoraPuerto: impresoraPuerto,
-              velocidad: impresoraVelocidad,
-              calor: impresoraCalor,
-              anchoEtiqueta: impresoraAncho,
-              altoEtiqueta: impresoraAlto
-            })
-          })
-          toast.success('Rótulo reimpreso (2 copias)')
+          toast.success('Rótulo reimpreso')
           return
         }
       } catch (error) {
@@ -1334,22 +1341,21 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
           body: JSON.stringify({
             rotuloId: rotulo.id,
             datos: datosRotulo,
-            cantidad: 2,
+            cantidad: 1,
             impresoraIp: impresoraIp,
             impresoraPuerto: impresoraPuerto
           })
         })
         
         if (printRes.ok) {
-          toast.success('Rótulo reimpreso (2 copias)')
+          toast.success('Rótulo reimpreso')
           return
         }
       }
       
-      // Fallback: imprimir HTML por duplicado
+      // Fallback: imprimir HTML (1 copia al reimprimir)
       imprimirRotuloHTML(animal)
-      setTimeout(() => imprimirRotuloHTML(animal), 500)
-      toast.success('Rótulo reimpreso (2 copias HTML)')
+      toast.success('Rótulo reimpreso')
     } catch (error) {
       console.error('Error al reimprimir:', error)
       toast.error('Error al reimprimir rótulo')
@@ -1834,6 +1840,24 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                           {tiposDisponiblesParaPesar.map((t) => {
                             const tipoStatus = isTipoDisponible(t.codigo)
                             const isSelected = tipoAnimalSeleccionado === t.codigo
+                            const colorMap: Record<string, string> = {
+                              'TO': 'bg-red-500 hover:bg-red-600',
+                              'VA': 'bg-blue-500 hover:bg-blue-600',
+                              'VQ': 'bg-pink-500 hover:bg-pink-600',
+                              'MEJ': 'bg-orange-500 hover:bg-orange-600',
+                              'NO': 'bg-green-600 hover:bg-green-700',
+                              'NT': 'bg-teal-500 hover:bg-teal-600',
+                            }
+                            const colorDisponible: Record<string, string> = {
+                              'TO': 'bg-red-100 hover:bg-red-200 text-red-700',
+                              'VA': 'bg-blue-100 hover:bg-blue-200 text-blue-700',
+                              'VQ': 'bg-pink-100 hover:bg-pink-200 text-pink-700',
+                              'MEJ': 'bg-orange-100 hover:bg-orange-200 text-orange-700',
+                              'NO': 'bg-green-100 hover:bg-green-200 text-green-700',
+                              'NT': 'bg-teal-100 hover:bg-teal-200 text-teal-700',
+                            }
+                            const colorSeleccionado = colorMap[t.codigo] || 'bg-amber-500 hover:bg-amber-600'
+                            const colorNoSeleccionado = colorDisponible[t.codigo] || 'bg-stone-100 hover:bg-amber-100'
                             return (
                               <button
                                 key={t.codigo}
@@ -1842,9 +1866,9 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
                                 disabled={!tipoStatus.disponible}
                                 className={`px-2 py-1 rounded text-xs font-bold transition-all ${
                                   isSelected 
-                                    ? 'bg-amber-500 text-white' 
+                                    ? `${colorSeleccionado} text-white` 
                                     : tipoStatus.disponible
-                                      ? 'bg-stone-100 hover:bg-amber-100'
+                                      ? colorNoSeleccionado
                                       : 'bg-stone-50 text-stone-300 cursor-not-allowed'
                                 }`}
                               >
