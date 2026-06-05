@@ -21,7 +21,7 @@ export const TIPOS_ANIMALES: Record<string, { codigo: string; label: string }[]>
 
 export const RAZAS_BOVINO = [
   'Angus', 'Hereford', 'Braford', 'Brangus', 'Charolais', 'Limousin',
-  'Santa Gertrudis', 'Nelore', 'Brahman', 'Cebú', 'Cruza', 'Otro'
+  'Santa Gertrudis', 'Nelore', 'Brahman', 'Cebú', 'Cruza', 'Careta', 'Otro'
 ]
 
 export const RAZAS_EQUINO = [
