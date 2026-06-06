@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const romaneos = await db.romaneo.findMany({
       where: {
         fecha: { gte: fechaInicio, lte: fechaFin },
-        estado: 'CONFIRMADO',
+        estado: { in: ['CONFIRMADO', 'PENDIENTE'] },
         pesoTotal: { gt: 0 },
         pesoVivo: { gt: 0 },
       },

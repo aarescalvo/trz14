@@ -93,4 +93,6 @@ backups/
 *-analysis.txt
 test_results.txt.env
 .env.local
+.env
+.env.local
 .env.production

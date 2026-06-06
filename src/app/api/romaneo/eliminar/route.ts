@@ -10,10 +10,10 @@ export async function DELETE(request: NextRequest) {
   if (authError) return authError
   try {
     const body = await request.json()
-    const { garron, lado } = body
+    const { garron, lado, fecha } = body
 
     log.info('=== INICIO ELIMINACIÓN ===')
-    log.info('Datos recibidos:', { garron, lado } as Record<string, unknown>)
+    log.info('Datos recibidos:', { garron, lado, fecha } as Record<string, unknown>)
 
     if (!garron || !lado) {
       return NextResponse.json(
@@ -53,16 +53,16 @@ export async function DELETE(request: NextRequest) {
         throw new Error('MEDIA_NO_ENCONTRADA')
       }
 
-      // Buscar asignación del garrón para hoy
-      const hoy = new Date()
-      hoy.setHours(0, 0, 0, 0)
+      // Buscar asignación del garrón para la fecha indicada (o hoy)
+      const fechaRef = fecha ? new Date(fecha) : new Date()
+      fechaRef.setHours(0, 0, 0, 0)
 
       const asignacion = await tx.asignacionGarron.findFirst({
         where: {
           garron: parseInt(garron),
           horaIngreso: {
-            gte: hoy,
-            lt: new Date(hoy.getTime() + 24 * 60 * 60 * 1000)
+            gte: fechaRef,
+            lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
           }
         }
       })

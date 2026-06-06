@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { 
   Truck, Scale, Save, CheckCircle, Clock, Printer, FileText,
   ArrowDownToLine, ArrowUpFromLine, Weight, Trash2, Beef, AlertCircle,
-  Edit, AlertTriangle, ClipboardCheck
+  Edit, AlertTriangle, ClipboardCheck, Search
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -138,7 +138,18 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
             if (v.choferTelefono) setChoferTelefono(v.choferTelefono)
             if (v.habilitacion) setHabilitacion(v.habilitacion)
             if (v.empresa) setEmpresa(v.empresa)
-            if (v.transportistaId) setTransportistaId(v.transportistaId)
+            if (v.transportistaId) {
+              setTransportistaId(v.transportistaId)
+              // Asegurar que el transportista esté en la lista del dropdown
+              if (v.transportista) {
+                setTransportistas(prev => {
+                  if (!prev.some(t => t.id === v.transportista.id)) {
+                    return [...prev, { id: v.transportista.id, nombre: v.transportista.nombre }]
+                  }
+                  return prev
+                })
+              }
+            }
             setVehiculoEncontrado(true)
             toast.info(`Vehículo conocido - ${v.vecesVisita} visita${v.vecesVisita > 1 ? 's' : ''}`, { duration: 2000 })
           } else {
@@ -168,6 +179,8 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
   // History filters
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
+  const [filtroNumeroTicket, setFiltroNumeroTicket] = useState('')
+  const [filtroTipoPesaje, setFiltroTipoPesaje] = useState<string>('')
   const [pesajesFiltrados, setPesajesFiltrados] = useState<any[]>([])
   
   // Edit/Delete dialogs
@@ -192,7 +205,8 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
   
   // Computed
   const pesoNeto = pesoBruto > 0 && pesoTara > 0 ? pesoBruto - pesoTara : 0
-  const usuariosFaena = clientes
+  const usuariosFaena = clientes.filter((c: any) => c.esUsuarioFaena && c.activo)
+  const productoresList = clientes.filter((c: any) => c.esProductor && c.activo)
   const totalCabezas = tiposAnimales.reduce((acc, t) => acc + t.cantidad, 0)
 
   // Fetch data
@@ -200,7 +214,7 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
     fetchData()
   }, [])
 
-  // Filter history by date
+  // Filter history by date, ticket number, and type
   useEffect(() => {
     let filtered = pesajesCerrados
     if (fechaDesde) {
@@ -213,24 +227,29 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
       hasta.setHours(23, 59, 59, 999)
       filtered = filtered.filter(p => new Date(p.fecha) <= hasta)
     }
+    if (filtroNumeroTicket) {
+      const num = filtroNumeroTicket.trim()
+      filtered = filtered.filter(p => String(p.numeroTicket).includes(num))
+    }
+    if (filtroTipoPesaje) {
+      filtered = filtered.filter(p => p.tipo === filtroTipoPesaje)
+    }
     setPesajesFiltrados(filtered)
-  }, [pesajesCerrados, fechaDesde, fechaHasta])
+  }, [pesajesCerrados, fechaDesde, fechaHasta, filtroNumeroTicket, filtroTipoPesaje])
 
   const fetchData = async () => {
     try {
-      const [pesajesRes, transRes, clientesRes, corralesRes, productoresRes] = await Promise.all([
-        fetch('/api/pesaje-camion'),
-        fetch('/api/transportistas'),
-        fetch('/api/clientes'),
-        fetch('/api/corrales'),
-        fetch('/api/productores')
+      // Fetch cada endpoint por separado para que un error no afecte a los demás
+      const results = await Promise.allSettled([
+        fetch('/api/pesaje-camion').then(r => r.json()),
+        fetch('/api/transportistas').then(r => r.json()),
+        fetch('/api/clientes?activos=true').then(r => r.json()),
+        fetch('/api/corrales').then(r => r.json())
       ])
       
-      const pesajesData = await pesajesRes.json()
-      const transData = await transRes.json()
-      const clientesData = await clientesRes.json()
-      const corralesData = await corralesRes.json()
-      const productoresData = await productoresRes.json()
+      const [pesajesData, transData, clientesData, corralesData] = results.map(r => 
+        r.status === 'fulfilled' ? r.value : { success: false }
+      )
       
       if (pesajesData.success) {
         setPesajesAbiertos(pesajesData.data.filter((p: any) => p.estado === 'ABIERTO'))
@@ -240,6 +259,8 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
       
       if (transData.success) {
         setTransportistas(transData.data)
+      } else {
+        console.warn('No se pudieron cargar transportistas:', transData.error || 'Error desconocido')
       }
       
       if (clientesData.success) {
@@ -248,10 +269,6 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
       
       if (corralesData.success) {
         setCorrales(corralesData.data)
-      }
-      
-      if (productoresData.success) {
-        setProductores(productoresData.data)
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -310,7 +327,7 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
       setTransportistas([...transportistas, data])
       setTransportistaId(data.id)
     } else if (tipo === 'productor') {
-      setProductores([...productores, data])
+      setClientes([...clientes, { ...data, esProductor: true, esUsuarioFaena: false }])
       setProductorId(data.id)
     } else if (tipo === 'usuarioFaena') {
       setClientes([...clientes, data])
@@ -628,14 +645,67 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
     }
   }
 
+  // Edit form state
+  const [editForm, setEditForm] = useState<Record<string, any>>({})
+
   // Abrir dialog de edición
   const handleOpenEdit = async (pesaje: any) => {
     setPesajeAccion(pesaje)
-    if (!supervisorVerificado) {
-      setEditDialogOpen(true)
-    } else {
-      // Ya verificado, abrir directamente
-      toast.info('Función de edición en desarrollo')
+    // Asegurar que el transportista del pesaje esté en la lista del dropdown
+    if (pesaje.transportista) {
+      setTransportistas(prev => {
+        if (!prev.some(t => t.id === pesaje.transportista.id)) {
+          return [...prev, { id: pesaje.transportista.id, nombre: pesaje.transportista.nombre }]
+        }
+        return prev
+      })
+    }
+    // Precargar formulario con datos actuales del pesaje
+    setEditForm({
+      patenteChasis: pesaje.patenteChasis || '',
+      patenteAcoplado: pesaje.patenteAcoplado || '',
+      choferNombre: pesaje.chofer || '',
+      choferDni: pesaje.dniChofer || '',
+      pesoBruto: pesaje.pesoBruto || 0,
+      pesoTara: pesaje.pesoTara || 0,
+      pesoNeto: pesaje.pesoNeto || 0,
+      observaciones: pesaje.descripcion || pesaje.observaciones || '',
+      destino: pesaje.destino || '',
+      remito: pesaje.remito || '',
+      transportistaId: pesaje.transportista?.id || '',
+    })
+    setEditDialogOpen(true)
+  }
+
+  // Guardar edición
+  const handleGuardarEdicion = async () => {
+    if (!pesajeAccion) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/pesaje-camion', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: pesajeAccion.id,
+          accion: 'editar',
+          ...editForm
+        })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('Pesaje actualizado correctamente')
+        setEditDialogOpen(false)
+        setPesajeAccion(null)
+        setEditForm({})
+        setSupervisorPin('')
+        await fetchData()
+      } else {
+        toast.error(data.error || 'Error al actualizar')
+      }
+    } catch {
+      toast.error('Error de conexión')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -820,6 +890,11 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
                           <SelectValue placeholder="Seleccionar..." />
                         </SelectTrigger>
                         <SelectContent>
+                          {transportistas.length === 0 && (
+                            <div className="px-2 py-3 text-sm text-stone-400 text-center">
+                              Sin transportistas. Use '+' para agregar.
+                            </div>
+                          )}
                           {transportistas.map((t) => (
                             <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
                           ))}
@@ -872,7 +947,7 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
                             <SelectValue placeholder="Seleccionar..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {productores.map((p) => (
+                            {productoresList.map((p) => (
                               <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
                             ))}
                           </SelectContent>
@@ -1177,12 +1252,20 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Transportista</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Transportista</Label>
+                        <QuickAddButton tipo="transportista" onAdd={(data) => handleQuickAdd('transportista', data)} />
+                      </div>
                       <Select value={transportistaId} onValueChange={setTransportistaId}>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar..." />
                         </SelectTrigger>
                         <SelectContent>
+                          {transportistas.length === 0 && (
+                            <div className="px-2 py-3 text-sm text-stone-400 text-center">
+                              Sin transportistas. Use '+' para agregar.
+                            </div>
+                          )}
                           {transportistas.map((t) => (
                             <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
                           ))}
@@ -1355,8 +1438,35 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4">
-                {/* Filtros de fecha */}
+                {/* Filtros de búsqueda */}
                 <div className="flex flex-wrap items-end gap-4 mb-4 pb-4 border-b">
+                  <div className="space-y-2">
+                    <Label className="text-sm">N° Pesada</Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+                      <Input
+                        type="text"
+                        value={filtroNumeroTicket}
+                        onChange={(e) => setFiltroNumeroTicket(e.target.value)}
+                        placeholder="Buscar N° ticket..."
+                        className="w-44 pl-8 font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Tipo de Pesaje</Label>
+                    <Select value={filtroTipoPesaje} onValueChange={(v) => setFiltroTipoPesaje(v === 'TODOS' ? '' : v)}>
+                      <SelectTrigger className="w-52">
+                        <SelectValue placeholder="Todos los tipos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TODOS">Todos los tipos</SelectItem>
+                        {TIPOS_PESAJE.map((tipo) => (
+                          <SelectItem key={tipo.id} value={tipo.id}>{tipo.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-2">
                     <Label className="text-sm">Desde</Label>
                     <Input
@@ -1377,7 +1487,7 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
                   </div>
                   <Button 
                     variant="outline" 
-                    onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
+                    onClick={() => { setFechaDesde(''); setFechaHasta(''); setFiltroNumeroTicket(''); setFiltroTipoPesaje(''); }}
                     className="mb-0.5"
                   >
                     Limpiar
@@ -1539,18 +1649,198 @@ export function PesajeCamionesModule({ operador, onTropaCreada }: { operador: Op
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Editar (placeholder) */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent maximizable>
+      {/* Dialog Editar Pesaje */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { setEditDialogOpen(false); setPesajeAccion(null); setSupervisorPin(''); } }}>
+        <DialogContent maximizable className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Editar Pesaje</DialogTitle>
-            <DialogDescription>Función en desarrollo</DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              Editar Pesaje #{pesajeAccion ? String(pesajeAccion.numeroTicket).padStart(6, '0') : ''}
+            </DialogTitle>
+            <DialogDescription>Modifique los campos necesarios y guarde los cambios</DialogDescription>
           </DialogHeader>
-          <div className="py-4 text-center text-stone-400">
-            <p>Esta función estará disponible próximamente</p>
+          <div className="py-4 space-y-5">
+            {/* Info del ticket */}
+            {pesajeAccion && (
+              <div className="bg-stone-50 rounded-lg p-3 grid grid-cols-3 gap-2 text-sm">
+                <div>
+                  <span className="text-stone-500">Ticket:</span>
+                  <span className="font-bold ml-1">#{String(pesajeAccion.numeroTicket).padStart(6, '0')}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500">Tipo:</span>
+                  <Badge variant="outline" className="ml-1">{TIPOS_PESAJE.find(t => t.id === pesajeAccion.tipo)?.label || pesajeAccion.tipo}</Badge>
+                </div>
+                <div>
+                  <span className="text-stone-500">Fecha:</span>
+                  <span className="font-medium ml-1">{new Date(pesajeAccion.fecha).toLocaleDateString('es-AR')}</span>
+                </div>
+                {pesajeAccion.tropa && (
+                  <div className="col-span-3">
+                    <span className="text-stone-500">Tropa:</span>
+                    <Badge className="ml-1 bg-green-100 text-green-700">{pesajeAccion.tropa.codigo}</Badge>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Vehículo */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-stone-700">Datos del Vehículo</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">Patente Chasis</Label>
+                  <Input
+                    value={editForm.patenteChasis || ''}
+                    onChange={(e) => setEditForm({ ...editForm, patenteChasis: e.target.value.toUpperCase() })}
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Patente Acoplado</Label>
+                  <Input
+                    value={editForm.patenteAcoplado || ''}
+                    onChange={(e) => setEditForm({ ...editForm, patenteAcoplado: e.target.value.toUpperCase() })}
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">Chofer</Label>
+                  <Input
+                    value={editForm.choferNombre || ''}
+                    onChange={(e) => setEditForm({ ...editForm, choferNombre: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">DNI Chofer</Label>
+                  <Input
+                    value={editForm.choferDni || ''}
+                    onChange={(e) => setEditForm({ ...editForm, choferDni: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Transportista</Label>
+                <Select value={editForm.transportistaId || '__NINGUNO__'} onValueChange={(v) => setEditForm({ ...editForm, transportistaId: v === '__NINGUNO__' ? '' : v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sin transportista" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__NINGUNO__">Sin transportista</SelectItem>
+                    {transportistas.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Pesos */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-stone-700">Pesos</h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">Peso Bruto (kg)</Label>
+                  <Input
+                    type="number"
+                    value={editForm.pesoBruto || ''}
+                    onChange={(e) => setEditForm({ ...editForm, pesoBruto: parseFloat(e.target.value) || 0 })}
+                    className="text-center font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Peso Tara (kg)</Label>
+                  <Input
+                    type="number"
+                    value={editForm.pesoTara || ''}
+                    onChange={(e) => setEditForm({ ...editForm, pesoTara: parseFloat(e.target.value) || 0 })}
+                    className="text-center font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Peso Neto (kg)</Label>
+                  <Input
+                    type="number"
+                    value={editForm.pesoNeto || ''}
+                    onChange={(e) => setEditForm({ ...editForm, pesoNeto: parseFloat(e.target.value) || 0 })}
+                    className="text-center font-bold text-green-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Campos adicionales según tipo */}
+            {(pesajeAccion?.tipo === 'SALIDA_MERCADERIA') && (
+              <div className="space-y-3">
+                <h4 className="font-semibold text-stone-700">Datos de Salida</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-sm">Destino</Label>
+                    <Input
+                      value={editForm.destino || ''}
+                      onChange={(e) => setEditForm({ ...editForm, destino: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm">Remito</Label>
+                    <Input
+                      value={editForm.remito || ''}
+                      onChange={(e) => setEditForm({ ...editForm, remito: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Observaciones */}
+            <div className="space-y-1">
+              <Label className="text-sm">Observaciones</Label>
+              <Textarea
+                value={editForm.observaciones || ''}
+                onChange={(e) => setEditForm({ ...editForm, observaciones: e.target.value })}
+                placeholder="Notas adicionales..."
+                rows={2}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Verificación supervisor */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+              <p className="text-sm text-amber-700 font-medium flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Se requiere PIN de supervisor para guardar cambios
+              </p>
+              <Input
+                type="password"
+                value={supervisorPin}
+                onChange={(e) => setSupervisorPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Ingrese PIN de supervisor"
+                className="text-center text-xl tracking-widest h-12"
+                maxLength={6}
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cerrar</Button>
+            <Button variant="outline" onClick={() => { setEditDialogOpen(false); setPesajeAccion(null); setSupervisorPin(''); }}>Cancelar</Button>
+            <Button
+              onClick={async () => {
+                const verified = await verificarSupervisor()
+                if (verified) await handleGuardarEdicion()
+              }}
+              disabled={saving || !supervisorPin}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {saving ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

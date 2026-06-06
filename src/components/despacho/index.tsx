@@ -122,7 +122,7 @@ interface DespachoDetalle {
   operador?: string
   ticketPesajeId?: string
   ticketPesaje?: {
-    numeroTicket: number
+    numeroTicket: string
     pesoBruto: number
     pesoTara: number
     pesoNeto: number

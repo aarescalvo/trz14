@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const hasta = searchParams.get('hasta')
     const search = searchParams.get('search')
     const tipoComprobante = searchParams.get('tipoComprobante')
+    const source = searchParams.get('source') // 'planillas' para obtener solo planillas facturadas
     
     // Parse pagination params with defaults
     const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 1000)
@@ -76,6 +77,71 @@ export async function GET(request: NextRequest) {
       })
     }
     
+    // --- SOURCE: planillas (PlanillaServicioFaena facturadas) ---
+    if (source === 'planillas') {
+      const pConditions: any[] = [{ estado: 'FACTURADO' }]
+      
+      if (search) {
+        pConditions.push({
+          OR: [
+            { numeroFactura: { contains: search } },
+            { usuario: { contains: search } },
+            { numeroTropa: { equals: parseInt(search) || undefined } },
+          ]
+        })
+      }
+      
+      const planillas = await db.planillaServicioFaena.findMany({
+        where: pConditions.length > 1 ? { AND: pConditions } : pConditions[0],
+        include: {
+          tropa: {
+            select: { id: true, codigo: true }
+          },
+          usuarioFaena: {
+            select: { id: true, nombre: true, cuit: true, razonSocial: true, condicionIva: true, direccion: true }
+          },
+          itemsExtras: true
+        },
+        orderBy: { numeroTropa: 'asc' }
+      })
+      
+      const facturasDesdePlanillas = planillas.map(p => ({
+        id: p.id,
+        numero: p.numeroFactura || '-',
+        numeroInterno: p.numeroTropa,
+        tipoComprobante: 'FACTURA_C',
+        clienteId: p.usuarioFaenaId || '',
+        cliente: p.usuarioFaena ? {
+          id: p.usuarioFaena.id,
+          nombre: p.usuarioFaena.nombre,
+          cuit: p.usuarioFaena.cuit,
+          razonSocial: p.usuarioFaena.razonSocial,
+          condicionIva: p.usuarioFaena.condicionIva,
+          direccion: p.usuarioFaena.direccion,
+        } : null,
+        clienteNombre: p.usuario,
+        fecha: p.fechaFactura || p.fechaFaena,
+        subtotal: p.totalServicioIva,
+        iva: 0,
+        total: p.totalFacturaImp,
+        saldo: p.estadoPago || 0,
+        estado: (p.montoDepositado && p.montoDepositado >= p.totalFacturaImp) ? 'PAGADA' : 'PENDIENTE',
+        observaciones: p.observaciones,
+        detalles: [],
+        pagos: [],
+        tributos: [],
+        planillasFactura: [{ numeroTropa: p.numeroTropa }],
+        _esPlanilla: true,
+      }))
+      
+      return NextResponse.json({
+        success: true,
+        data: facturasDesdePlanillas,
+        pagination: { total: facturasDesdePlanillas.length, limit: facturasDesdePlanillas.length, offset: 0, pages: 1 }
+      })
+    }
+    
+    // --- SOURCE: facturas (default - tabla Factura) ---
     const where = conditions.length > 0 ? { AND: conditions } : {}
     
     const [facturas, total] = await Promise.all([
@@ -107,7 +173,13 @@ export async function GET(request: NextRequest) {
               nombre: true
             }
           },
-          tributos: true
+          tributos: true,
+          planillasFactura: {
+            select: {
+              numeroTropa: true,
+              tropaId: true,
+            }
+          }
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -115,6 +187,26 @@ export async function GET(request: NextRequest) {
       }),
       db.factura.count({ where })
     ])
+    
+    // Cruzar con PlanillaServicioFaena por numeroFactura para obtener numeroTropa
+    // (para planillas seedeadas que tienen numeroFactura pero no facturaId)
+    const facturaNumeros = facturas.map(f => f.numero)
+    if (facturaNumeros.length > 0) {
+      const planillasByFacturaNum = await db.planillaServicioFaena.findMany({
+        where: { numeroFactura: { in: facturaNumeros } },
+        select: { numeroFactura: true, numeroTropa: true }
+      })
+      const mapa = new Map(planillasByFacturaNum.map(p => [p.numeroFactura, p.numeroTropa]))
+      for (const f of facturas) {
+        // Primero intentar desde la relación directa
+        if (!f.planillasFactura || f.planillasFactura.length === 0) {
+          const tropaNum = mapa.get(f.numero)
+          if (tropaNum != null) {
+            (f as any).planillasFactura = [{ numeroTropa: tropaNum }]
+          }
+        }
+      }
+    }
     
     return NextResponse.json({
       success: true,

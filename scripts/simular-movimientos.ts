@@ -117,7 +117,8 @@ async function simularPesajeCamiones(datos: DatosPrueba): Promise<{ tropaId: str
   const ultimoTicket = await prisma.pesajeCamion.findFirst({
     orderBy: { numeroTicket: 'desc' }
   })
-  const numeroTicket = (ultimoTicket?.numeroTicket || 0) + 1
+  const ultimoTicketNum = ultimoTicket ? parseInt(String(ultimoTicket.numeroTicket).replace(/\D/g, ''), 10) : 0
+  const numeroTicket = String((isNaN(ultimoTicketNum) ? 0 : ultimoTicketNum) + 1)
 
   const pesaje = await prisma.pesajeCamion.create({
     data: {

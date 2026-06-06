@@ -44,7 +44,7 @@ export interface TipoAnimalCounter {
 export interface Pesaje {
   id: string
   tipo: string
-  numeroTicket: number
+  numeroTicket: string
   fecha: string
   patenteChasis: string
   patenteAcoplado?: string

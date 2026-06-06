@@ -68,10 +68,14 @@ export async function GET(request: NextRequest) {
       }
     })
     
-    const lastPesaje = await db.pesajeCamion.findFirst({
-      orderBy: { numeroTicket: 'desc' }
-    })
-    const nextTicketNumber = (lastPesaje?.numeroTicket || 0) + 1
+    // Auto-increment: extraer parte numérica de todos los tickets y calcular el próximo
+    const allTickets = await db.pesajeCamion.findMany({ select: { numeroTicket: true } })
+    let maxTicketNum = 0
+    for (const p of allTickets) {
+      const num = parseInt(String(p.numeroTicket).replace(/\D/g, ''), 10)
+      if (!isNaN(num) && num > maxTicketNum) maxTicketNum = num
+    }
+    const nextTicketNumber = String(maxTicketNum + 1)
     
     // Mapear al formato que espera el frontend
     const formatted = pesajes.map(p => ({
@@ -154,14 +158,22 @@ export async function POST(request: NextRequest) {
       remito,
       descripcion,
       operadorId,
-      forzarCapacidad // Permite sobrepasar capacidad del corral
+      forzarCapacidad, // Permite sobrepasar capacidad del corral
+      fecha // Permite post-datado (simulación)
     } = body
     
+    // Fecha personalizada o actual
+    const fechaRegistro = fecha ? new Date(fecha) : new Date()
+    
     // Obtener último número de ticket
-    const lastPesaje = await db.pesajeCamion.findFirst({
-      orderBy: { numeroTicket: 'desc' }
-    })
-    const numeroTicket = (lastPesaje?.numeroTicket || 0) + 1
+    // Auto-increment: extraer parte numérica de todos los tickets y calcular el próximo
+    const allTickets = await db.pesajeCamion.findMany({ select: { numeroTicket: true } })
+    let maxTicketNum = 0
+    for (const p of allTickets) {
+      const num = parseInt(String(p.numeroTicket).replace(/\D/g, ''), 10)
+      if (!isNaN(num) && num > maxTicketNum) maxTicketNum = num
+    }
+    const numeroTicket = String(maxTicketNum + 1)
     
     // Determinar estado
     const estado: EstadoPesaje = pesoBruto && pesoTara ? 'CERRADO' : 'ABIERTO'
@@ -210,7 +222,8 @@ export async function POST(request: NextRequest) {
       pesoNeto: pesoNeto ? parseFloat(pesoNeto) : null,
       observaciones: observaciones || descripcion || null,
       estado,
-      fechaTara: pesoTara ? new Date() : null
+      fecha: fechaRegistro,
+      fechaTara: pesoTara ? fechaRegistro : null
     }
     
     if (validTransportistaId) pesajeData.transportistaId = validTransportistaId
@@ -571,14 +584,108 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - Update pesaje (add tara) — now with transaction
+// PUT - Update pesaje (add tara or edit fields)
 export async function PUT(request: NextRequest) {
   const authError = await checkPermission(request, 'puedePesajeCamiones')
   if (authError) return authError
 
   try {
     const body = await request.json()
-    const { id, pesoTara, pesoNeto } = body
+    const { id, accion, ...fields } = body
+
+    // Modo edición general (desde historial)
+    if (accion === 'editar') {
+      const {
+        patenteChasis, patenteAcoplado, choferNombre, choferDni,
+        pesoBruto, pesoTara, pesoNeto, observaciones,
+        destino, remito, transportistaId
+      } = fields
+
+      // Construir data dinámicamente con solo los campos proporcionados
+      const updateData: any = {}
+      if (patenteChasis !== undefined) updateData.patenteChasis = patenteChasis.toUpperCase()
+      if (patenteAcoplado !== undefined) updateData.patenteAcoplado = patenteAcoplado?.toUpperCase() || null
+      if (choferNombre !== undefined) updateData.choferNombre = choferNombre || null
+      if (choferDni !== undefined) updateData.choferDni = choferDni || null
+      if (pesoBruto !== undefined) updateData.pesoBruto = pesoBruto ? parseFloat(pesoBruto) : null
+      if (pesoTara !== undefined) updateData.pesoTara = pesoTara ? parseFloat(pesoTara) : null
+      if (pesoNeto !== undefined) updateData.pesoNeto = pesoNeto ? parseFloat(pesoNeto) : null
+      if (observaciones !== undefined) updateData.observaciones = observaciones || null
+      if (destino !== undefined) updateData.destino = destino || null
+      if (remito !== undefined) updateData.remito = remito || null
+      if (transportistaId !== undefined) updateData.transportistaId = transportistaId || null
+
+      const result = await db.$transaction(async (tx) => {
+        const pesaje = await tx.pesajeCamion.update({
+          where: { id },
+          data: updateData,
+          include: {
+            transportista: true,
+            operador: true,
+            tropa: {
+              include: {
+                productor: true,
+                usuarioFaena: true,
+                tiposAnimales: true,
+                corral: true
+              }
+            }
+          }
+        })
+
+        // Actualizar pesos en tropa vinculada si se modificaron
+        if (pesaje.tropa && (pesoBruto !== undefined || pesoTara !== undefined || pesoNeto !== undefined)) {
+          const tropaData: any = {}
+          if (pesoBruto !== undefined) tropaData.pesoBruto = pesoBruto ? parseFloat(pesoBruto) : null
+          if (pesoTara !== undefined) tropaData.pesoTara = pesoTara ? parseFloat(pesoTara) : null
+          if (pesoNeto !== undefined) tropaData.pesoNeto = pesoNeto ? parseFloat(pesoNeto) : null
+          await tx.tropa.update({
+            where: { id: pesaje.tropa.id },
+            data: tropaData
+          })
+        }
+
+        return pesaje
+      })
+
+      // Auditoría: edición de pesaje
+      const { ip: auditIpEdit } = extractAuditInfo(request)
+      auditUpdate({
+        operadorId: getOperadorId(request) || undefined,
+        modulo: 'PESAJE_CAMION',
+        entidad: 'PesajeCamion',
+        entidadId: result.id,
+        entidadNombre: `Ticket #${result.numeroTicket}`,
+        datosAntes: {},
+        datosDespues: updateData,
+        descripcion: `Pesaje editado - Ticket #${result.numeroTicket} - Patente: ${result.patenteChasis || 'N/A'}`,
+        ip: auditIpEdit
+      }).catch(() => {})
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...result,
+          chofer: result.choferNombre,
+          dniChofer: result.choferDni,
+          descripcion: result.observaciones,
+          tropa: result.tropa ? {
+            id: result.tropa.id,
+            codigo: result.tropa.codigo,
+            productor: result.tropa.productor,
+            usuarioFaena: result.tropa.usuarioFaena,
+            especie: result.tropa.especie,
+            cantidadCabezas: result.tropa.cantidadCabezas,
+            corral: result.tropa.corral?.nombre || null,
+            tiposAnimales: result.tropa.tiposAnimales,
+            observaciones: result.tropa.observaciones
+          } : null
+        }
+      })
+    }
+
+    // Modo original: registrar tara (cerrar pesaje)
+    const { pesoTara, pesoNeto } = body
     
     const result = await db.$transaction(async (tx) => {
       const pesaje = await tx.pesajeCamion.update({

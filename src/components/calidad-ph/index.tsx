@@ -282,8 +282,8 @@ function RegistroPHTab({ operador }: { operador: Operador }) {
     }
     setLoading(true)
     try {
-      // Buscar medias res directamente por tropaCodigo
-      const res = await fetch(`/api/medias-res?tropaCodigo=${tropaCodigo}&limit=500`)
+      // Buscar medias res directamente por tropaCodigo (con autoGenerar)
+      const res = await fetch(`/api/medias-res?tropaCodigo=${encodeURIComponent(tropaCodigo)}&autoGenerar=true&limit=500`)
       if (res.ok) {
         const json = await res.json()
         const todasMedias: MediaResItem[] = (json.data || []).map((mr: any) => ({
@@ -773,10 +773,19 @@ function ReportesPHTab() {
   const [fechaHasta, setFechaHasta] = useState('')
   const [filtroTropa, setFiltroTropa] = useState('')
   const [filtroProductor, setFiltroProductor] = useState('')
+  const [filtroUsuarioFaena, setFiltroUsuarioFaena] = useState('__TODOS__')
+  const [filtroTipoAnimal, setFiltroTipoAnimal] = useState('__TODOS__')
   const [filtroClasificacion, setFiltroClasificacion] = useState('TODAS')
-  const [filtroOperador, setFiltroOperador] = useState('')
   const [filtroPhMin, setFiltroPhMin] = useState('')
   const [filtroPhMax, setFiltroPhMax] = useState('')
+  const [filtroPesoMin, setFiltroPesoMin] = useState('')
+  const [filtroPesoMax, setFiltroPesoMax] = useState('')
+
+  // Listas para dropdowns
+  const [listaUsuariosFaena, setListaUsuariosFaena] = useState<{id: string, nombre: string}[]>([])
+  const [listaProductores, setListaProductores] = useState<{id: string, nombre: string}[]>([])
+  const [listaTropas, setListaTropas] = useState<{id: string, codigo: string, numero: number, label: string}[]>([])
+  const [listaTiposAnimal, setListaTiposAnimal] = useState<{value: string, label: string}[]>([])
 
   // Datos
   const [resumen, setResumen] = useState<any>(null)
@@ -787,14 +796,31 @@ function ReportesPHTab() {
   // Paginación
   const [page, setPage] = useState(1)
 
+  // Cargar listas para dropdowns
+  useEffect(() => {
+    fetch('/api/calidad-ph/reportes?modo=listas')
+      .then(res => res.ok ? res.json() : null)
+      .then(json => {
+        if (json?.data) {
+          setListaUsuariosFaena(json.data.usuariosFaena || [])
+          setListaProductores(json.data.productores || [])
+          setListaTropas(json.data.tropas || [])
+          setListaTiposAnimal(json.data.tiposAnimal || [])
+        }
+      })
+      .catch(err => console.error('Error cargando listas:', err))
+  }, [])
+
   const cargarDatos = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (fechaDesde) params.set('fechaDesde', fechaDesde)
       if (fechaHasta) params.set('fechaHasta', fechaHasta)
-      if (filtroTropa) params.set('tropaCodigo', filtroTropa)
-      if (filtroProductor) params.set('productorId', filtroProductor)
+      if (filtroTropa && filtroTropa !== '__TODOS__') params.set('tropaCodigo', filtroTropa)
+      if (filtroProductor && filtroProductor !== '__TODOS__') params.set('productorId', filtroProductor)
+      if (filtroUsuarioFaena && filtroUsuarioFaena !== '__TODOS__') params.set('usuarioFaenaId', filtroUsuarioFaena)
+      if (filtroTipoAnimal && filtroTipoAnimal !== '__TODOS__') params.set('tipoAnimal', filtroTipoAnimal)
 
       if (subTab === 'resumen') {
         const res = await fetch(`/api/calidad-ph/reportes?modo=resumen&${params}`)
@@ -805,9 +831,10 @@ function ReportesPHTab() {
       } else if (subTab === 'detalle') {
         const dParams = new URLSearchParams(params)
         if (filtroClasificacion !== 'TODAS') dParams.set('clasificacion', filtroClasificacion)
-        if (filtroOperador) dParams.set('operadorId', filtroOperador)
         if (filtroPhMin) dParams.set('phMin', filtroPhMin)
         if (filtroPhMax) dParams.set('phMax', filtroPhMax)
+        if (filtroPesoMin) dParams.set('pesoMin', filtroPesoMin)
+        if (filtroPesoMax) dParams.set('pesoMax', filtroPesoMax)
         dParams.set('page', String(page))
         const res = await fetch(`/api/calidad-ph/reportes?modo=detalle&${dParams}`)
         if (res.ok) {
@@ -833,7 +860,7 @@ function ReportesPHTab() {
     } finally {
       setLoading(false)
     }
-  }, [subTab, fechaDesde, fechaHasta, filtroTropa, filtroProductor, filtroClasificacion, filtroOperador, filtroPhMin, filtroPhMax, page])
+  }, [subTab, fechaDesde, fechaHasta, filtroTropa, filtroProductor, filtroUsuarioFaena, filtroTipoAnimal, filtroClasificacion, filtroPhMin, filtroPhMax, filtroPesoMin, filtroPesoMax, page])
 
   useEffect(() => {
     cargarDatos()
@@ -845,8 +872,8 @@ function ReportesPHTab() {
       const params = new URLSearchParams()
       if (fechaDesde) params.set('fechaDesde', fechaDesde)
       if (fechaHasta) params.set('fechaHasta', fechaHasta)
-      if (filtroTropa) params.set('tropaCodigo', filtroTropa)
-      if (filtroProductor) params.set('productorId', filtroProductor)
+      if (filtroTropa && filtroTropa !== '__TODOS__') params.set('tropaCodigo', filtroTropa)
+      if (filtroProductor && filtroProductor !== '__TODOS__') params.set('productorId', filtroProductor)
       params.set('limit', '10000')
 
       const res = await fetch(`/api/calidad-ph?${params}`)
@@ -1012,7 +1039,7 @@ function ReportesPHTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs text-stone-500">Fecha Desde</Label>
               <Input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} className="h-9" />
@@ -1022,12 +1049,52 @@ function ReportesPHTab() {
               <Input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} className="h-9" />
             </div>
             <div>
-              <Label className="text-xs text-stone-500">Tropa</Label>
-              <Input value={filtroTropa} onChange={e => setFiltroTropa(e.target.value)} placeholder="Código tropa" className="h-9" />
+              <Label className="text-xs text-stone-500">Usuario Faena</Label>
+              <Select value={filtroUsuarioFaena} onValueChange={v => setFiltroUsuarioFaena(v)}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__TODOS__">Todos</SelectItem>
+                  {listaUsuariosFaena.map(u => (
+                    <SelectItem key={u.id} value={u.id}>{u.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-xs text-stone-500">Productor</Label>
-              <Input value={filtroProductor} onChange={e => setFiltroProductor(e.target.value)} placeholder="ID productor" className="h-9" />
+              <Select value={filtroProductor} onValueChange={v => setFiltroProductor(v)}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__TODOS__">Todos</SelectItem>
+                  {listaProductores.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-stone-500">Tropa</Label>
+              <Select value={filtroTropa} onValueChange={v => setFiltroTropa(v)}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__TODOS__">Todas</SelectItem>
+                  {listaTropas.map(t => (
+                    <SelectItem key={t.id} value={t.codigo}>{t.codigo} (N° {t.numero})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-stone-500">Tipo Animal</Label>
+              <Select value={filtroTipoAnimal} onValueChange={v => setFiltroTipoAnimal(v)}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__TODOS__">Todos</SelectItem>
+                  {listaTiposAnimal.map(t => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-xs text-stone-500">Clasificación</Label>
@@ -1047,6 +1114,13 @@ function ReportesPHTab() {
               <div className="flex gap-1">
                 <Input type="number" step="0.1" value={filtroPhMin} onChange={e => setFiltroPhMin(e.target.value)} placeholder="Min" className="h-9" />
                 <Input type="number" step="0.1" value={filtroPhMax} onChange={e => setFiltroPhMax(e.target.value)} placeholder="Max" className="h-9" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-stone-500">Rango Peso (kg)</Label>
+              <div className="flex gap-1">
+                <Input type="number" step="0.5" value={filtroPesoMin} onChange={e => setFiltroPesoMin(e.target.value)} placeholder="Min" className="h-9" />
+                <Input type="number" step="0.5" value={filtroPesoMax} onChange={e => setFiltroPesoMax(e.target.value)} placeholder="Max" className="h-9" />
               </div>
             </div>
           </div>

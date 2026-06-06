@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const pesajeCamion = await db.pesajeCamion.create({
       data: {
         tipo: 'SALIDA_MERCADERIA',
-        numeroTicket: numerador.ultimoNumero,
+        numeroTicket: String(numerador.ultimoNumero),
         patenteChasis: despacho.patenteCamion || '',
         patenteAcoplado: despacho.patenteAcoplado || '',
         choferNombre: despacho.chofer || '',

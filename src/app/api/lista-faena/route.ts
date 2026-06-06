@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   if (authError) return authError
   try {
     const body = await request.json()
-    const { operadorId } = body
+    const { operadorId, fecha } = body
 
     // Obtener el máximo número existente para generar el correlativo
     const maxResult = await db.listaFaena.aggregate({
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const lista = await db.listaFaena.create({
       data: {
         numero: nuevoNumero,
-        fecha: new Date(),
+        fecha: fecha ? new Date(fecha) : new Date(),
         estado: 'ABIERTA',
         cantidadTotal: 0
       },

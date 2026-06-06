@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
             gte: desde,
             lte: hasta
           },
-          estado: 'CONFIRMADO'
+          estado: { in: ['CONFIRMADO', 'PENDIENTE'] }
         }
       }),
       // Pesajes de camión del período

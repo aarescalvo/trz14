@@ -21,6 +21,7 @@ export interface SessionPayload {
   nombre: string
   usuario: string
   rol: string
+  email?: string
   permisos: Record<string, boolean>
 }
 
@@ -33,6 +34,7 @@ export async function createSessionToken(payload: SessionPayload): Promise<strin
     nombre: payload.nombre,
     usuario: payload.usuario,
     rol: payload.rol,
+    email: payload.email,
     permisos: payload.permisos
   })
     .setProtectedHeader({ alg: 'HS256' })

@@ -74,10 +74,14 @@ export function QuickAddDialog({
           telefono: formData.telefono || undefined
         }
       } else if (tipo === 'productor') {
-        url = '/api/productores'
+        url = '/api/clientes'
         body = { 
           nombre: formData.nombre,
-          cuit: formData.cuit || undefined
+          cuit: formData.cuit || undefined,
+          tipo: 'PRODUCTOR',
+          telefono: formData.telefono || undefined,
+          direccion: formData.direccion || undefined,
+          email: formData.email || undefined
         }
       } else {
         url = '/api/clientes'

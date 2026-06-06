@@ -18,10 +18,22 @@ export async function GET(
       include: {
         productor: true,
         usuarioFaena: true,
+        corral: true,
         tiposAnimales: true,
+        pesajeCamion: {
+          select: {
+            id: true, numeroTicket: true, tipo: true, patenteChasis: true, patenteAcoplado: true,
+            choferNombre: true, choferDni: true, transportista: { select: { id: true, nombre: true, cuit: true } },
+            precintos: true, pesoBruto: true, pesoTara: true, pesoNeto: true, estado: true,
+            observaciones: true, fecha: true, fechaTara: true
+          }
+        },
         animales: {
           orderBy: { numero: 'asc' },
-          include: { corral: { select: { id: true, nombre: true } } }
+          include: {
+            corral: { select: { id: true, nombre: true } },
+            pesajeIndividual: { select: { id: true, peso: true, fecha: true } }
+          }
         }
       }
     })
@@ -33,10 +45,25 @@ export async function GET(
       )
     }
 
+    // Buscar tropas que comparten el mismo ticket de pesaje
+    let ticketCompartidoCon: Array<{ numero: number; codigo: string }> = []
+    if (tropa.pesajeCamion?.numeroTicket) {
+      const hermanas = await db.tropa.findMany({
+        where: {
+          pesajeCamionId: { not: tropa.pesajeCamionId },
+          pesajeCamion: { numeroTicket: tropa.pesajeCamion.numeroTicket }
+        },
+        select: { numero: true, codigo: true },
+        orderBy: { numero: 'asc' }
+      })
+      ticketCompartidoCon = hermanas
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         ...tropa,
+        ticketCompartidoCon,
         animales: tropa.animales.map(a => ({
           id: a.id,
           numero: a.numero,
@@ -48,8 +75,31 @@ export async function GET(
           estado: a.estado,
           corral: a.corral ? { id: a.corral.id, nombre: a.corral.nombre } : null,
           fechaBaja: a.fechaBaja,
-          motivoBaja: a.motivoBaja
-        }))
+          motivoBaja: a.motivoBaja,
+          pesajeIndividual: a.pesajeIndividual ? { peso: a.pesajeIndividual.peso, fecha: a.pesajeIndividual.fecha } : null
+        })),
+        pesajeCamion: tropa.pesajeCamion ? {
+          id: tropa.pesajeCamion.id,
+          numeroTicket: tropa.pesajeCamion.numeroTicket,
+          tipo: tropa.pesajeCamion.tipo,
+          patenteChasis: tropa.pesajeCamion.patenteChasis,
+          patenteAcoplado: tropa.pesajeCamion.patenteAcoplado,
+          choferNombre: tropa.pesajeCamion.choferNombre,
+          choferDni: tropa.pesajeCamion.choferDni,
+          transportista: tropa.pesajeCamion.transportista ? {
+            id: tropa.pesajeCamion.transportista.id,
+            nombre: tropa.pesajeCamion.transportista.nombre,
+            cuit: tropa.pesajeCamion.transportista.cuit
+          } : null,
+          precintos: tropa.pesajeCamion.precintos,
+          pesoBruto: tropa.pesajeCamion.pesoBruto,
+          pesoTara: tropa.pesajeCamion.pesoTara,
+          pesoNeto: tropa.pesajeCamion.pesoNeto,
+          estado: tropa.pesajeCamion.estado,
+          observaciones: tropa.pesajeCamion.observaciones ?? null,
+          fecha: tropa.pesajeCamion.fecha,
+          fechaTara: tropa.pesajeCamion.fechaTara ?? null
+        } : null
       }
     })
   } catch (error) {

@@ -20,19 +20,20 @@ export type PageId =
   | 'cortesDespostada' | 'produccionUnificada' | 'menudencias' | 'cueros'
   | 'grasa' | 'desperdicios' | 'fondoDigestor'
   | 'stockUnificada' | 'stocksCorrales' | 'planilla01' | 'rindesTropa'
-  | 'busquedaFiltro' | 'reportesSenasa' | 'facturacion' | 'precios'
+  | 'busquedaFiltro' | 'reportesSenasa' | 'facturacion'
   | 'insumos' | 'stocksInsumos' | 'configRotulos' | 'editorRotulos'
   | 'configInsumos' | 'configUsuarios' | 'configCodigobarras'
   | 'configBalanzas' | 'configOperadores' | 'configProductos'
   | 'configSubproductos' | 'configListadoInsumos'
   | 'configCondicionesEmbalaje' | 'configTiposProducto'
-  | 'configC2Rubros' | 'configC2TiposCuarto' | 'configC2ProductosDesposte'
+  | 'configC2Rubros' | 'configC2TiposCuarto'
   | 'configC2BOM' | 'c2Subproductos' | 'c2Pallets' | 'c2Rendimiento'
   | 'c2Degradacion' | 'c2Reportes' | 'calidadRegistroUsuarios'
   | 'calidadPh' | 'reportes' | 'configuracion' | 'auditoriaOperador'
   | 'rotulosMejoras' | 'dashboardEjecutivo' | 'reportesGerenciales'
-  | 'controlVencimientos' | 'alertasStock' | 'historialPrecios'
+  | 'controlVencimientos' | 'alertasStock'
   | 'reportesSIGICA' | 'exportacionSIGICA' | 'printerBridgeGuide'
+  | 'formatoReportes'
 
 // ============================================================
 // PAGE ID → ROUTE MAPPING
@@ -62,7 +63,6 @@ export const PAGE_TO_ROUTE: Record<PageId, string> = {
   cortesDespostada: '/ciclo-2/cortes',
   configC2Rubros: '/ciclo-2/rubros',
   configC2TiposCuarto: '/ciclo-2/tipos-cuarto',
-  configC2ProductosDesposte: '/ciclo-2/productos-desposte',
   configC2BOM: '/ciclo-2/bom',
   menudencias: '/subproductos/menudencias',
   cueros: '/subproductos/cueros',
@@ -81,8 +81,6 @@ export const PAGE_TO_ROUTE: Record<PageId, string> = {
   controlVencimientos: '/reportes/control-vencimientos',
   dashboardEjecutivo: '/reportes/dashboard-ejecutivo',
   facturacion: '/administracion/facturacion',
-  precios: '/administracion/precios',
-  historialPrecios: '/administracion/historial-precios',
   insumos: '/administracion/insumos',
   stocksInsumos: '/administracion/stocks-insumos',
   alertasStock: '/administracion/alertas-stock',
@@ -100,6 +98,7 @@ export const PAGE_TO_ROUTE: Record<PageId, string> = {
   configCondicionesEmbalaje: '/configuracion/condiciones-embalaje',
   configTiposProducto: '/configuracion/tipos-producto',
   printerBridgeGuide: '/configuracion/printer-bridge',
+  formatoReportes: '/diseno/formato-reportes',
   calidadRegistroUsuarios: '/calidad/registro-usuarios',
   calidadPh: '/calidad/control-ph',
   auditoriaOperador: '/calidad/auditoria',
@@ -181,7 +180,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'cortesDespostada', label: 'Cortes en Despostada', icon: Scissors, permiso: 'puedeDesposte', route: '/ciclo-2/cortes' },
       { id: 'configC2Rubros', label: 'Rubros', icon: Tag, permiso: 'puedeConfiguracion', route: '/ciclo-2/rubros' },
       { id: 'configC2TiposCuarto', label: 'Tipos de Cuarto', icon: Scissors, permiso: 'puedeConfiguracion', route: '/ciclo-2/tipos-cuarto' },
-      { id: 'configC2ProductosDesposte', label: 'Productos Desposte', icon: Package, permiso: 'puedeConfiguracion', route: '/ciclo-2/productos-desposte' },
       { id: 'configC2BOM', label: 'BOM (Insumos x Producto)', icon: ClipboardList, permiso: 'puedeConfiguracion', route: '/ciclo-2/bom' },
     ]
   },
@@ -232,8 +230,6 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: FileText,
     items: [
       { id: 'facturacion', label: 'Facturación', icon: FileText, permiso: 'puedeFacturacion', route: '/administracion/facturacion' },
-      { id: 'precios', label: 'Precios', icon: DollarSign, permiso: 'puedeFacturacion', route: '/administracion/precios' },
-      { id: 'historialPrecios', label: 'Historial de Precios', icon: TrendingUp, permiso: 'puedeFacturacion', route: '/administracion/historial-precios' },
       { id: 'insumos', label: 'Insumos', icon: Package, permiso: 'puedeConfiguracion', route: '/administracion/insumos' },
       { id: 'stocksInsumos', label: 'Stocks de Insumos', icon: Package, permiso: 'puedeStock', route: '/administracion/stocks-insumos' },
       { id: 'alertasStock', label: 'Alertas de Stock', icon: AlertTriangle, permiso: 'puedeStock', route: '/administracion/alertas-stock' },
@@ -275,6 +271,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Tag,
     items: [
       { id: 'rotulosMejoras', label: 'Diseñador Etiquetas', icon: Tag, permiso: 'puedeConfiguracion', route: '/diseno/etiquetas' },
+      { id: 'formatoReportes', label: 'Formato Reportes', icon: FileSpreadsheet, permiso: 'puedeConfiguracion', route: '/diseno/formato-reportes' },
     ]
   }
 ]

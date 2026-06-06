@@ -354,23 +354,9 @@ export function imprimirTicketPesajeA4({ tropa, animales, choferNombre, patente 
         }
         
         .logo-img {
-          width: 60px;
-          height: 60px;
+          width: 70px;
+          height: 70px;
           object-fit: contain;
-        }
-        
-        .logo-placeholder {
-          width: 60px;
-          height: 60px;
-          border: 2px solid #1a365d;
-          border-radius: 5px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 18px;
-          background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
-          color: white;
         }
         
         .empresa-info h1 {
@@ -560,12 +546,12 @@ export function imprimirTicketPesajeA4({ tropa, animales, choferNombre, patente 
       <!-- Header -->
       <div class="header">
         <div class="logo-section">
-          <div class="logo-placeholder">SA</div>
+          <img id="logo-img" class="logo-img" src="" alt="Solemar Alimentaria" />
           <div class="empresa-info">
             <h1>Solemar Alimentaria</h1>
-            <p>Ruta Provincial N° 11 - Km 45.5 | San Martín, Mendoza</p>
-            <p>CUIT: 23-12345678-9 | Tel: (0263) 442-1234</p>
-            <p>N° Establecimiento: 12-0345</p>
+            <p>Ruta Nacional N° 22, Km 1043, Chimpay, Río Negro</p>
+            <p>CUIT: 30-70919450-6 | Tel: (02946) 494-100</p>
+            <p>N° Establecimiento: 3986</p>
           </div>
         </div>
         <div class="ticket-info">
@@ -686,6 +672,16 @@ export function imprimirTicketPesajeA4({ tropa, animales, choferNombre, patente 
       </div>
       
       <script>
+        // Cargar logo desde la app principal
+        try {
+          var origin = window.opener ? window.opener.location.origin : '';
+          var logo = document.getElementById('logo-img');
+          if (logo && origin) { logo.src = origin + '/logo.png'; }
+          else if (logo) { logo.style.display = 'none'; }
+        } catch(e) {
+          var logo = document.getElementById('logo-img');
+          if (logo) { logo.style.display = 'none'; }
+        }
         window.onload = function() { 
           setTimeout(function() {
             window.print(); 
@@ -1089,8 +1085,9 @@ export function imprimirPlanilla01({ tropa, animales, romaneos, fechaFaena }: Im
       <!-- Header del Establecimiento -->
       <div class="header-estab">
         <div class="empresa">Estab. Faenador: Solemar Alimentaria S.A.</div>
-        <div>Matrícula: 300</div>
-        <div>Nº SENASA: 3986</div>
+        <div>Ruta Nacional N° 22, Km 1043, Chimpay, Río Negro</div>
+        <div>CUIT: 30-70919450-6 | Tel: (02946) 494-100</div>
+        <div>Nº Establecimiento: 3986</div>
       </div>
       
       <!-- Datos básicos izquierda/derecha -->
@@ -1246,7 +1243,7 @@ export function imprimirPlanilla01({ tropa, animales, romaneos, fechaFaena }: Im
                 <td class="text-right">${r.pesoMediaIzq ? r.pesoMediaIzq.toFixed(1) : '-'}</td>
                 <td class="text-right">${r.pesoMediaDer ? r.pesoMediaDer.toFixed(1) : '-'}</td>
                 <td class="text-right"><strong>${r.pesoTotal ? r.pesoTotal.toFixed(1) : '-'}</strong></td>
-                <td class="text-right">${r.rinde ? (r.rinde * 100).toFixed(2) + '%' : '-'}</td>
+                <td class="text-right">${r.pesoVivo && r.pesoTotal && r.pesoVivo > 0 ? ((r.pesoTotal / r.pesoVivo) * 100).toFixed(2) + '%' : '-'}</td>
               </tr>
             `).join('')}
             <!-- Totales Row -->
@@ -1281,5 +1278,130 @@ export function imprimirPlanilla01({ tropa, animales, romaneos, fechaFaena }: Im
     </body>
     </html>
   `)
+  printWindow.document.close()
+}
+
+/**
+ * RÓTULO RESUMEN DE TIPOS - 10cm x 5cm (HORIZONTAL/LANDSCAPE)
+ * Muestra resumen de clasificación por tipo con sumatoria de kg
+ * Ej: NO 4120kg - VQ 213kg - NT 3129kg
+ */
+export function imprimirResumenTipo({ tropaCodigo, animales, tiposDTE }: {
+  tropaCodigo: string
+  animales: Animal[]
+  tiposDTE?: { tipoAnimal: string; cantidad: number }[]
+}) {
+  const printWindow = window.open('', '_blank', 'width=500,height=300')
+  if (!printWindow) return
+
+  // Calculate kg per tipo
+  const kgPorTipo: Record<string, number> = {}
+  const cantPorTipo: Record<string, number> = {}
+
+  animales.forEach(a => {
+    if (a.pesoVivo) {
+      kgPorTipo[a.tipoAnimal] = (kgPorTipo[a.tipoAnimal] || 0) + a.pesoVivo
+      cantPorTipo[a.tipoAnimal] = (cantPorTipo[a.tipoAnimal] || 0) + 1
+    }
+  })
+
+  const totalKg = Object.values(kgPorTipo).reduce((a, b) => a + b, 0)
+  const totalAnimales = animales.length
+  const tropaLimpia = tropaCodigo.replace(/\s/g, '')
+
+  // Build tipo summary lines
+  const tipoEntries = Object.entries(kgPorTipo)
+    .sort(([,a], [,b]) => b - a)
+    .map(([tipo, kg]) =>
+      `<span class="tipo-item"><span class="tipo-codigo">${tipo}</span> <span class="tipo-kg">${Math.round(kg).toLocaleString('es-AR')}kg</span></span>`
+    ).join('<span class="tipo-sep"> - </span>')
+
+  printWindow.document.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resumen ${tropaCodigo}</title>
+  <style>
+    @page { size: 100mm 50mm landscape; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      width: 100mm; height: 50mm;
+      background: white;
+    }
+    .etiqueta {
+      border: 2px solid black;
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+    }
+    .fila-tropa {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 2mm 4mm;
+      border-bottom: 2px solid black;
+      background: #f0f0f0;
+    }
+    .tropa-label { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #333; }
+    .tropa-value { font-size: 18px; font-weight: 900; color: #000; }
+    .fila-resumen {
+      flex: 1; display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      padding: 2mm 4mm;
+    }
+    .resumen-title {
+      font-size: 8px; font-weight: bold; text-transform: uppercase;
+      color: #333; margin-bottom: 1mm;
+      letter-spacing: 1px;
+    }
+    .resumen-tipos {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      align-items: center; gap: 1mm 3mm;
+    }
+    .tipo-item { display: inline-flex; align-items: baseline; }
+    .tipo-codigo { font-size: 14px; font-weight: 900; color: #000; }
+    .tipo-kg { font-size: 12px; font-weight: 700; color: #333; }
+    .tipo-sep { color: #999; font-size: 12px; font-weight: bold; }
+    .fila-totales {
+      display: flex; justify-content: space-around; align-items: center;
+      padding: 2mm 4mm;
+      border-top: 2px solid black;
+      background: #000; color: #fff;
+    }
+    .total-item { text-align: center; }
+    .total-label { font-size: 7px; text-transform: uppercase; color: #ccc; font-weight: bold; }
+    .total-value { font-size: 14px; font-weight: 900; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="etiqueta">
+    <div class="fila-tropa">
+      <div class="tropa-label">Tropa</div>
+      <div class="tropa-value">${tropaLimpia}</div>
+    </div>
+    <div class="fila-resumen">
+      <div class="resumen-title">Resumen Clasificación</div>
+      <div class="resumen-tipos">${tipoEntries}</div>
+    </div>
+    <div class="fila-totales">
+      <div class="total-item">
+        <div class="total-label">Cabezas</div>
+        <div class="total-value">${totalAnimales}</div>
+      </div>
+      <div class="total-item">
+        <div class="total-label">Total KG</div>
+        <div class="total-value">${Math.round(totalKg).toLocaleString('es-AR')}</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        window.onafterprint = function() { window.close(); }
+      }, 300);
+    }
+  </script>
+</body>
+</html>`)
   printWindow.document.close()
 }

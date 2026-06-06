@@ -11,9 +11,11 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { 
   FileText, Download, Search, Loader2, Truck, User, Building2,
-  Eye, FileSpreadsheet, FileDown
+  Eye, FileSpreadsheet, FileDown, Scale, ExternalLink, Clock, ClipboardCheck
 } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { TextoEditable, EditableBlock, useEditor } from '@/components/ui/editable-screen'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface Operador { id: string; nombre: string; rol: string }
 
@@ -26,16 +28,28 @@ interface Tropa {
   dte: string
   guia: string
   fechaRecepcion: string
+  observaciones?: string
   corral?: { nombre: string }
   productor?: { nombre: string; cuit: string }
-  usuarioFaena: { nombre: string; cuit: string }
+  usuarioFaena?: { nombre: string; cuit: string }
+  ticketCompartidoCon?: Array<{ numero: number; codigo: string }>
   pesajeCamion?: {
+    id: string
+    tipo: string
     patenteChasis: string
     patenteAcoplado?: string
     choferNombre?: string
     choferDni?: string
+    pesoBruto?: number
+    pesoTara?: number
+    pesoNeto?: number
+    numeroTicket?: string
     transportista?: { nombre: string; cuit: string }
     precintos?: string
+    estado: string
+    observaciones?: string | null
+    fecha?: string
+    fechaTara?: string | null
   }
   animales: Array<{
     id: string
@@ -44,6 +58,7 @@ interface Tropa {
     caravana?: string
     pesoVivo?: number
     raza?: string
+    pesajeIndividual?: { peso?: number }
   }>
 }
 
@@ -60,6 +75,7 @@ export function Planilla01Module({ operador }: Props) {
   const [loading, setLoading] = useState(true)
   const [buscando, setBuscando] = useState(false)
   const [generando, setGenerando] = useState<'excel' | 'pdf' | null>(null)
+  const [pesajeDialogOpen, setPesajeDialogOpen] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [mostrarTodas, setMostrarTodas] = useState(false)
 
@@ -157,104 +173,283 @@ export function Planilla01Module({ operador }: Props) {
     try {
       const doc = new jsPDF('landscape', 'mm', 'a4')
       const pageWidth = doc.internal.pageSize.getWidth()
-      
-      // Título principal
-      doc.setFontSize(16)
+      const m = 8 // margin
+      let y = 10
+
+      // ===== ENCABEZADO =====
+      doc.setFontSize(14)
       doc.setFont('helvetica', 'bold')
-      doc.text('PLANILLA 01 - REGISTRO DE INGRESO DE HACIENDA', pageWidth / 2, 15, { align: 'center' })
-      
-      // Datos del establecimiento
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.text('ESTABLECIMIENTO: SOLEMAR ALIMENTARIA S.A.', 14, 28)
+      doc.text('PLANILLA 01 - BOVINO', m, y)
+      doc.setFontSize(20)
+      doc.text(`TROPA N\u00b0 ${tropaSeleccionada.numero || tropaSeleccionada.codigo || '-'}`, pageWidth - m, y, { align: 'right' })
+      y += 5
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
-      doc.text(`N° SENASA: 3986`, 120, 28)
-      doc.text(`MATRÍCULA: 300`, 180, 28)
-      
-      // Semana y fecha
-      const getSemana = (fecha: string) => {
+      doc.text('REGISTRO DE INGRESO DE HACIENDA', pageWidth / 2, y, { align: 'center' })
+      y += 6
+
+      // ===== ESTABLECIMIENTO =====
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text('ESTABLECIMIENTO: SOLEMAR ALIMENTARIA S.A.', m, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text('SENASA: 3986', m + 100, y)
+      doc.text('MATR\u00cdCULA: 300', m + 130, y)
+      const getSem = (fecha: string) => {
         const d = new Date(fecha)
         const start = new Date(d.getFullYear(), 0, 1)
         return Math.ceil(((d.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7)
       }
-      
-      doc.text(`SEMANA N°: ${getSemana(tropaSeleccionada.fechaRecepcion)}`, 14, 35)
-      doc.text(`AÑO: ${new Date(tropaSeleccionada.fechaRecepcion).getFullYear()}`, 80, 35)
-      doc.text(`FECHA: ${new Date(tropaSeleccionada.fechaRecepcion).toLocaleDateString('es-AR')}`, 140, 35)
-      
-      // Datos del usuario de faena
       doc.setFont('helvetica', 'bold')
-      doc.text('DATOS DEL USUARIO FAENA / PRODUCTOR', 14, 45)
+      doc.text('Sem.:', m + 170, y)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Usuario Faena: ${tropaSeleccionada.usuarioFaena?.nombre || tropaSeleccionada.productor?.nombre || '-'}`, 14, 52)
-      doc.text(`CUIT: ${tropaSeleccionada.usuarioFaena?.cuit || tropaSeleccionada.productor?.cuit || '-'}`, 120, 52)
-      doc.text(`Tropa N°: ${tropaSeleccionada.codigo || '-'}`, 200, 52)
-      
-      // Datos del transporte
+      doc.text(getSem(tropaSeleccionada.fechaRecepcion).toString(), m + 180, y)
       doc.setFont('helvetica', 'bold')
-      doc.text('DATOS DEL TRANSPORTE', 14, 62)
+      doc.text('Fecha:', m + 200, y)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Transportista: ${tropaSeleccionada.pesajeCamion?.transportista?.nombre || '-'}`, 14, 69)
-      doc.text(`Chofer: ${tropaSeleccionada.pesajeCamion?.choferNombre || '-'}`, 120, 69)
-      doc.text(`DNI: ${tropaSeleccionada.pesajeCamion?.choferDni || '-'}`, 200, 69)
-      doc.text(`Patente Chasis: ${tropaSeleccionada.pesajeCamion?.patenteChasis || '-'}`, 14, 76)
-      doc.text(`Patente Acoplado: ${tropaSeleccionada.pesajeCamion?.patenteAcoplado || '-'}`, 80, 76)
-      doc.text(`Precintos: ${tropaSeleccionada.pesajeCamion?.precintos || '-'}`, 160, 76)
-      
-      // Documentación
+      doc.text(new Date(tropaSeleccionada.fechaRecepcion).toLocaleDateString('es-AR'), m + 212, y)
       doc.setFont('helvetica', 'bold')
-      doc.text('DOCUMENTACIÓN', 14, 86)
+      doc.text('Hora:', m + 240, y)
       doc.setFont('helvetica', 'normal')
-      doc.text(`DTE: ${tropaSeleccionada.dte || '-'}`, 14, 93)
-      doc.text(`Guía: ${tropaSeleccionada.guia || '-'}`, 80, 93)
-      doc.text(`Corral: ${tropaSeleccionada.corral?.nombre || '-'}`, 160, 93)
-      
-      // Tabla de animales
+      doc.text(tropaSeleccionada.fechaRecepcion ? new Date(tropaSeleccionada.fechaRecepcion).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '-', m + 252, y)
+      y += 5
+
+      // L\u00ednea separadora
+      doc.setDrawColor(0)
+      doc.setLineWidth(0.5)
+      doc.line(m, y, pageWidth - m, y)
+      y += 4
+
+      // --- Fila 1: Productor ---
+      doc.setFont('helvetica', 'bold')
+      doc.text('PRODUCTOR:', m, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.productor?.nombre || '-', m + 20, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('CUIT:', m + 120, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.productor?.cuit || '-', m + 132, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('TROPA N\u00b0:', m + 190, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.numero?.toString() || tropaSeleccionada.codigo || '-', m + 212, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('CABEZAS:', m + 245, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(tropaSeleccionada.cantidadCabezas), m + 268, y)
+      y += 5
+
+      // --- Fila 2: Usuario Faena ---
+      doc.setFont('helvetica', 'bold')
+      doc.text('USUARIO FAENA:', m, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.usuarioFaena?.nombre || '-', m + 28, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('CUIT:', m + 120, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.usuarioFaena?.cuit || '-', m + 132, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('CORRAL:', m + 190, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.corral?.nombre || '-', m + 212, y)
+      y += 5
+
+      // --- Transporte ---
+      doc.setFont('helvetica', 'bold')
+      doc.text('TRANSPORTE:', m, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.pesajeCamion?.transportista?.nombre || '-', m + 24, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('CHOFER:', m + 90, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.pesajeCamion?.choferNombre || '-', m + 107, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('DNI:', m + 150, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.pesajeCamion?.choferDni || '-', m + 160, y)
+      y += 5
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('PATENTE CHASIS:', m, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.pesajeCamion?.patenteChasis || '-', m + 30, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('ACOPLADO:', m + 60, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.pesajeCamion?.patenteAcoplado || '-', m + 82, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('PRECINTOS:', m + 120, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.pesajeCamion?.precintos || '-', m + 142, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('N\u00b0 PESADA:', m + 190, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(tropaSeleccionada.pesajeCamion?.numeroTicket || '-'), m + 215, y)
+      if (tropaSeleccionada.ticketCompartidoCon && tropaSeleccionada.ticketCompartidoCon.length > 0) {
+        const compStr = tropaSeleccionada.ticketCompartidoCon.map(t => `Tropa ${t.numero}`).join(', ')
+        doc.setFontSize(6)
+        doc.setTextColor(180, 100, 0)
+        doc.text(`(Compartido c/ ${compStr})`, m + 215, y + 3)
+        doc.setTextColor(0)
+        doc.setFontSize(7)
+      }
+      y += 5
+
+      // --- Documentaci\u00f3n ---
+      doc.setFont('helvetica', 'bold')
+      doc.text('GU\u00cdA:', m, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.guia || '-', m + 15, y)
+      doc.setFont('helvetica', 'bold')
+      doc.text('DTE:', m + 120, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tropaSeleccionada.dte || '-', m + 132, y)
+      y += 5
+
+      // L\u00ednea separadora
+      doc.setDrawColor(0)
+      doc.setLineWidth(0.5)
+      doc.line(m, y, pageWidth - m, y)
+      y += 3
+
+      // ===== TABLA DE ANIMALES =====
       const animalesData = (tropaSeleccionada.animales || []).map((a, idx) => [
         idx + 1,
         a.caravana || '-',
         TIPOS_ANIMAL_LABELS[a.tipoAnimal] || a.tipoAnimal || '-',
         a.raza || '-',
-        a.pesoVivo?.toFixed(0) || '-',
+        a.pesajeIndividual?.peso?.toFixed(1) || a.pesoVivo?.toFixed(1) || '-',
         ''
       ])
-      
-      const totalKg = (tropaSeleccionada.animales || []).reduce((sum, a) => sum + (a.pesoVivo || 0), 0)
+
+      const totalKg = (tropaSeleccionada.animales || []).reduce((sum, a) => sum + (a.pesajeIndividual?.peso || a.pesoVivo || 0), 0)
       const totalAnimales = (tropaSeleccionada.animales || []).length
-      
+      const pesoPromedio = totalAnimales > 0 ? totalKg / totalAnimales : 0
+      const kgNetosCamion = tropaSeleccionada.pesajeCamion?.pesoNeto ?? null
+      const diferenciaKg = kgNetosCamion !== null ? kgNetosCamion - totalKg : null
+
       autoTable(doc, {
-        startY: 100,
-        head: [['N°', 'CARAVANA', 'TIPO', 'RAZA', 'PESO (kg)', 'OBSERVACIONES']],
-        body: animalesData,
+        startY: y,
+        head: [['N\u00ba', 'TIPO', 'RAZA', 'PESO ENTRADA (kg)', 'CARAVANA', 'CORRAL']],
+        body: animalesData.map(row => [row[0], row[2], row[3], row[4], row[1], tropaSeleccionada.corral?.nombre || '']),
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [217, 217, 217], textColor: [0, 0, 0], fontStyle: 'bold' },
+        styles: { fontSize: 7, cellPadding: 1.5 },
+        headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' },
         columnStyles: {
-          0: { cellWidth: 15, halign: 'center' },
-          1: { cellWidth: 30, halign: 'center' },
-          2: { cellWidth: 25, halign: 'center' },
-          3: { cellWidth: 30, halign: 'center' },
-          4: { cellWidth: 25, halign: 'right' },
-          5: { cellWidth: 50 }
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 20, halign: 'center' },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 28, halign: 'right' },
+          4: { cellWidth: 30, halign: 'center' },
+          5: { cellWidth: 18, halign: 'center' }
         },
-        foot: [
-          [{ content: 'TOTAL ANIMALES:', colSpan: 2, styles: { fontStyle: 'bold' } }, 
-           { content: totalAnimales, styles: { fontStyle: 'bold' } },
-           { content: 'TOTAL KG:', colSpan: 2, styles: { fontStyle: 'bold' } },
-           { content: totalKg.toFixed(0), styles: { fontStyle: 'bold', halign: 'right' } },
-           '']
-        ],
-        footStyles: { fillColor: [245, 245, 245] }
+        margin: { left: m, right: m }
       })
-      
-      // Firmas
-      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20
-      doc.text('_________________________', 50, finalY)
-      doc.text('_________________________', 170, finalY)
+
+      // ===== TOTALES =====
+      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5
       doc.setFontSize(8)
-      doc.text('FIRMA RESPONSABLE INGRESO', 35, finalY + 5)
-      doc.text('FIRMA TRANSPORTISTA', 155, finalY + 5)
-      
+      doc.setFont('helvetica', 'bold')
+      doc.text(`TOTALES:  Cabezas: ${totalAnimales}  |  Suma Pesos Indiv.: ${totalKg.toFixed(1)} kg  |  Peso Promedio: ${pesoPromedio.toFixed(1)} kg`, m, finalY)
+
+      // ===== 4 CUADROS COMPARATIVOS =====
+      let cy = finalY + 5
+      doc.setDrawColor(0)
+      doc.setLineWidth(0.3)
+      doc.line(m, cy, pageWidth - m, cy)
+      cy += 2
+
+      const boxW = 55
+      const boxH = 14
+      const boxGap = 15
+      const bx = m
+
+      // Cuadro 1: Kg Netos Cami\u00f3n
+      doc.setDrawColor(120)
+      doc.setFillColor(240, 240, 240)
+      doc.roundedRect(bx, cy, boxW, boxH, 1.5, 1.5, 'FD')
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(80)
+      doc.text('KG NETOS CAMI\u00d3N', bx + 3, cy + 4)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(kgNetosCamion !== null ? kgNetosCamion.toFixed(1) + ' kg' : 'S/D', bx + 3, cy + 11)
+      doc.setTextColor(0)
+
+      // Cuadro 2: Kg Netos Individuales
+      const b2x = bx + boxW + boxGap
+      doc.setDrawColor(120)
+      doc.setFillColor(240, 240, 240)
+      doc.roundedRect(b2x, cy, boxW, boxH, 1.5, 1.5, 'FD')
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(80)
+      doc.text('KG NETOS INDIVIDUALES', b2x + 3, cy + 4)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(totalKg.toFixed(1) + ' kg', b2x + 3, cy + 11)
+      doc.setTextColor(0)
+
+      // Cuadro 3: Diferencia
+      const b3x = b2x + boxW + boxGap
+      doc.setDrawColor(120)
+      doc.setFillColor(240, 240, 240)
+      doc.roundedRect(b3x, cy, boxW, boxH, 1.5, 1.5, 'FD')
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(80)
+      doc.text('DIFERENCIA (Cam. - Indiv.)', b3x + 3, cy + 4)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(diferenciaKg !== null ? ((diferenciaKg >= 0 ? '+' : '') + diferenciaKg.toFixed(1) + ' kg') : 'Sin pesada cami\u00f3n', b3x + 3, cy + 11)
+      doc.setTextColor(0)
+
+      // Cuadro 4: Promedio
+      const b4x = b3x + boxW + boxGap
+      doc.setDrawColor(120)
+      doc.setFillColor(240, 240, 240)
+      doc.roundedRect(b4x, cy, 45, boxH, 1.5, 1.5, 'FD')
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(80)
+      doc.text('PROMEDIO KG NETOS', b4x + 3, cy + 4)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(pesoPromedio.toFixed(1) + ' kg', b4x + 3, cy + 11)
+      doc.setTextColor(0)
+
+      cy += boxH + 5
+
+      // ===== OBSERVACIONES =====
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text('OBSERVACIONES:', m, cy)
+      doc.rect(m, cy + 2, pageWidth - m * 2, 10)
+      if (tropaSeleccionada.observaciones) {
+        doc.setFont('helvetica', 'normal')
+        doc.text(tropaSeleccionada.observaciones, m + 2, cy + 7, { maxWidth: pageWidth - m * 2 - 4 })
+      }
+
+      cy += 18
+
+      // ===== FIRMAS =====
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.text('FIRMA RESPONSABLE:', m + 10, cy)
+      doc.text('SELLO:', pageWidth / 2 + 30, cy)
+      doc.rect(m + 5, cy + 3, 70, 15)
+      doc.rect(pageWidth / 2 + 25, cy + 3, 70, 15)
+
+      // ===== PIE DE P\u00c1GINA =====
+      const pageCount = doc.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i)
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`P\u00e1gina ${i} de ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' })
+      }
+
       // Guardar
       doc.save(`Planilla01_${tropaSeleccionada.codigo?.replace(/\s/g, '_') || tropaSeleccionada.id}.pdf`)
       toast.success('PDF generado correctamente')
@@ -276,7 +471,7 @@ export function Planilla01Module({ operador }: Props) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-4">
         <EditableBlock bloqueId="header" label="Encabezado">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -303,9 +498,10 @@ export function Planilla01Module({ operador }: Props) {
           </div>
         </EditableBlock>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-[320px_1fr] gap-4">
+          {/* Lista de tropas */}
           <EditableBlock bloqueId="lista-tropas" label="Lista de Tropas">
-            <Card className="border-0 shadow-md lg:col-span-1">
+            <Card className="border-0 shadow-md">
               <CardHeader className="bg-stone-50">
                 <CardTitle className="text-lg">
                   <TextoEditable id="planilla01-seleccionar-tropa" original="Seleccionar Tropa" tag="span" />
@@ -335,7 +531,7 @@ export function Planilla01Module({ operador }: Props) {
                   </button>
                 )}
               </CardHeader>
-              <CardContent className="p-0 max-h-[500px] overflow-y-auto">
+              <CardContent className="p-0 max-h-[600px] overflow-y-auto">
                 {loading ? (
                   <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-500" /></div>
                 ) : tropas.length === 0 ? (
@@ -365,15 +561,21 @@ export function Planilla01Module({ operador }: Props) {
             </Card>
           </EditableBlock>
 
+          {/* Vista Previa */}
           <EditableBlock bloqueId="vista-previa" label="Vista Previa">
-            <Card className="border-0 shadow-md lg:col-span-2">
+            <Card className="border-0 shadow-md">
               <CardHeader className="bg-stone-50">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Eye className="w-5 h-5" />
                   <TextoEditable id="planilla01-vista-previa" original="Vista Previa" tag="span" />
+                  {tropaSeleccionada && (
+                    <Badge className="bg-amber-100 text-amber-800 text-base px-4 py-1 ml-auto">
+                      {tropaSeleccionada.codigo?.trim() || '-'}
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 {!tropaSeleccionada ? (
                   <div className="text-center py-12 text-stone-400">
                     <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
@@ -381,171 +583,296 @@ export function Planilla01Module({ operador }: Props) {
                       <TextoEditable id="planilla01-seleccione-tropa" original="Seleccione una tropa para ver la planilla" tag="span" />
                     </p>
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="border-2 border-stone-300 rounded-lg p-4 bg-white">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="space-y-2">
+                ) : (() => {
+                  const kgNetosCamion = tropaSeleccionada.pesajeCamion?.pesoNeto ?? null
+                  const kgNetosIndiv = (tropaSeleccionada.animales || []).reduce((s, a) => s + (a.pesajeIndividual?.peso || a.pesoVivo || 0), 0)
+                  const diferencia = kgNetosCamion !== null ? kgNetosCamion - kgNetosIndiv : null
+                  const totalAnimales = (tropaSeleccionada.animales || []).length
+                  const pesoPromedio = totalAnimales > 0 ? kgNetosIndiv / totalAnimales : 0
+
+                  return (
+                    <div className="space-y-4">
+                      {/* KPI Cards: Kg Netos y Diferencias */}
+                      <div className="grid grid-cols-4 gap-3">
+                        <div className="border rounded-lg p-3 bg-gradient-to-br from-blue-50 to-blue-100">
+                          <p className="text-xs font-medium text-blue-700">KG NETOS CAMIÓN</p>
+                          <p className="text-xl font-bold text-blue-800 mt-1">
+                            {kgNetosCamion !== null ? kgNetosCamion.toFixed(1) : 'S/D'}
+                          </p>
+                        </div>
+                        <div className="border rounded-lg p-3 bg-gradient-to-br from-emerald-50 to-emerald-100">
+                          <p className="text-xs font-medium text-emerald-700">KG NETOS INDIVIDUALES</p>
+                          <p className="text-xl font-bold text-emerald-800 mt-1">
+                            {kgNetosIndiv.toFixed(1)}
+                          </p>
+                        </div>
+                        <div className={`border rounded-lg p-3 bg-gradient-to-br ${diferencia !== null && diferencia < 0 ? 'from-red-50 to-red-100' : 'from-stone-50 to-stone-100'}`}>
+                          <p className="text-xs font-medium text-stone-600">DIFERENCIA</p>
+                          <p className={`text-xl font-bold mt-1 ${diferencia !== null && diferencia < 0 ? 'text-red-700' : 'text-stone-800'}`}>
+                            {diferencia !== null ? ((diferencia >= 0 ? '+' : '') + diferencia.toFixed(1)) : 'S/D'}
+                          </p>
+                        </div>
+                        <div className="border rounded-lg p-3 bg-gradient-to-br from-amber-50 to-amber-100">
+                          <p className="text-xs font-medium text-amber-700">PROMEDIO KG</p>
+                          <p className="text-xl font-bold text-amber-800 mt-1">
+                            {pesoPromedio.toFixed(1)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Datos: Establecimiento + Productor + Usuario Faena */}
+                      <div className="border rounded-lg p-3 bg-white space-y-2">
+                        <div className="flex items-center gap-4 flex-wrap text-xs text-stone-500">
+                          <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5 text-amber-500" /> Solemar Alimentaria S.A.</span>
+                          <span>N° SENASA: 3986</span>
+                          <span>Matrícula: 300</span>
+                          <span>Semana N°: {getSemana(tropaSeleccionada.fechaRecepcion)}</span>
+                          <span>Fecha: {new Date(tropaSeleccionada.fechaRecepcion).toLocaleDateString('es-AR')}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
                           <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-amber-500" />
-                            <span className="font-semibold">Solemar Alimentaria S.A.</span>
+                            <User className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="font-semibold">Productor:</span>
+                            <span>{tropaSeleccionada.productor?.nombre || '-'}</span>
+                            <span className="text-stone-400 ml-auto">CUIT: {tropaSeleccionada.productor?.cuit || '-'}</span>
                           </div>
-                          <div className="text-stone-600">
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-nro-senasa-label" original="N° SENASA:" tag="span" />
-                            </span> 3986
-                          </div>
-                          <div className="text-stone-600">
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-matricula-label" original="Matrícula:" tag="span" />
-                            </span> 300
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span className="font-semibold">Usuario Faena:</span>
+                            <span>{tropaSeleccionada.usuarioFaena?.nombre || '-'}</span>
+                            <span className="text-stone-400 ml-auto">CUIT: {tropaSeleccionada.usuarioFaena?.cuit || '-'}</span>
                           </div>
                         </div>
-                        <div className="space-y-2 text-right">
-                          <Badge className="bg-amber-100 text-amber-800 text-base px-4 py-1">
-                            <TextoEditable id="planilla01-badge" original="PLANILLA 01 - BOVINO" tag="span" />
-                          </Badge>
-                          <div className="text-stone-600">
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-semana-label" original="Semana N°:" tag="span" />
-                            </span> {getSemana(tropaSeleccionada.fechaRecepcion)}
-                          </div>
+                        <div className="flex items-center gap-4 flex-wrap text-sm text-stone-600">
+                          <span className="flex items-center gap-1"><Truck className="w-3.5 h-3.5" /> {tropaSeleccionada.pesajeCamion?.transportista?.nombre || '-'}</span>
+                          <span>Chofer: {tropaSeleccionada.pesajeCamion?.choferNombre || '-'}</span>
+                          <span>Patente: {tropaSeleccionada.pesajeCamion?.patenteChasis || '-'}</span>
+                          <span>DTE: {tropaSeleccionada.dte || '-'}</span>
+                          <span>Guía: {tropaSeleccionada.guia || '-'}</span>
+                          <span>Corral: {tropaSeleccionada.corral?.nombre || '-'}</span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-1.5">
+                                  Pesada N°: {tropaSeleccionada.pesajeCamion?.numeroTicket || '-'}
+                                  {tropaSeleccionada.ticketCompartidoCon && tropaSeleccionada.ticketCompartidoCon.length > 0 && (
+                                    <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] px-1.5 py-0">COMPARTIDO</Badge>
+                                  )}
+                                </span>
+                              </TooltipTrigger>
+                              {tropaSeleccionada.ticketCompartidoCon && tropaSeleccionada.ticketCompartidoCon.length > 0 && (
+                                <TooltipContent>
+                                  <p className="text-xs">Ticket compartido con:</p>
+                                  <ul className="text-xs mt-1">
+                                    {tropaSeleccionada.ticketCompartidoCon.map(t => (
+                                      <li key={t.numero}>Tropa {t.numero} ({t.codigo})</li>
+                                    ))}
+                                  </ul>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                          {tropaSeleccionada.pesajeCamion && (
+                            <button
+                              onClick={() => setPesajeDialogOpen(true)}
+                              className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors"
+                            >
+                              <Scale className="w-3 h-3" />
+                              PESAJE
+                            </button>
+                          )}
                         </div>
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="border rounded-lg p-4 bg-white space-y-2">
-                        <h4 className="font-semibold text-stone-700 flex items-center gap-2">
-                          <User className="w-4 h-4 text-amber-500" />
-                          <TextoEditable id="planilla01-productor-title" original="Usuario Faena" tag="span" />
-                        </h4>
-                        <div className="text-sm space-y-1">
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-nombre-label" original="Nombre:" tag="span" />
-                            </span> {tropaSeleccionada.usuarioFaena?.nombre || tropaSeleccionada.productor?.nombre || '-'}
-                          </p>
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-cuit-label" original="CUIT:" tag="span" />
-                            </span> {tropaSeleccionada.usuarioFaena?.cuit || tropaSeleccionada.productor?.cuit || '-'}
-                          </p>
+                      {/* Tabla de animales */}
+                      <div className="border rounded-lg overflow-hidden bg-white">
+                        <div className="bg-stone-100 px-3 py-2 border-b flex items-center justify-between">
+                          <h4 className="font-semibold text-stone-700 text-sm">
+                            <TextoEditable id="planilla01-detalle-animales" original="Detalle de Animales" tag="span" /> ({tropaSeleccionada.animales?.length || 0})
+                          </h4>
+                          <span className="text-xs text-stone-500">Cabezas: {tropaSeleccionada.cantidadCabezas} | Total: {kgNetosIndiv.toFixed(1)} kg | Prom: {pesoPromedio.toFixed(1)} kg</span>
                         </div>
-                      </div>
-                      <div className="border rounded-lg p-4 bg-white space-y-2">
-                        <h4 className="font-semibold text-stone-700 flex items-center gap-2">
-                          <User className="w-4 h-4 text-amber-500" />
-                          <TextoEditable id="planilla01-usuario-title" original="Productor / Titular" tag="span" />
-                        </h4>
-                        <div className="text-sm space-y-1">
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-nombre-label2" original="Nombre:" tag="span" />
-                            </span> {tropaSeleccionada.productor?.nombre || '-'}
-                          </p>
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-cuit-label2" original="CUIT:" tag="span" />
-                            </span> {tropaSeleccionada.productor?.cuit || '-'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="border rounded-lg p-4 bg-white space-y-2">
-                        <h4 className="font-semibold text-stone-700 flex items-center gap-2">
-                          <Truck className="w-4 h-4 text-amber-500" />
-                          <TextoEditable id="planilla01-transporte-title" original="Transporte" tag="span" />
-                        </h4>
-                        <div className="text-sm space-y-1">
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-transportista-label" original="Transportista:" tag="span" />
-                            </span> {tropaSeleccionada.pesajeCamion?.transportista?.nombre || '-'}
-                          </p>
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-chofer-label" original="Chofer:" tag="span" />
-                            </span> {tropaSeleccionada.pesajeCamion?.choferNombre || '-'}
-                          </p>
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-patente-label" original="Patente Chasis:" tag="span" />
-                            </span> {tropaSeleccionada.pesajeCamion?.patenteChasis || '-'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="border rounded-lg p-4 bg-white space-y-2">
-                        <h4 className="font-semibold text-stone-700 flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-amber-500" />
-                          <TextoEditable id="planilla01-documentos-title" original="Documentos" tag="span" />
-                        </h4>
-                        <div className="text-sm space-y-1">
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-nro-tropa-label" original="N° Tropa:" tag="span" />
-                            </span> {tropaSeleccionada.codigo}
-                          </p>
-                          <p>
-                            <span className="font-medium">DTE:</span> {tropaSeleccionada.dte || '-'}
-                          </p>
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-guia-label" original="Guía:" tag="span" />
-                            </span> {tropaSeleccionada.guia || '-'}
-                          </p>
-                          <p>
-                            <span className="font-medium">
-                              <TextoEditable id="planilla01-precintos-label" original="Precintos:" tag="span" />
-                            </span> {tropaSeleccionada.pesajeCamion?.precintos || '-'}
-                          </p>
+                        <div className="max-h-[350px] overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-stone-50">
+                                <TableHead className="w-12 text-center text-xs">N°</TableHead>
+                                <TableHead className="text-center text-xs">Tipo</TableHead>
+                                <TableHead className="text-xs">Raza</TableHead>
+                                <TableHead className="text-xs">Caravana</TableHead>
+                                <TableHead className="text-right text-xs">Peso (kg)</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {tropaSeleccionada.animales?.map((animal, idx) => (
+                                <TableRow key={animal.id}>
+                                  <TableCell className="text-center font-medium text-xs">{animal.numero || idx + 1}</TableCell>
+                                  <TableCell className="text-center"><Badge variant="outline" className="text-xs">{TIPOS_ANIMAL_LABELS[animal.tipoAnimal] || animal.tipoAnimal}</Badge></TableCell>
+                                  <TableCell className="text-xs">{animal.raza || '-'}</TableCell>
+                                  <TableCell className="font-mono text-xs">{animal.caravana || '-'}</TableCell>
+                                  <TableCell className="text-right text-xs font-medium">
+                                    {animal.pesajeIndividual?.peso?.toFixed(1) || animal.pesoVivo?.toFixed(1) || '-'}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
                       </div>
                     </div>
-
-                    <div className="border rounded-lg overflow-hidden bg-white">
-                      <div className="bg-stone-100 px-4 py-2 border-b">
-                        <h4 className="font-semibold text-stone-700">
-                          <TextoEditable id="planilla01-detalle-animales" original="Detalle de Animales" tag="span" /> ({tropaSeleccionada.animales?.length || 0})
-                        </h4>
-                      </div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-stone-50">
-                            <TableHead className="w-16 text-center">N°</TableHead>
-                            <TableHead className="text-center">
-                              <TextoEditable id="planilla01-th-tipo" original="Tipo" tag="span" />
-                            </TableHead>
-                            <TableHead>
-                              <TextoEditable id="planilla01-th-raza" original="Raza" tag="span" />
-                            </TableHead>
-                            <TableHead>
-                              <TextoEditable id="planilla01-th-caravana" original="Caravana" tag="span" />
-                            </TableHead>
-                            <TableHead className="text-right">
-                              <TextoEditable id="planilla01-th-peso" original="Peso (kg)" tag="span" />
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {tropaSeleccionada.animales?.slice(0, 20).map((animal, idx) => (
-                            <TableRow key={animal.id}>
-                              <TableCell className="text-center font-medium">{animal.numero || idx + 1}</TableCell>
-                              <TableCell className="text-center"><Badge variant="outline">{TIPOS_ANIMAL_LABELS[animal.tipoAnimal] || animal.tipoAnimal}</Badge></TableCell>
-                              <TableCell>{animal.raza || '-'}</TableCell>
-                              <TableCell className="font-mono text-sm">{animal.caravana || '-'}</TableCell>
-                              <TableCell className="text-right">{animal.pesoVivo?.toFixed(0) || '-'}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
+                  )
+                })()}
               </CardContent>
             </Card>
           </EditableBlock>
         </div>
       </div>
+
+      {/* Dialog de Pesaje de Camión */}
+      <Dialog open={pesajeDialogOpen} onOpenChange={setPesajeDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Scale className="w-5 h-5 text-blue-600" />
+              Pesaje de Camión
+              {tropaSeleccionada?.pesajeCamion?.numeroTicket && (
+                <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200">
+                  Ticket #{tropaSeleccionada.pesajeCamion.numeroTicket}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {tropaSeleccionada?.pesajeCamion && (
+            <div className="space-y-4 mt-2">
+              {/* Estado y Tipo */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={
+                  tropaSeleccionada.pesajeCamion.estado === 'CERRADO' ? 'bg-green-100 text-green-700 border-green-300' :
+                  tropaSeleccionada.pesajeCamion.estado === 'ANULADO' ? 'bg-red-100 text-red-700 border-red-300' :
+                  'bg-amber-100 text-amber-700 border-amber-300'
+                } variant="outline">
+                  <ClipboardCheck className="w-3 h-3 mr-1" />
+                  {tropaSeleccionada.pesajeCamion.estado}
+                </Badge>
+                <Badge variant="outline" className="text-stone-500 border-stone-300">
+                  {tropaSeleccionada.pesajeCamion.tipo === 'INGRESO_HACIENDA' ? 'Ingreso Hacienda' :
+                   tropaSeleccionada.pesajeCamion.tipo === 'SALIDA_MERCADERIA' ? 'Salida Mercadería' :
+                   tropaSeleccionada.pesajeCamion.tipo === 'PESAJE_PARTICULAR' ? 'Pesaje Particular' :
+                   tropaSeleccionada.pesajeCamion.tipo}
+                </Badge>
+                {tropaSeleccionada.pesajeCamion.fecha && (
+                  <span className="text-xs text-stone-400 flex items-center gap-1 ml-auto">
+                    <Clock className="w-3 h-3" />
+                    {new Date(tropaSeleccionada.pesajeCamion.fecha).toLocaleString('es-AR')}
+                  </span>
+                )}
+              </div>
+
+              {/* Datos del Transporte */}
+              <div className="grid grid-cols-2 gap-3 text-sm border rounded-lg p-3 bg-stone-50">
+                <div>
+                  <span className="text-stone-500 text-xs">Transportista</span>
+                  <p className="font-medium">{tropaSeleccionada.pesajeCamion.transportista?.nombre || '-'}</p>
+                  <p className="text-xs text-stone-400">{tropaSeleccionada.pesajeCamion.transportista?.cuit || ''}</p>
+                </div>
+                <div>
+                  <span className="text-stone-500 text-xs">Chofer</span>
+                  <p className="font-medium">{tropaSeleccionada.pesajeCamion.choferNombre || '-'}</p>
+                  <p className="text-xs text-stone-400">DNI: {tropaSeleccionada.pesajeCamion.choferDni || '-'}</p>
+                </div>
+              </div>
+
+              {/* Patentes y Documentación */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="border rounded-lg p-3">
+                  <span className="text-stone-500 text-xs">Patente Chasis</span>
+                  <p className="font-medium font-mono">{tropaSeleccionada.pesajeCamion.patenteChasis || '-'}</p>
+                </div>
+                <div className="border rounded-lg p-3">
+                  <span className="text-stone-500 text-xs">Patente Acoplado</span>
+                  <p className="font-medium font-mono">{tropaSeleccionada.pesajeCamion.patenteAcoplado || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-stone-500 text-xs">Precintos</span>
+                  <p className="font-medium">{tropaSeleccionada.pesajeCamion.precintos || '-'}</p>
+                </div>
+                {tropaSeleccionada.pesajeCamion.fechaTara && (
+                  <div>
+                    <span className="text-stone-500 text-xs">Fecha Tara</span>
+                    <p className="font-medium">{new Date(tropaSeleccionada.pesajeCamion.fechaTara).toLocaleString('es-AR')}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pesos */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="border rounded-lg p-3 text-center bg-blue-50">
+                  <p className="text-xs text-blue-600 font-medium">Peso Bruto</p>
+                  <p className="text-lg font-bold text-blue-800">
+                    {tropaSeleccionada.pesajeCamion.pesoBruto ? tropaSeleccionada.pesajeCamion.pesoBruto.toFixed(0) : 'S/D'}
+                    <span className="text-xs font-normal ml-1">kg</span>
+                  </p>
+                </div>
+                <div className="border rounded-lg p-3 text-center bg-amber-50">
+                  <p className="text-xs text-amber-600 font-medium">Peso Tara</p>
+                  <p className="text-lg font-bold text-amber-800">
+                    {tropaSeleccionada.pesajeCamion.pesoTara ? tropaSeleccionada.pesajeCamion.pesoTara.toFixed(0) : 'S/D'}
+                    <span className="text-xs font-normal ml-1">kg</span>
+                  </p>
+                </div>
+                <div className="border rounded-lg p-3 text-center bg-emerald-50">
+                  <p className="text-xs text-emerald-600 font-medium">Peso Neto</p>
+                  <p className="text-lg font-bold text-emerald-800">
+                    {tropaSeleccionada.pesajeCamion.pesoNeto ? tropaSeleccionada.pesajeCamion.pesoNeto.toFixed(0) : 'S/D'}
+                    <span className="text-xs font-normal ml-1">kg</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Ticket Compartido */}
+              {tropaSeleccionada.ticketCompartidoCon && tropaSeleccionada.ticketCompartidoCon.length > 0 && (
+                <div className="border border-amber-200 rounded-lg p-3 bg-amber-50">
+                  <p className="text-xs font-medium text-amber-700 flex items-center gap-1">
+                    <Truck className="w-3.5 h-3.5" />
+                    Ticket compartido con:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {tropaSeleccionada.ticketCompartidoCon.map(t => (
+                      <Badge key={t.numero} variant="outline" className="bg-white text-amber-700 border-amber-300 text-xs">
+                        Tropa {t.numero} ({t.codigo})
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Observaciones */}
+              {tropaSeleccionada.pesajeCamion.observaciones && (
+                <div className="border border-stone-200 rounded-lg p-3 bg-stone-50">
+                  <p className="text-xs font-medium text-stone-600 mb-1">Observaciones del Pesaje</p>
+                  <p className="text-sm text-stone-700">{tropaSeleccionada.pesajeCamion.observaciones}</p>
+                </div>
+              )}
+
+              {/* Acceso directo */}
+              <div className="flex justify-end pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  onClick={() => {
+                    setPesajeDialogOpen(false)
+                    window.open('/pesaje-camiones', '_blank')
+                  }}
+                >
+                  <ExternalLink className="w-4 h-4 mr-1.5" />
+                  Ir a Pesaje de Camiones
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

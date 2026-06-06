@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import {
   FileText, Calendar, Truck, User, MapPin, Hash, Beef,
-  Loader2, ClipboardList, Info
+  Loader2, ClipboardList, Info, Scale, ExternalLink, Clock, ClipboardCheck
 } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -18,6 +19,7 @@ import { ExcelExporter } from '@/lib/export-excel'
 import { PDFExporter } from '@/lib/export-pdf'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 // ==================== TIPOS ====================
 
@@ -34,8 +36,11 @@ interface TropaCompleta {
   productor?: { id: string; nombre: string; cuit?: string; numeroRenspa?: string; direccion?: string; localidad?: string; provincia?: string }
   usuarioFaena?: { id: string; nombre: string; cuit?: string }
   corral?: { id: string; nombre: string }
+  ticketCompartidoCon?: Array<{ numero: number; codigo: string }>
   pesajeCamion?: {
     id: string
+    numeroTicket?: string
+    tipo?: string
     patenteChasis: string
     patenteAcoplado?: string
     choferNombre?: string
@@ -44,7 +49,14 @@ interface TropaCompleta {
     precintos?: string
     certificadoLavado?: string
     fechaGuia?: string
+    pesoBruto?: number
+    pesoTara?: number
+    pesoNeto?: number
     transportista?: { id: string; nombre: string; cuit?: string }
+    estado?: string
+    observaciones?: string | null
+    fecha?: string
+    fechaTara?: string | null
   }
   animales: Array<{
     id: string
@@ -94,6 +106,7 @@ export function ReportePlanilla01Bovino() {
   const [selectedTropaId, setSelectedTropaId] = useState<string>('')
   const [tropa, setTropa] = useState<TropaCompleta | null>(null)
   const [fechaFiltro, setFechaFiltro] = useState(new Date().toISOString().split('T')[0])
+  const [pesajeDialogOpen, setPesajeDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchTropas()
@@ -186,6 +199,14 @@ export function ReportePlanilla01Bovino() {
         ['N Guia', tropa.guia || '-'],
         ['Fecha Guia', tropa.pesajeCamion?.fechaGuia || '-'],
         ['Precintos', tropa.pesajeCamion?.precintos || '-'],
+        ['N Pesada Camion', tropa.pesajeCamion?.numeroTicket
+          ? (tropa.ticketCompartidoCon && tropa.ticketCompartidoCon.length > 0
+              ? `${tropa.pesajeCamion.numeroTicket} (Compartido c/ Tropa ${tropa.ticketCompartidoCon.map(t => t.numero).join(', ')})`
+              : String(tropa.pesajeCamion.numeroTicket))
+          : '-'],
+        ['Peso Bruto', tropa.pesajeCamion?.pesoBruto ? tropa.pesajeCamion.pesoBruto.toFixed(0) + ' kg' : '-'],
+        ['Peso Tara', tropa.pesajeCamion?.pesoTara ? tropa.pesajeCamion.pesoTara.toFixed(0) + ' kg' : '-'],
+        ['Peso Neto', tropa.pesajeCamion?.pesoNeto ? tropa.pesajeCamion.pesoNeto.toFixed(0) + ' kg' : '-'],
       ]
 
       // Hoja 2: Detalle de animales
@@ -402,6 +423,20 @@ export function ReportePlanilla01Bovino() {
       doc.text('Fecha Guia:', rightCol, y)
       doc.setFont('helvetica', 'normal')
       doc.text(tropa.pesajeCamion?.fechaGuia || '-', rightCol + 35, y)
+      y += rowH
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('N\u00b0 Pesada:', leftCol, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(tropa.pesajeCamion?.numeroTicket || '-'), leftCol + 32, y)
+      if (tropa.ticketCompartidoCon && tropa.ticketCompartidoCon.length > 0) {
+        const compStr = tropa.ticketCompartidoCon.map(t => `Tropa ${t.numero}`).join(', ')
+        doc.setFontSize(6)
+        doc.setTextColor(180, 100, 0)
+        doc.text(`(Compartido c/ ${compStr})`, leftCol + 50, y)
+        doc.setTextColor(0)
+        doc.setFontSize(8)
+      }
       y += rowH + 2
 
       // Línea separadora
@@ -796,6 +831,36 @@ export function ReportePlanilla01Bovino() {
                       <span className="text-stone-500">Precintos:</span>
                       <span className="ml-2 font-medium">{tropa.pesajeCamion?.precintos || '-'}</span>
                     </div>
+                    <div>
+                      <span className="text-stone-500">N Pesada:</span>
+                      <span className="ml-2 font-medium">{tropa.pesajeCamion?.numeroTicket || '-'}</span>
+                      {tropa.ticketCompartidoCon && tropa.ticketCompartidoCon.length > 0 && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] px-1.5 py-0 ml-2 cursor-default">COMPARTIDO</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Ticket compartido con:</p>
+                              <ul className="text-xs mt-1">
+                                {tropa.ticketCompartidoCon.map(t => (
+                                  <li key={t.numero}>Tropa {t.numero} ({t.codigo})</li>
+                                ))}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {tropa.pesajeCamion && (
+                        <button
+                          onClick={() => setPesajeDialogOpen(true)}
+                          className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ml-2"
+                        >
+                          <Scale className="w-3 h-3" />
+                          PESAJE
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -998,6 +1063,136 @@ export function ReportePlanilla01Bovino() {
           </Card>
         </>
       )}
+
+      {/* Dialog de Pesaje de Camión */}
+      <Dialog open={pesajeDialogOpen} onOpenChange={setPesajeDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Scale className="w-5 h-5 text-blue-600" />
+              Pesaje de Camión
+              {tropa?.pesajeCamion?.numeroTicket && (
+                <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200">
+                  Ticket #{tropa.pesajeCamion.numeroTicket}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {tropa?.pesajeCamion && (
+            <div className="space-y-4 mt-2">
+              {/* Estado y Tipo */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={
+                  tropa.pesajeCamion.estado === 'CERRADO' ? 'bg-green-100 text-green-700 border-green-300' :
+                  tropa.pesajeCamion.estado === 'ANULADO' ? 'bg-red-100 text-red-700 border-red-300' :
+                  'bg-amber-100 text-amber-700 border-amber-300'
+                } variant="outline">
+                  <ClipboardCheck className="w-3 h-3 mr-1" />
+                  {tropa.pesajeCamion.estado || '-'}
+                </Badge>
+                {tropa.pesajeCamion.fecha && (
+                  <span className="text-xs text-stone-400 flex items-center gap-1 ml-auto">
+                    <Clock className="w-3 h-3" />
+                    {new Date(tropa.pesajeCamion.fecha).toLocaleString('es-AR')}
+                  </span>
+                )}
+              </div>
+
+              {/* Datos del Transporte */}
+              <div className="grid grid-cols-2 gap-3 text-sm border rounded-lg p-3 bg-stone-50">
+                <div>
+                  <span className="text-stone-500 text-xs">Transportista</span>
+                  <p className="font-medium">{tropa.pesajeCamion.transportista?.nombre || '-'}</p>
+                  <p className="text-xs text-stone-400">{tropa.pesajeCamion.transportista?.cuit || ''}</p>
+                </div>
+                <div>
+                  <span className="text-stone-500 text-xs">Chofer</span>
+                  <p className="font-medium">{tropa.pesajeCamion.choferNombre || '-'}</p>
+                  <p className="text-xs text-stone-400">DNI: {tropa.pesajeCamion.choferDni || '-'}</p>
+                </div>
+              </div>
+
+              {/* Patentes */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="border rounded-lg p-3">
+                  <span className="text-stone-500 text-xs">Patente Chasis</span>
+                  <p className="font-medium font-mono">{tropa.pesajeCamion.patenteChasis || '-'}</p>
+                </div>
+                <div className="border rounded-lg p-3">
+                  <span className="text-stone-500 text-xs">Patente Acoplado</span>
+                  <p className="font-medium font-mono">{tropa.pesajeCamion.patenteAcoplado || '-'}</p>
+                </div>
+              </div>
+
+              {/* Pesos */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="border rounded-lg p-3 text-center bg-blue-50">
+                  <p className="text-xs text-blue-600 font-medium">Peso Bruto</p>
+                  <p className="text-lg font-bold text-blue-800">
+                    {tropa.pesajeCamion.pesoBruto ? tropa.pesajeCamion.pesoBruto.toFixed(0) : 'S/D'}
+                    <span className="text-xs font-normal ml-1">kg</span>
+                  </p>
+                </div>
+                <div className="border rounded-lg p-3 text-center bg-amber-50">
+                  <p className="text-xs text-amber-600 font-medium">Peso Tara</p>
+                  <p className="text-lg font-bold text-amber-800">
+                    {tropa.pesajeCamion.pesoTara ? tropa.pesajeCamion.pesoTara.toFixed(0) : 'S/D'}
+                    <span className="text-xs font-normal ml-1">kg</span>
+                  </p>
+                </div>
+                <div className="border rounded-lg p-3 text-center bg-emerald-50">
+                  <p className="text-xs text-emerald-600 font-medium">Peso Neto</p>
+                  <p className="text-lg font-bold text-emerald-800">
+                    {tropa.pesajeCamion.pesoNeto ? tropa.pesajeCamion.pesoNeto.toFixed(0) : 'S/D'}
+                    <span className="text-xs font-normal ml-1">kg</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Ticket Compartido */}
+              {tropa.ticketCompartidoCon && tropa.ticketCompartidoCon.length > 0 && (
+                <div className="border border-amber-200 rounded-lg p-3 bg-amber-50">
+                  <p className="text-xs font-medium text-amber-700 flex items-center gap-1">
+                    <Truck className="w-3.5 h-3.5" />
+                    Ticket compartido con:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {tropa.ticketCompartidoCon.map(t => (
+                      <Badge key={t.numero} variant="outline" className="bg-white text-amber-700 border-amber-300 text-xs">
+                        Tropa {t.numero} ({t.codigo})
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Observaciones */}
+              {tropa.pesajeCamion.observaciones && (
+                <div className="border border-stone-200 rounded-lg p-3 bg-stone-50">
+                  <p className="text-xs font-medium text-stone-600 mb-1">Observaciones del Pesaje</p>
+                  <p className="text-sm text-stone-700">{tropa.pesajeCamion.observaciones}</p>
+                </div>
+              )}
+
+              {/* Acceso directo */}
+              <div className="flex justify-end pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  onClick={() => {
+                    setPesajeDialogOpen(false)
+                    window.open('/pesaje-camiones', '_blank')
+                  }}
+                >
+                  <ExternalLink className="w-4 h-4 mr-1.5" />
+                  Ir a Pesaje de Camiones
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

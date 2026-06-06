@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { animalId, peso, caravana, observaciones, operadorId } = body
+    const { animalId, peso, caravana, observaciones, operadorId, fecha } = body
 
     if (!animalId || !peso) {
       return NextResponse.json(
@@ -117,7 +117,8 @@ export async function POST(request: NextRequest) {
           peso: parseFloat(peso),
           caravana,
           observaciones,
-          operadorId
+          operadorId,
+          ...(fecha ? { fecha: new Date(fecha) } : {})
         },
         include: {
           animal: {

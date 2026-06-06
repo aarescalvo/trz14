@@ -113,7 +113,9 @@ export async function getDatosRomaneoPorTropa(tropaCodigo: string): Promise<Dato
       pesoMediaIzq: r.pesoMediaIzq,
       pesoMediaDer: r.pesoMediaDer,
       pesoTotal: r.pesoTotal,
-      rinde: r.rinde
+      rinde: (r.pesoVivo && r.pesoVivo > 0 && r.pesoTotal && r.pesoTotal > 0)
+        ? Math.round((r.pesoTotal / r.pesoVivo) * 10000) / 100
+        : r.rinde
     }
   })
 

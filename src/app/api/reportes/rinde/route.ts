@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const romaneos = await db.romaneo.findMany({
       where: {
         tropaCodigo: tropa.codigo,
-        estado: 'CONFIRMADO'
+        estado: { in: ['CONFIRMADO', 'PENDIENTE'] }
       } as Prisma.RomaneoWhereInput,
       include: {
         tipificador: true,

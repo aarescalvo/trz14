@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const romaneos = await db.romaneo.findMany({
       where: { 
         tropaCodigo: tropa.codigo,
-        estado: 'CONFIRMADO' as const
+        estado: { in: ['CONFIRMADO', 'PENDIENTE'] } as any
       },
       include: {
         tipificador: true,

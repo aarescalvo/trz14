@@ -22,6 +22,7 @@ import { PDFExporter } from '@/lib/export-pdf'
 
 interface RindeTropa {
   tropaCodigo: string
+  fechaFaena: string | null
   cantidadAnimales: number
   pesoVivoTotal: number
   pesoFaenaTotal: number
@@ -58,6 +59,7 @@ interface TropaDetalle {
   numero: number
   codigo: string
   cantidadCabezas: number
+  fechaFaena: string | null
   productor: { nombre: string } | null
   usuarioFaena: { nombre: string } | null
 }
@@ -93,8 +95,11 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
   const [proveedor, setProveedor] = useState('')
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   
-  // Ordenamiento
-  const [ordenCampo, setOrdenCampo] = useState<'rindePromedio' | 'cantidadAnimales' | 'tropaCodigo'>('rindePromedio')
+  // Busqueda rapida por tropa
+  const [busquedaTropa, setBusquedaTropa] = useState('')
+
+  // Ordenamiento - por defecto tropa descendente (ultimas primero)
+  const [ordenCampo, setOrdenCampo] = useState<'rindePromedio' | 'cantidadAnimales' | 'tropaCodigo'>('tropaCodigo')
   const [ordenAsc, setOrdenAsc] = useState(false)
   
   // Detalle
@@ -180,6 +185,7 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
     setTropaHasta('')
     setUsuario('')
     setProveedor('')
+    setBusquedaTropa('')
   }
 
   const fetchDetalleTropa = async (tropaCodigo: string) => {
@@ -187,7 +193,8 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
     setDialogOpen(true)
     
     try {
-      const tropaRes = await fetch(`/api/tropas`)
+      // Buscar tropa por código directamente (evita traer todas las tropas paginadas)
+      const tropaRes = await fetch(`/api/tropas?busqueda=${encodeURIComponent(tropaCodigo)}&limit=5`)
       const tropaData = await tropaRes.json()
       const tropa = tropaData.data?.find((t: { codigo: string }) => t.codigo === tropaCodigo)
       
@@ -212,11 +219,26 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
     }
   }
 
+  // Extraer numero de tropa del codigo (ej: "B 2026 0203" -> 203)
+  const extraerNumeroTropa = (codigo: string): number => {
+    const parts = codigo.trim().split(/\s+/)
+    return parseInt(parts[parts.length - 1]) || 0
+  }
+
   const ordenarRindes = (rindesList: RindeTropa[]) => {
-    return [...rindesList].sort((a, b) => {
+    // Filtrar por busqueda rapida de tropa
+    const filtrados = busquedaTropa
+      ? rindesList.filter(r => {
+          const num = extraerNumeroTropa(r.tropaCodigo)
+          const busq = parseInt(busquedaTropa)
+          return !isNaN(busq) && String(num).includes(busquedaTropa)
+        })
+      : rindesList
+
+    return [...filtrados].sort((a, b) => {
       let comparacion = 0
       if (ordenCampo === 'tropaCodigo') {
-        comparacion = a.tropaCodigo.localeCompare(b.tropaCodigo)
+        comparacion = extraerNumeroTropa(a.tropaCodigo) - extraerNumeroTropa(b.tropaCodigo)
       } else {
         comparacion = a[ordenCampo] - b[ordenCampo]
       }
@@ -257,11 +279,12 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
   // ==================== EXPORTACIONES ====================
 
   const exportMainTableExcel = () => {
-    const headers = ['Tropa', 'Productor', 'Usuario Faena', 'Animales', 'Peso Vivo (kg)', 'Peso Faena (kg)', 'Rinde %', 'Rinde Mín. %', 'Rinde Máx. %']
+    const headers = ['Tropa', 'Productor', 'Usuario Faena', 'Fecha Faena', 'Animales', 'Peso Vivo (kg)', 'Peso Faena (kg)', 'Rinde %', 'Rinde Mín. %', 'Rinde Máx. %']
     const data = ordenarRindes(rindes).map(r => [
       r.tropaCodigo,
       r.productor || '-',
       r.usuario || '-',
+      r.fechaFaena ? new Date(r.fechaFaena).toLocaleDateString('es-AR') : '-',
       r.cantidadAnimales,
       Math.round(r.pesoVivoTotal),
       Math.round(r.pesoFaenaTotal),
@@ -272,7 +295,7 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
 
     if (estadisticas) {
       data.push([
-        '', 'TOTALES', '', estadisticas.totalAnimales,
+        '', 'TOTALES', '', '', estadisticas.totalAnimales,
         Math.round(estadisticas.totalPesoVivo),
         Math.round(estadisticas.totalPesoFaena),
         estadisticas.rindeGeneral.toFixed(2), '', '',
@@ -289,11 +312,12 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
   }
 
   const exportMainTablePDF = () => {
-    const headers = ['Tropa', 'Productor', 'Usuario', 'Anim.', 'P. Vivo', 'P. Faena', 'Rinde %']
+    const headers = ['Tropa', 'Productor', 'Usuario', 'F. Faena', 'Anim.', 'P. Vivo', 'P. Faena', 'Rinde %']
     const data = ordenarRindes(rindes).map(r => [
       r.tropaCodigo,
       (r.productor || '-').substring(0, 20),
       (r.usuario || '-').substring(0, 20),
+      r.fechaFaena ? new Date(r.fechaFaena).toLocaleDateString('es-AR') : '-',
       r.cantidadAnimales.toString(),
       formatNumber(Math.round(r.pesoVivoTotal)),
       formatNumber(Math.round(r.pesoFaenaTotal)),
@@ -315,65 +339,66 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
     toast.success('Exportación PDF iniciada')
   }
 
-  const exportDetalleExcel = () => {
-    if (!tropaDetalle) return
+  const exportDetalleExcel = async () => {
+    if (!tropaDetalle?.tropa) return
 
-    const headers = ['Garrón', 'Animal', 'Tipo', 'Peso Vivo (kg)', 'Media Izq (kg)', 'Media Der (kg)', 'Total (kg)', 'Rinde %']
-    const data = tropaDetalle.romaneos.map(r => [
-      r.garron,
-      r.numeroAnimal || '-',
-      r.tipoAnimal || '-',
-      r.pesoVivo ? Math.round(r.pesoVivo) : '-',
-      r.pesoMediaIzq ? r.pesoMediaIzq.toFixed(1) : '-',
-      r.pesoMediaDer ? r.pesoMediaDer.toFixed(1) : '-',
-      r.pesoTotal ? r.pesoTotal.toFixed(1) : '-',
-      r.rinde ? (r.rinde * 100).toFixed(2) : '-',
-    ])
+    try {
+      const res = await fetch('/api/reportes/rinde-tropa-detalle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tropaId: tropaDetalle.tropa.id })
+      })
 
-    const stats = tropaDetalle.estadisticas
-    data.push([
-      '', 'TOTALES', '', 
-      Math.round(stats.pesoVivoTotal), '', '',
-      Math.round(stats.pesoFaenaTotal),
-      `${stats.rindePromedio.toFixed(2)}%`,
-    ])
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al generar Excel')
+      }
 
-    ExcelExporter.exportToExcel({
-      filename: `detalle_tropa_${tropaDetalle.tropa?.codigo || 'desconocida'}_${new Date().toISOString().split('T')[0]}`,
-      sheets: [{ name: 'Detalle Animales', headers, data }],
-      title: `Detalle de Tropa ${tropaDetalle.tropa?.codigo} - Productor: ${tropaDetalle.tropa?.productor?.nombre || '-'}`,
-    })
-
-    toast.success('Exportación Excel del detalle iniciada')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Rinde_Tropa_${tropaDetalle.tropa.numero || tropaDetalle.tropa.codigo}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 500)
+      toast.success('Excel generado correctamente')
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error(error instanceof Error ? error.message : 'Error al generar Excel')
+    }
   }
 
-  const exportDetallePDF = () => {
-    if (!tropaDetalle) return
+  const exportDetallePDF = async () => {
+    if (!tropaDetalle?.tropa) return
 
-    const headers = ['Garrón', 'Animal', 'Tipo', 'P. Vivo', 'Med. Izq', 'Med. Der', 'Total', 'Rinde']
-    const data = tropaDetalle.romaneos.map(r => [
-      r.garron.toString(),
-      (r.numeroAnimal || '-').toString(),
-      r.tipoAnimal || '-',
-      r.pesoVivo ? Math.round(r.pesoVivo).toString() : '-',
-      r.pesoMediaIzq ? r.pesoMediaIzq.toFixed(1) : '-',
-      r.pesoMediaDer ? r.pesoMediaDer.toFixed(1) : '-',
-      r.pesoTotal ? r.pesoTotal.toFixed(1) : '-',
-      r.rinde ? `${(r.rinde * 100).toFixed(2)}%` : '-',
-    ])
+    try {
+      const res = await fetch(`/api/reportes/rinde-tropa-detalle/pdf?tropaId=${tropaDetalle.tropa.id}`)
 
-    const stats = tropaDetalle.estadisticas
-    const doc = PDFExporter.generateReport({
-      title: `Detalle de Tropa ${tropaDetalle.tropa?.codigo || ''}`,
-      subtitle: `Productor: ${tropaDetalle.tropa?.productor?.nombre || '-'} | Animales: ${stats.cantidadAnimales} | Rinde: ${stats.rindePromedio.toFixed(2)}%`,
-      headers,
-      data,
-      orientation: 'landscape',
-      fileName: `detalle_tropa_${tropaDetalle.tropa?.codigo || 'desconocida'}.pdf`,
-    })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al generar PDF')
+      }
 
-    PDFExporter.downloadPDF(doc, `detalle_tropa_${tropaDetalle.tropa?.codigo || 'desconocida'}.pdf`)
-    toast.success('Exportación PDF del detalle iniciada')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Rinde_Tropa_${tropaDetalle.tropa.numero || tropaDetalle.tropa.codigo}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 500)
+      toast.success('PDF generado correctamente')
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error(error instanceof Error ? error.message : 'Error al generar PDF')
+    }
   }
 
   const tieneFiltrosActivos = fechaDesde || fechaHasta || tropaDesde || tropaHasta || (usuario && usuario !== '___todos___') || (proveedor && proveedor !== '___todos___')
@@ -386,6 +411,18 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
           <p className="text-stone-500">Análisis de rendimiento por tropa faenada</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {/* Busqueda rapida por tropa */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+            <Input
+              placeholder="Buscar tropa..."
+              value={busquedaTropa}
+              onChange={(e) => setBusquedaTropa(e.target.value)}
+              className="pl-9 w-36 h-9"
+              type="number"
+              min={1}
+            />
+          </div>
           <Button 
             variant="outline" 
             size="sm" 
@@ -638,6 +675,7 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
                     </TableHead>
                     <TableHead>Productor</TableHead>
                     <TableHead>Usuario</TableHead>
+                    <TableHead className="text-center">Fecha Faena</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-stone-50 text-center"
                       onClick={() => toggleOrden('cantidadAnimales')}
@@ -677,6 +715,9 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
                       </TableCell>
                       <TableCell className="text-sm text-stone-600 max-w-[150px] truncate" title={rinde.usuario || ''}>
                         {rinde.usuario || '-'}
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-stone-600">
+                        {rinde.fechaFaena ? new Date(rinde.fechaFaena).toLocaleDateString('es-AR') : '-'}
                       </TableCell>
                       <TableCell className="text-center">
                         {formatNumber(rinde.cantidadAnimales)}
@@ -729,6 +770,9 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
             </DialogTitle>
             <DialogDescription>
               <div className="space-y-1">
+                {tropaDetalle?.tropa?.fechaFaena && (
+                  <p>Fecha Faena: {new Date(tropaDetalle.tropa.fechaFaena).toLocaleDateString('es-AR')}</p>
+                )}
                 {tropaDetalle?.tropa?.productor?.nombre && (
                   <p>Productor: {tropaDetalle.tropa.productor.nombre}</p>
                 )}
@@ -817,8 +861,8 @@ function RindesTropaModule({ operador }: { operador: Operador }) {
                         <TableCell className="text-right font-medium">{romaneo.pesoTotal ? formatNumber(romaneo.pesoTotal, 1) : '-'}</TableCell>
                         <TableCell className="text-right">
                           {romaneo.rinde ? (
-                            <Badge className={getRindeBadge(romaneo.rinde * 100)}>
-                              {formatNumber(romaneo.rinde * 100, 2)}%
+                            <Badge className={getRindeBadge(romaneo.rinde)}>
+                              {formatNumber(romaneo.rinde, 2)}%
                             </Badge>
                           ) : '-'}
                         </TableCell>

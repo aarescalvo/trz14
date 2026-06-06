@@ -9,6 +9,7 @@ import { checkPermission } from '@/lib/auth-helpers'
 //   - detalle: Mediciones individuales paginadas
 //   - dfd-productor: Correlación DFD por productor
 //   - control-estadistico: Datos para gráficos X-bar y R
+//   - listas: Opciones para dropdowns de filtros
 // ============================================
 export async function GET(request: NextRequest) {
   const authError = await checkPermission(request, 'puedeReportes')
@@ -27,12 +28,80 @@ export async function GET(request: NextRequest) {
         return generarCorrelacionDFD(searchParams)
       case 'control-estadistico':
         return generarControlEstadistico(searchParams)
+      case 'listas':
+        return generarListas()
       default:
         return NextResponse.json({ success: false, error: 'Modo de reporte no válido' }, { status: 400 })
     }
   } catch (error) {
     console.error('[calidad-ph/reportes GET] Error:', error)
     return NextResponse.json({ success: false, error: 'Error al generar reporte de pH' }, { status: 500 })
+  }
+}
+
+// ============================================
+// Listas: Opciones para los dropdowns de filtros
+// ============================================
+async function generarListas() {
+  try {
+    // Usuarios de faena (clientes con esUsuarioFaena=true que tienen tropas)
+    const usuariosFaena = await db.cliente.findMany({
+      where: { esUsuarioFaena: true, activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: 'asc' }
+    })
+
+    // Productores (clientes con esProductor=true que tienen tropas)
+    const productores = await db.cliente.findMany({
+      where: { esProductor: true, activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: 'asc' }
+    })
+
+    // Tropas faenadas (últimos 90 días)
+    const noventaDias = new Date()
+    noventaDias.setDate(noventaDias.getDate() - 90)
+    const tropas = await db.tropa.findMany({
+      where: {
+        estado: { in: ['FAENADO', 'EN_FAENA'] },
+        fechaFaena: { gte: noventaDias }
+      },
+      select: { id: true, codigo: true, numero: true },
+      orderBy: { numero: 'desc' },
+      take: 200
+    })
+
+    // Tipos de animal desde los enum del schema
+    const tiposAnimal = [
+      { value: 'TO', label: 'Toro (TO)' },
+      { value: 'VA', label: 'Vaca (VA)' },
+      { value: 'VQ', label: 'Vaquillona (VQ)' },
+      { value: 'MEJ', label: 'Torito/Mej (MEJ)' },
+      { value: 'NO', label: 'Novillo (NO)' },
+      { value: 'NT', label: 'Novillito (NT)' },
+      { value: 'PADRILLO', label: 'Padrillo' },
+      { value: 'POTRILLO', label: 'Potrillo' },
+      { value: 'YEGUA', label: 'Yegua' },
+      { value: 'CABALLO', label: 'Caballo' },
+    ]
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        usuariosFaena,
+        productores,
+        tropas: tropas.map(t => ({
+          id: t.id,
+          codigo: t.codigo,
+          numero: t.numero,
+          label: `${t.codigo} (N° ${t.numero})`
+        })),
+        tiposAnimal
+      }
+    })
+  } catch (error) {
+    console.error('[calidad-ph/reportes] Error generando listas:', error)
+    return NextResponse.json({ success: false, error: 'Error al cargar listas' }, { status: 500 })
   }
 }
 
@@ -44,6 +113,8 @@ async function generarResumen(searchParams: URLSearchParams) {
   const fechaHasta = searchParams.get('fechaHasta')
   const tropaCodigo = searchParams.get('tropaCodigo')
   const productorId = searchParams.get('productorId')
+  const usuarioFaenaId = searchParams.get('usuarioFaenaId')
+  const tipoAnimal = searchParams.get('tipoAnimal')
 
   const where: any = { numeroMedicion: 1 } // Solo primera medición para resumen
   if (fechaDesde || fechaHasta) {
@@ -53,6 +124,8 @@ async function generarResumen(searchParams: URLSearchParams) {
   }
   if (tropaCodigo) where.tropaCodigo = tropaCodigo
   if (productorId) where.productorId = productorId
+  if (usuarioFaenaId) where.usuarioFaenaId = usuarioFaenaId
+  if (tipoAnimal) where.tipoAnimal = tipoAnimal
 
   // KPIs generales
   const total = await db.medicionPH.count({ where })
@@ -136,6 +209,10 @@ async function generarDetalle(searchParams: URLSearchParams) {
   const productorId = searchParams.get('productorId')
   const clasificacion = searchParams.get('clasificacion')
   const operadorId = searchParams.get('operadorId')
+  const usuarioFaenaId = searchParams.get('usuarioFaenaId')
+  const tipoAnimal = searchParams.get('tipoAnimal')
+  const pesoMin = searchParams.get('pesoMin')
+  const pesoMax = searchParams.get('pesoMax')
   const phMin = searchParams.get('phMin')
   const phMax = searchParams.get('phMax')
   const page = parseInt(searchParams.get('page') || '1')
@@ -151,6 +228,13 @@ async function generarDetalle(searchParams: URLSearchParams) {
   if (productorId) where.productorId = productorId
   if (clasificacion && clasificacion !== 'TODAS') where.clasificacion = clasificacion
   if (operadorId) where.operadorId = operadorId
+  if (usuarioFaenaId) where.usuarioFaenaId = usuarioFaenaId
+  if (tipoAnimal) where.tipoAnimal = tipoAnimal
+  if (pesoMin || pesoMax) {
+    where.mediaRes = { peso: {} }
+    if (pesoMin) where.mediaRes.peso.gte = parseFloat(pesoMin)
+    if (pesoMax) where.mediaRes.peso.lte = parseFloat(pesoMax)
+  }
   if (phMin || phMax) {
     where.valorPH = {}
     if (phMin) where.valorPH.gte = parseFloat(phMin)

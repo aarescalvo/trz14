@@ -103,7 +103,7 @@ Peso Promedio: ${tropa.cantidadCabezas > 0 ? (kgMediaTotal / tropa.cantidadCabez
 DETALLE POR ANIMAL
 ----------------------------------------
 ${romaneosConfirmados.map((r, i) => 
-  `${i + 1}. Garrón ${r.garron} | Tipo: ${r.tipoAnimal || '-'} | KG Vivo: ${(r.pesoVivo || 0).toFixed(0)} | KG Media: ${(r.pesoTotal || 0).toFixed(0)} | Rinde: ${r.rinde ? r.rinde.toFixed(1) : '-'}%`
+  `${i + 1}. Garrón ${r.garron} | Tipo: ${r.tipoAnimal || '-'} | KG Vivo: ${(r.pesoVivo || 0).toFixed(0)} | KG Media: ${(r.pesoTotal || 0).toFixed(0)} | Rinde: ${(r.pesoVivo && r.pesoVivo > 0 && r.pesoTotal && r.pesoTotal > 0) ? ((r.pesoTotal / r.pesoVivo) * 100).toFixed(1) : '-'}%`
 ).join('\n')}
 
 ========================================

@@ -63,7 +63,9 @@ export async function GET(request: NextRequest) {
         pesoMediaIzq: r.pesoMediaIzq,
         pesoMediaDer: r.pesoMediaDer,
         pesoTotal: r.pesoTotal,
-        rinde: r.rinde,
+        rinde: (r.pesoVivo && r.pesoVivo > 0 && r.pesoTotal && r.pesoTotal > 0)
+          ? Math.round((r.pesoTotal / r.pesoVivo) * 10000) / 100
+          : r.rinde,
         denticion: r.denticion,
         estado: r.estado,
         fecha: r.fecha.toISOString(),
@@ -108,7 +110,8 @@ export async function POST(request: NextRequest) {
       denticion,
       tipificadorId,
       operadorId,
-      listaFaenaId
+      listaFaenaId,
+      fecha // Permite post-datado (simulación)
     } = body
 
     if (!garron) {
@@ -141,7 +144,8 @@ export async function POST(request: NextRequest) {
         tipificadorId,
         operadorId,
         listaFaenaId,
-        estado: 'PENDIENTE'
+        estado: 'PENDIENTE',
+        ...(fecha ? { fecha: new Date(fecha) } : {})
       },
       include: {
         tipificador: true

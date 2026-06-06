@@ -322,51 +322,51 @@ export function StocksCorralesModule({ operador }: Props) {
           r.height = 16
 
           // A: Entrada Fecha
-          setCell(ws, rowIdx, 1, fechaFormateada, dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 1, fechaFormateada, dataFont, undefined, centerAlign, allBorders)
           // B: Entrada Hora
-          setCell(ws, rowIdx, 2, horaFormateada, dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 2, horaFormateada, dataFont, undefined, centerAlign, allBorders)
           // C: Corral
-          setCell(ws, rowIdx, 3, corral.nombre, dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 3, corral.nombre, dataFont, undefined, centerAlign, allBorders)
           // D: Tropa
-          setCell(ws, rowIdx, 4, tropa.numero, dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 4, tropa.numero, dataFont, undefined, centerAlign, allBorders)
           // E: Guia
-          setCell(ws, rowIdx, 5, tropa.guia || '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 5, tropa.guia || '', dataFont, undefined, centerAlign, allBorders)
           // F: DTe
-          setCell(ws, rowIdx, 6, tropa.dte || '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 6, tropa.dte || '', dataFont, undefined, centerAlign, allBorders)
           // G: separador
-          setCell(ws, rowIdx, 7, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 7, '', dataFont, undefined, centerAlign, allBorders)
           // H: DDJJ UE
-          setCell(ws, rowIdx, 8, tropa.usuarioFaena?.nombre || '', dataFont, null, leftAlign, allBorders)
+          setCell(ws, rowIdx, 8, tropa.usuarioFaena?.nombre || '', dataFont, undefined, leftAlign, allBorders)
           // I: Cant Animales
-          setCell(ws, rowIdx, 9, tropa.cantidadCabezas, dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 9, tropa.cantidadCabezas, dataFont, undefined, centerAlign, allBorders)
           // J: Partido
-          setCell(ws, rowIdx, 10, '', dataFont, null, leftAlign, allBorders)
+          setCell(ws, rowIdx, 10, '', dataFont, undefined, leftAlign, allBorders)
           // K: separador
-          setCell(ws, rowIdx, 11, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 11, '', dataFont, undefined, centerAlign, allBorders)
           // L: Provincia
-          setCell(ws, rowIdx, 12, '', dataFont, null, leftAlign, allBorders)
+          setCell(ws, rowIdx, 12, '', dataFont, undefined, leftAlign, allBorders)
           // M: separador
-          setCell(ws, rowIdx, 13, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 13, '', dataFont, undefined, centerAlign, allBorders)
           // N: Remanente
-          setCell(ws, rowIdx, 14, tropa.cantidadCabezas, dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 14, tropa.cantidadCabezas, dataFont, undefined, centerAlign, allBorders)
           // O: Faena
-          setCell(ws, rowIdx, 15, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 15, '', dataFont, undefined, centerAlign, allBorders)
           // P: Saldo
-          setCell(ws, rowIdx, 16, tropa.cantidadCabezas, dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 16, tropa.cantidadCabezas, dataFont, undefined, centerAlign, allBorders)
           // Q: separador
-          setCell(ws, rowIdx, 17, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 17, '', dataFont, undefined, centerAlign, allBorders)
           // R: Orden SI
-          setCell(ws, rowIdx, 18, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 18, '', dataFont, undefined, centerAlign, allBorders)
           // S: Orden NO
-          setCell(ws, rowIdx, 19, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 19, '', dataFont, undefined, centerAlign, allBorders)
           // T: separador
-          setCell(ws, rowIdx, 20, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 20, '', dataFont, undefined, centerAlign, allBorders)
           // U: Autoriza (productor)
-          setCell(ws, rowIdx, 21, tropa.productor?.nombre || '', dataFont, null, leftAlign, allBorders)
+          setCell(ws, rowIdx, 21, tropa.productor?.nombre || '', dataFont, undefined, leftAlign, allBorders)
           // V: separador
-          setCell(ws, rowIdx, 22, '', dataFont, null, centerAlign, allBorders)
+          setCell(ws, rowIdx, 22, '', dataFont, undefined, centerAlign, allBorders)
           // W: Observaciones
-          setCell(ws, rowIdx, 23, tropa.observaciones || '', dataFont, null, leftAlign, allBorders)
+          setCell(ws, rowIdx, 23, tropa.observaciones || '', dataFont, undefined, leftAlign, allBorders)
 
           rowIdx++
         }
@@ -735,15 +735,15 @@ function setCell(
   row: number,
   col: number,
   value: string | number | null,
-  font: Partial<ExcelJS.Font> | undefined,
-  fill: Partial<ExcelJS.Fill> | undefined,
-  alignment: Partial<ExcelJS.Alignment>,
-  border: Partial<ExcelJS.Borders>
+  font?: Partial<ExcelJS.Font>,
+  fill?: Partial<ExcelJS.Fill>,
+  alignment?: Partial<ExcelJS.Alignment>,
+  border?: Partial<ExcelJS.Borders>
 ) {
   const cell = ws.getCell(row, col)
   cell.value = value ?? ''
   if (font) cell.font = font
-  if (fill) cell.fill = fill
+  if (fill) cell.fill = fill as ExcelJS.Fill
   if (alignment) cell.alignment = alignment
   if (border) cell.border = border
 }

@@ -8,17 +8,17 @@ export async function POST(request: NextRequest) {
   if (authError) return authError
   try {
     const body = await request.json()
-    const { operadorId } = body
+    const { operadorId, fecha } = body
 
-    const hoy = new Date()
-    hoy.setHours(0, 0, 0, 0)
+    const fechaRef = fecha ? new Date(fecha) : new Date()
+    fechaRef.setHours(0, 0, 0, 0)
 
-    // Obtener todas las asignaciones del día ordenadas por hora de ingreso
+    // Obtener todas las asignaciones del día (fecha indicada o hoy) ordenadas por hora de ingreso
     const asignaciones = await db.asignacionGarron.findMany({
       where: {
         horaIngreso: {
-          gte: hoy,
-          lt: new Date(hoy.getTime() + 24 * 60 * 60 * 1000)
+          gte: fechaRef,
+          lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
         }
       },
       orderBy: { horaIngreso: 'asc' }

@@ -109,7 +109,8 @@ export async function PUT(
       'delCuarto', 'tipificacion', 'unidadMedida', 'categoria', 'tipoVenta',
       'descripcionCircular', 'moneda', 'producidoParaCliente', 'tipoTrabajo',
       'idiomaEtiqueta', 'formatoEtiqueta', 'textoEtiqueta', 'textoEspanol',
-      'textoIngles', 'textoTercerIdioma', 'temperaturaTransporte', 'tipoConsumo',
+      'textoIngles', 'textoTercerIdioma', 'textoRubroPieza', 'textoTipoTrabajoLabel',
+      'temperaturaTransporte', 'tipoConsumo',
       'empresa', 'tipoTrabajoId', 'tipoCarne', 'numeroRegistroSenasa'
     ]
 
@@ -134,7 +135,7 @@ export async function PUT(
     // Campos booleanos
     const camposBooleanos = [
       'tieneTipificacion', 'productoGeneral', 'productoReporteRinde',
-      'activo', 'requiereTrazabilidad'
+      'activo', 'requiereTrazabilidad', 'esVendible'
     ]
 
     camposBooleanos.forEach(campo => {

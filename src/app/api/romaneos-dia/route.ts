@@ -7,14 +7,19 @@ export async function GET(request: NextRequest) {
   const authError = await checkPermission(request, 'puedeRomaneo')
   if (authError) return authError
   try {
+    const { searchParams } = new URL(request.url)
+    const fechaParam = searchParams.get('fecha')
+    
     const hoy = new Date()
     hoy.setHours(0, 0, 0, 0)
+    const fechaFiltro = fechaParam ? new Date(fechaParam) : hoy
+    fechaFiltro.setHours(0, 0, 0, 0)
     
     const romaneos = await db.romaneo.findMany({
       where: {
         fecha: {
-          gte: hoy,
-          lt: new Date(hoy.getTime() + 24 * 60 * 60 * 1000)
+          gte: fechaFiltro,
+          lt: new Date(fechaFiltro.getTime() + 24 * 60 * 60 * 1000)
         }
       },
       include: {
@@ -35,7 +40,9 @@ export async function GET(request: NextRequest) {
       pesoMediaIzq: r.pesoMediaIzq,
       pesoMediaDer: r.pesoMediaDer,
       pesoTotal: r.pesoTotal,
-      rinde: r.rinde,
+      rinde: (r.pesoVivo && r.pesoVivo > 0 && r.pesoTotal && r.pesoTotal > 0)
+        ? Math.round((r.pesoTotal / r.pesoVivo) * 10000) / 100
+        : r.rinde,
       estado: r.estado?.toString() || 'PENDIENTE',
       tipificador: r.tipificador ? {
         id: r.tipificador.id,
