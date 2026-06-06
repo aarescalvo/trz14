@@ -479,6 +479,7 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
       const datosRotulo = {
         fecha: formatearFecha(fecha),
         fecha_faena: formatearFecha(fecha),
+        fecha_actual: formatearFecha(fecha),
         fecha_venc: formatearFecha(fechaVenc),
         fecha_vencimiento: formatearFecha(fechaVenc),
         tropa: asignacionActual?.tropaCodigo || '-',
@@ -500,8 +501,13 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
         nombre_establecimiento: 'SOLEMAR ALIMENTARIA',
         tipificador: tipificador ? `${tipificador.nombre} ${tipificador.apellido}` : '-',
         matricula: tipificador?.matricula || '-',
+        matricula_tipificador: tipificador?.matricula || '-',
         camara: camara?.nombre || '-',
         decomisado: esDecomiso ? 'SI' : 'NO',
+        usuario_faena: asignacionActual?.productorNombre || '-',
+        nombre_usuario_faena: asignacionActual?.productorNombre || '-',
+        cuit_usuario: asignacionActual?.productorCuit || '-',
+        matricula_usuario_faena: asignacionActual?.productorMatricula || '-',
         codigo_barras: `${fecha.getFullYear().toString().slice(-2)}${(fecha.getMonth() + 1).toString().padStart(2, '0')}${fecha.getDate().toString().padStart(2, '0')}-${garron.toString().padStart(4, '0')}-${lado.charAt(0)}`,
       }
 
