@@ -853,6 +853,21 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
       const data = await res.json()
       
       if (res.ok && data.success) {
+        // Imprimir resumen en impresora térmica (mismo tamaño de rótulo)
+        if (!usarPredeterminada && impresoraIp) {
+          const zplResumen = generarZPLResumenFinal()
+          if (zplResumen) {
+            const enviado = await enviarAImpresoraTermica(zplResumen)
+            if (enviado) {
+              toast.success('Resumen impreso en impresora térmica')
+            } else {
+              toast.error('No se pudo enviar resumen a impresora')
+            }
+          }
+        } else {
+          // Fallback: generar rótulo HTML si no hay impresora térmica
+          imprimirResumenHTML()
+        }
         toast.success('Tropa pesada completamente')
         setTropaSeleccionada(null)
         setAnimales([])
@@ -899,6 +914,76 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
 ^FO560,65^A0N,20,20^FDTIPO: ${tipoLetra}^FS
 ^FO560,110^A0N,16,16^FD${fecha}^FS
 ^XZ`
+  }
+
+  // Generar ZPL para rótulo de resumen final de pesaje (100x50mm)
+  const generarZPLResumenFinal = (): string => {
+    if (!tropaSeleccionada) return ''
+    const tropa = (tropaSeleccionada.codigo || '').replace(/\s/g, '')
+    const fecha = new Date().toLocaleDateString('es-AR')
+    const animalesPesados = animales.filter(a => a.estado === 'PESADO')
+    const cantidad = animalesPesados.length
+    const pesoTotal = animalesPesados.reduce((acc, a) => acc + (a.pesoVivo || 0), 0)
+    const promedio = cantidad > 0 ? Math.round(pesoTotal / cantidad) : 0
+    const pesoStr = pesoTotal.toLocaleString('es-AR')
+    const promStr = `${promedio.toLocaleString('es-AR')}`
+
+    // Resumen por tipo
+    const tipoCount: Record<string, { cant: number; kg: number }> = {}
+    animalesPesados.forEach(a => {
+      if (!tipoCount[a.tipoAnimal]) tipoCount[a.tipoAnimal] = { cant: 0, kg: 0 }
+      tipoCount[a.tipoAnimal].cant++
+      tipoCount[a.tipoAnimal].kg += a.pesoVivo || 0
+    })
+    const tipoLines = Object.entries(tipoCount)
+      .sort((a, b) => b[1].kg - a[1].kg)
+      .slice(0, 4) // max 4 tipos que entran
+    const tipoText = tipoLines.map(([t, d]) => `${t}:${d.cant}/${d.kg.toLocaleString('es-AR')}`).join(' ')
+
+    const codigoBarras = `${tropa}-RES`
+
+    return `^XA
+^CI28
+^FO30,10^A0N,22,22^FDRESUMEN PESAJE^FS
+^FO520,10^A0N,22,22^FD${fecha}^FS
+^FO30,40^GB740,2,2^FS
+^FO30,55^A0N,18,18^FDTROPA^FS
+^FO120,55^A0N,40,40^FD${tropa}^FS
+^FO30,105^A0N,18,18^FDCABEZAS:^FS
+^FO150,105^A0N,35,35^FD${cantidad}^FS
+^FO250,105^A0N,18,18^FDTOTAL KG:^FS
+^FO370,105^A0N,35,35^FD${pesoStr}^FS
+^FO30,155^GB740,2,2^FS
+^FO30,170^A0N,18,18^FDPROMEDIO:^FS
+^FO150,170^A0N,30,30^FD${promStr} kg^FS
+^FO30,215^A0N,14,14^FD${tipoText}^FS
+^FO30,240^GB740,2,2^FS
+^FO30,255^BCN,60,Y,N,N^FD${codigoBarras}^FS
+^FO30,330^A0N,14,14^FD${codigoBarras}^FS
+^XZ`
+  }
+
+  // Enviar ZPL a impresora térmica
+  const enviarAImpresoraTermica = async (zplContenido: string): Promise<boolean> => {
+    try {
+      const printRes = await fetch('/api/impresora/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contenido: zplContenido,
+          impresoraIp: impresoraIp,
+          impresoraPuerto: impresoraPuerto,
+          velocidad: impresoraVelocidad,
+          calor: impresoraCalor,
+          anchoEtiqueta: impresoraAncho,
+          altoEtiqueta: impresoraAlto
+        })
+      })
+      const printData = await printRes.json()
+      return printData.success === true
+    } catch {
+      return false
+    }
   }
 
   // Imprimir rótulo
@@ -1028,6 +1113,110 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
     } catch (error) {
       console.error('Error al imprimir rótulo:', error)
       imprimirRotuloHTML(animal)
+    }
+  }
+
+  // Imprimir resumen final como HTML fallback (mismo tamaño rótulo 100x50mm)
+  const imprimirResumenHTML = () => {
+    if (!tropaSeleccionada) return
+    try {
+      const printWindow = window.open('', '_blank', 'width=500,height=300,menubar=no,toolbar=no,location=no,status=no')
+      if (!printWindow) return
+
+      const tropa = (tropaSeleccionada.codigo || '').replace(/\s/g, '')
+      const fecha = new Date().toLocaleDateString('es-AR')
+      const animalesPesados = animales.filter(a => a.estado === 'PESADO')
+      const cantidad = animalesPesados.length
+      const pesoTotal = animalesPesados.reduce((acc, a) => acc + (a.pesoVivo || 0), 0)
+      const promedio = cantidad > 0 ? Math.round(pesoTotal / cantidad) : 0
+
+      const tipoCount: Record<string, { cant: number; kg: number }> = {}
+      animalesPesados.forEach(a => {
+        if (!tipoCount[a.tipoAnimal]) tipoCount[a.tipoAnimal] = { cant: 0, kg: 0 }
+        tipoCount[a.tipoAnimal].cant++
+        tipoCount[a.tipoAnimal].kg += a.pesoVivo || 0
+      })
+      const tipoLines = Object.entries(tipoCount)
+        .sort((a, b) => b[1].kg - a[1].kg)
+        .slice(0, 4)
+        .map(([t, d]) => `${t}:${d.cant}/${d.kg.toLocaleString('es-AR')}kg`)
+        .join(' | ')
+      const codigoBarras = `${tropa}-RES`
+
+      const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Resumen ${tropa}</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { size: 100mm 50mm landscape; margin: 0; }
+    body { font-family: Arial, sans-serif; width: 100mm; height: 50mm; background: white; }
+    .etiqueta { border: 2px solid black; width: 100%; height: 100%; display: flex; flex-direction: column; }
+    .fila-header { display: flex; justify-content: space-between; padding: 1.5mm 4mm; border-bottom: 2px solid black; background: #f0f0f0; }
+    .fila-header .label { font-size: 10px; font-weight: bold; text-transform: uppercase; }
+    .fila-header .fecha { font-size: 10px; font-weight: bold; }
+    .fila-tropa { display: flex; align-items: center; padding: 2mm 4mm; border-bottom: 2px solid black; }
+    .fila-tropa .label { font-size: 12px; font-weight: bold; }
+    .fila-tropa .value { font-size: 24px; font-weight: 900; margin-left: 3mm; }
+    .fila-datos { display: flex; justify-content: space-around; padding: 2mm 4mm; border-bottom: 2px solid black; }
+    .dato { text-align: center; }
+    .dato .label { font-size: 8px; font-weight: bold; text-transform: uppercase; color: #333; }
+    .dato .value { font-size: 18px; font-weight: 900; }
+    .fila-tipo { display: flex; align-items: center; padding: 1.5mm 4mm; border-bottom: 2px solid black; font-size: 8px; font-weight: bold; color: #333; }
+    .fila-barcode { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm 2mm; }
+    .barcode-text { font-family: 'Courier New', monospace; font-size: 6px; font-weight: bold; margin-top: 1mm; line-height: 1.2; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="etiqueta">
+    <div class="fila-header">
+      <div class="label">RESUMEN PESAJE</div>
+      <div class="fecha">${fecha}</div>
+    </div>
+    <div class="fila-tropa">
+      <span class="label">TROPA:</span>
+      <span class="value">${tropa}</span>
+    </div>
+    <div class="fila-datos">
+      <div class="dato">
+        <div class="label">Cabezas</div>
+        <div class="value">${cantidad}</div>
+      </div>
+      <div class="dato">
+        <div class="label">Total Kg</div>
+        <div class="value">${pesoTotal.toLocaleString('es-AR')}</div>
+      </div>
+      <div class="dato">
+        <div class="label">Promedio</div>
+        <div class="value">${promedio.toLocaleString('es-AR')}</div>
+      </div>
+    </div>
+    <div class="fila-tipo">${tipoLines}</div>
+    <div class="fila-barcode">
+      <svg id="barcode-resumen"></svg>
+      <div class="barcode-text">${codigoBarras}</div>
+    </div>
+  </div>
+  <script>
+    try {
+      JsBarcode("#barcode-resumen", "${codigoBarras}", {
+        format: "CODE128", width: 1.5, height: 22, displayValue: false, margin: 0, fontSize: 0, textMargin: 0
+      });
+      var svg = document.getElementById('barcode-resumen');
+      if (svg) svg.querySelectorAll('text').forEach(function(t) { t.remove(); });
+    } catch(e) {}
+    window.onload = function() { setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); }; }, 500); };
+  <\/script>
+</body>
+</html>`
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
+      printWindow.focus()
+    } catch (error) {
+      console.error('Error al imprimir resumen HTML:', error)
     }
   }
 
