@@ -1166,15 +1166,17 @@ export function PesajeIndividualModule({ tropas: propTropas, operador }: { tropa
         }
         toast.success('Tropa pesada completamente')
         
-        // Print summary rótulo (tipo + kg totals)
-        try {
-          imprimirResumenTipo({
-            tropaCodigo: tropaSeleccionada.codigo,
-            animales: animales.filter(a => a.estado === 'PESADO'),
-            tiposDTE: tiposConfirmados.map(tc => ({ tipoAnimal: tc.tipoAnimal, cantidad: tc.cantidadDTE }))
-          })
-        } catch (printError) {
-          console.error('Error al imprimir resumen:', printError)
+        // Solo imprimir resumen HTML si no se envió a impresora térmica
+        if ((usarPredeterminada || !impresoraIp)) {
+          try {
+            imprimirResumenTipo({
+              tropaCodigo: tropaSeleccionada.codigo,
+              animales: animales.filter(a => a.estado === 'PESADO'),
+              tiposDTE: tiposConfirmados.map(tc => ({ tipoAnimal: tc.tipoAnimal, cantidad: tc.cantidadDTE }))
+            })
+          } catch (printError) {
+            console.error('Error al imprimir resumen:', printError)
+          }
         }
         
         setTropaSeleccionada(null)
