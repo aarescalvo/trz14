@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { 
   Scale, Printer, RefreshCw, User, Warehouse, ChevronUp, ChevronDown,
   CheckCircle, AlertTriangle, RotateCcw, Trash2, AlertOctagon, Lock, Edit,
-  Maximize2, Minimize2
+  Maximize2, Minimize2, ClipboardList
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -109,6 +109,14 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
   const [garronSeleccionadoReimpresion, setGarronSeleccionadoReimpresion] = useState<MediaPesada | null>(null)
   const [loadingReimpresion, setLoadingReimpresion] = useState(false)
   
+  // Diálogo de listas de faena con pendientes
+  const [listasPendientesOpen, setListasPendientesOpen] = useState(false)
+  const [listasPendientesData, setListasPendientesData] = useState<{
+    id: string; numero: number; fecha: string; estado: string;
+    totalGarrones: number; completados: number; pendientes: number; porcentaje: number; tropas: string[]
+  }[]>([])
+  const [loadingListasPendientes, setLoadingListasPendientes] = useState(false)
+
   // Estado de faena terminada
   const [faenaTerminada, setFaenaTerminada] = useState(false)
   const [modoEdicion, setModoEdicion] = useState(false)
@@ -1230,6 +1238,38 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                 />
               </div>
 
+              {/* Botón Listas Pendientes */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setListasPendientesOpen(true)
+                  setLoadingListasPendientes(true)
+                  try {
+                    const res = await fetch('/api/romaneo/listas-pendientes')
+                    const data = await res.json()
+                    if (data.success) {
+                      setListasPendientesData(data.data || [])
+                    }
+                  } catch (err) {
+                    console.error('Error cargando listas pendientes:', err)
+                    toast.error('Error al cargar listas pendientes')
+                  } finally {
+                    setLoadingListasPendientes(false)
+                  }
+                }}
+                className="relative border-stone-300 text-stone-600 hover:bg-stone-50"
+                title="Ver listas de faena con estado de romaneo"
+              >
+                <ClipboardList className="w-4 h-4 mr-1" />
+                Listas
+                {listasPendientesData.filter(l => l.pendientes > 0).length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {listasPendientesData.filter(l => l.pendientes > 0).length}
+                  </span>
+                )}
+              </Button>
+
               {/* Selector de Lista de Faena */}
               <div className="flex items-center gap-1">
                 <Label className="text-xs text-stone-500 whitespace-nowrap">Lista:</Label>
@@ -1766,6 +1806,122 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
               <Printer className="w-4 h-4 mr-1" />
               Reimprimir Seleccionado
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Listas de Faena con Estado de Romaneo */}
+      <Dialog open={listasPendientesOpen} onOpenChange={setListasPendientesOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5" />
+              Listas de Faena - Estado de Romaneo
+            </DialogTitle>
+            <DialogDescription>
+              Haga clic en una lista para cargar sus garrones en el pesaje
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            {loadingListasPendientes ? (
+              <div className="flex items-center justify-center py-8 text-stone-500">
+                <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                Cargando listas...
+              </div>
+            ) : listasPendientesData.length === 0 ? (
+              <div className="text-center py-8 text-stone-500">
+                <ClipboardList className="w-8 h-8 mx-auto mb-2 text-stone-300" />
+                <p>No hay listas de faena en los ultimos 30 dias</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-20">Lista</TableHead>
+                      <TableHead className="w-24">Fecha</TableHead>
+                      <TableHead className="w-24">Estado</TableHead>
+                      <TableHead>Tropas</TableHead>
+                      <TableHead className="text-center w-20">Total</TableHead>
+                      <TableHead className="text-center w-20">Pesados</TableHead>
+                      <TableHead className="text-center w-20">Pendientes</TableHead>
+                      <TableHead className="w-32">% Avance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {listasPendientesData.map((lista) => (
+                      <TableRow
+                        key={lista.id}
+                        className={cn(
+                          "cursor-pointer hover:bg-stone-50 transition-colors",
+                          lista.pendientes > 0 && "hover:bg-amber-50",
+                          listaFaenaId === lista.id && "bg-blue-50",
+                        )}
+                        onClick={() => {
+                          fetchData(lista.id)
+                          setListasPendientesOpen(false)
+                        }}
+                      >
+                        <TableCell className="font-bold">
+                          N{String(lista.numero).padStart(4, '0')}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {new Date(lista.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] px-1.5 py-0",
+                              lista.estado === 'ABIERTA' && "bg-green-50 text-green-700 border-green-200",
+                              lista.estado === 'EN_PROCESO' && "bg-amber-50 text-amber-700 border-amber-200",
+                              lista.estado === 'CERRADA' && "bg-blue-50 text-blue-700 border-blue-200",
+                            )}
+                          >
+                            {lista.estado}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-stone-600">
+                          {lista.tropas.length > 0 ? lista.tropas.join(', ') : '-'}
+                        </TableCell>
+                        <TableCell className="text-center font-medium">
+                          {lista.totalGarrones}
+                        </TableCell>
+                        <TableCell className="text-center font-medium text-green-600">
+                          {lista.completados}
+                        </TableCell>
+                        <TableCell className={cn(
+                          "text-center font-bold",
+                          lista.pendientes > 0 ? "text-red-600" : "text-stone-400"
+                        )}>
+                          {lista.pendientes}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-stone-200 rounded-full overflow-hidden">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all",
+                                  lista.porcentaje === 100 ? "bg-green-500" :
+                                  lista.porcentaje >= 50 ? "bg-amber-400" : "bg-red-400"
+                                )}
+                                style={{ width: `${lista.porcentaje}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-stone-500 w-8 text-right">
+                              {lista.porcentaje}%
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setListasPendientesOpen(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
