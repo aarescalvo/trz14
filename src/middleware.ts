@@ -6,7 +6,6 @@ import { checkRateLimit, generateRateLimitKey, RATE_LIMIT_CONFIGS, type RateLimi
 const PUBLIC_ROUTES = [
   '/api/auth',
   '/api/sistema/status',
-  '/api/rotulos/regenerar-media-res',
 ]
 
 // Rutas de solo lectura (GET) que no requieren permisos específicos
