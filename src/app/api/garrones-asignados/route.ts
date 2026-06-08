@@ -19,16 +19,17 @@ export async function GET(request: NextRequest) {
     const fechaFiltro = fecha ? new Date(fecha) : hoy
 
     // Construir filtro
-    const whereClause: any = {
-      horaIngreso: {
+    const whereClause: any = {}
+    
+    // Si se pasa listaId, filtrar por esa lista (sin filtro de fecha)
+    if (listaId) {
+      whereClause.listaFaenaId = listaId
+    } else {
+      // Si no hay listaId, filtrar por fecha
+      whereClause.horaIngreso = {
         gte: fechaFiltro,
         lt: new Date(fechaFiltro.getTime() + 24 * 60 * 60 * 1000)
       }
-    }
-    
-    // Si se pasa listaId, filtrar por esa lista
-    if (listaId) {
-      whereClause.listaFaenaId = listaId
     }
 
     // Buscar asignaciones de garrones del día
