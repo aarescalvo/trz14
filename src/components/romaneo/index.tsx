@@ -636,7 +636,8 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                   datos: datosConSigla,
                   cantidad: 1,
                   impresoraIp: impresoraIp,
-                  impresoraPuerto: impresoraPuerto
+                  impresoraPuerto: impresoraPuerto,
+                  calor: impresoraCalor
                 })
               })
               
@@ -1040,7 +1041,8 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                 },
                 cantidad: 1,
                 impresoraIp: impresoraIp,
-                impresoraPuerto: 9100
+                impresoraPuerto: 9100,
+                calor: impresoraCalor
               })
             })
             

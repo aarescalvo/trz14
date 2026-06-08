@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   if (authError) return authError
   try {
     const data = await request.json()
-    const { rotuloId, datos, cantidad = 1, impresoraIp, impresoraPuerto = 9100 } = data
+    const { rotuloId, datos, cantidad = 1, impresoraIp, impresoraPuerto = 9100, calor } = data
 
     if (!rotuloId) {
       return NextResponse.json(
@@ -59,8 +59,18 @@ export async function POST(request: NextRequest) {
     // Agregar comandos de cantidad según tipo de impresora
     let contenidoFinal = contenidoProcesado
     if (rotulo.tipoImpresora === 'ZEBRA') {
+      // ZPL: Inyectar ^MD (calor/oscuridad) si se proporciona
+      if (calor !== undefined && calor !== null) {
+        const calorVal = Math.max(-30, Math.min(30, Number(calor)))
+        // Insertar ^MD después del ^XA inicial
+        if (contenidoFinal.includes('^XA')) {
+          contenidoFinal = contenidoFinal.replace('^XA', `^XA\n^MD${calorVal}`)
+        } else {
+          contenidoFinal = `^MD${calorVal}\n${contenidoFinal}`
+        }
+      }
       // ZPL: Agregar cantidad de etiquetas
-      contenidoFinal = agregarCantidadZPL(contenidoProcesado, cantidad)
+      contenidoFinal = agregarCantidadZPL(contenidoFinal, cantidad)
     } else if (rotulo.tipoImpresora === 'DATAMAX' || rotulo.tipoImpresora === 'NETTIRA') {
       // DPL: Agregar cantidad de etiquetas (Nettira usa DPL)
       contenidoFinal = agregarCantidadDPL(contenidoProcesado, cantidad)

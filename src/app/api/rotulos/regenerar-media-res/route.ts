@@ -226,6 +226,7 @@ function crearTemplateZPL(gfaSolemar: string, gfaSenasa: string): string {
 ^CI28
 ^PW800
 ^LL1150
+^MD15
 
 ^FX ============ ENCABEZADO - LOGO SOLEMAR ============
 ${logoSolemarLine}
