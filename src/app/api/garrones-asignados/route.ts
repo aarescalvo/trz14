@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
       denticion: string | null; id: string; tropaCodigo: string | null;
     }> = []
     if (garronesNums.length > 0) {
+      // Primero buscar romaneos vinculados a esta lista
       const whereRomaneo: any = { garron: { in: garronesNums } }
       if (listaIdRef) {
         whereRomaneo.listaFaenaId = listaIdRef
@@ -105,6 +106,49 @@ export async function GET(request: NextRequest) {
           tropaCodigo: true,
         },
       })
+
+      // Fallback: buscar romaneos SIN listaFaenaId para garrones que no se encontraron
+      // (romaneos viejos que nunca se vincularon a una lista)
+      if (listaIdRef && romaneosExistentes.length < garronesNums.length) {
+        const garronesEncontrados = new Set(romaneosExistentes.map(r => r.garron as number))
+        const garronesFaltantes = garronesNums.filter(g => !garronesEncontrados.has(g))
+        
+        if (garronesFaltantes.length > 0) {
+          const romaneosViejos = await db.romaneo.findMany({
+            where: {
+              garron: { in: garronesFaltantes },
+              OR: [
+                { listaFaenaId: null },
+                { listaFaenaId: { isEmpty: true } }
+              ]
+            },
+            select: {
+              garron: true,
+              pesoMediaDer: true,
+              pesoMediaIzq: true,
+              pesoTotal: true,
+              rinde: true,
+              estado: true,
+              denticion: true,
+              id: true,
+              tropaCodigo: true,
+            },
+            orderBy: { createdAt: 'desc' }
+          })
+          
+          // Vincular los romaneos viejos a esta lista y agregarlos
+          if (romaneosViejos.length > 0) {
+            // Actualizar listaFaenaId en los romaneos viejos (background, no bloquear)
+            for (const rv of romaneosViejos) {
+              db.romaneo.update({
+                where: { id: rv.id },
+                data: { listaFaenaId: listaIdRef }
+              }).catch(() => {}) // fire and forget
+            }
+            romaneosExistentes = [...romaneosExistentes, ...romaneosViejos]
+          }
+        }
+      }
     }
 
     // Indexar por garron
@@ -113,8 +157,45 @@ export async function GET(request: NextRequest) {
       romaneoByGarron.set(r.garron as number, r)
     }
 
+    // También buscar MediaRes individuales para obtener pesos de medias sueltas
+    // (cuando solo un lado fue pesado, el romaneo no tiene pesoMediaDer/Izq)
+    const romaneoIds = romaneosExistentes.map(r => r.id)
+    const mediaResByRomaneoId: Map<string, Array<{ lado: string; peso: number }>> = new Map()
+    if (romaneoIds.length > 0) {
+      const mediasRes = await db.mediaRes.findMany({
+        where: { romaneoId: { in: romaneoIds } },
+        select: { romaneoId: true, lado: true, peso: true }
+      })
+      for (const m of mediasRes) {
+        if (!mediaResByRomaneoId.has(m.romaneoId)) {
+          mediaResByRomaneoId.set(m.romaneoId, [])
+        }
+        mediaResByRomaneoId.get(m.romaneoId)!.push({ lado: m.lado, peso: m.peso })
+      }
+    }
+
+    // Crear mapa de romaneoId -> garron para cruzar con MediaRes
+    const romaneoIdToGarron = new Map<string, number>()
+    for (const r of romaneosExistentes) {
+      romaneoIdToGarron.set(r.id, r.garron as number)
+    }
+
+    // Mapa de garron -> peso por MediaRes (override si romaneo no tiene el dato)
+    const mediaResPesoByGarron = new Map<number, { der: number | null; izq: number | null }>()
+    for (const [romaneoId, medias] of mediaResByRomaneoId) {
+      const garronNum = romaneoIdToGarron.get(romaneoId)
+      if (garronNum === undefined) continue
+      const existing = mediaResPesoByGarron.get(garronNum) || { der: null, izq: null }
+      for (const m of medias) {
+        if (m.lado === 'DERECHA') existing.der = m.peso
+        else if (m.lado === 'IZQUIERDA') existing.izq = m.peso
+      }
+      mediaResPesoByGarron.set(garronNum, existing)
+    }
+
     const data = asignaciones.map(a => {
       const romaneo = romaneoByGarron.get(a.garron as number)
+      const mediaResPesos = mediaResPesoByGarron.get(a.garron as number)
       return {
         garron: a.garron,
         animalId: a.animalId,
@@ -122,13 +203,15 @@ export async function GET(request: NextRequest) {
         tropaCodigo: a.tropaCodigo || a.animal?.tropa?.codigo || romaneo?.tropaCodigo || null,
         tipoAnimal: a.tipoAnimal || a.animal?.tipoAnimal?.toString() || null,
         pesoVivo: a.pesoVivo || a.animal?.pesoVivo || a.animal?.pesajeIndividual?.peso || null,
-        tieneMediaDer: a.tieneMediaDer || !!romaneo?.pesoMediaDer,
-        tieneMediaIzq: a.tieneMediaIzq || !!romaneo?.pesoMediaIzq,
-        completado: a.completado || !!(romaneo?.pesoMediaDer && romaneo?.pesoMediaIzq),
-        // Datos del romaneo existente
-        pesoMediaDer: romaneo?.pesoMediaDer ?? null,
-        pesoMediaIzq: romaneo?.pesoMediaIzq ?? null,
-        pesoTotal: romaneo?.pesoTotal ?? null,
+        tieneMediaDer: a.tieneMediaDer || !!romaneo?.pesoMediaDer || !!mediaResPesos?.der,
+        tieneMediaIzq: a.tieneMediaIzq || !!romaneo?.pesoMediaIzq || !!mediaResPesos?.izq,
+        completado: a.completado || !!(romaneo?.pesoMediaDer && romaneo?.pesoMediaIzq) || !!(mediaResPesos?.der && mediaResPesos?.izq),
+        // Datos del romaneo existente (priorizar romaneo, fallback a MediaRes)
+        pesoMediaDer: romaneo?.pesoMediaDer ?? mediaResPesos?.der ?? null,
+        pesoMediaIzq: romaneo?.pesoMediaIzq ?? mediaResPesos?.izq ?? null,
+        pesoTotal: romaneo?.pesoTotal ?? (
+          mediaResPesos?.der && mediaResPesos?.izq ? mediaResPesos.der + mediaResPesos.izq : null
+        ),
         rinde: romaneo?.rinde ?? null,
         romaneoId: romaneo?.id ?? null,
         romaneoEstado: romaneo?.estado ?? null,

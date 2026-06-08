@@ -1607,12 +1607,17 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                     const asignacion = garronesAsignados.find(ga => ga.garron === g.garron)
                     const isPendienteDer = !g.der && !!asignacion
                     const isPendienteIzq = !!g.der && !g.izq && !!asignacion
+                    const totalKg = (g.der?.peso || 0) + (g.izq?.peso || 0)
                     
                     return (
                       <div key={g.garron} id={`garron-${g.garron}`} className={cn("p-1.5 cursor-pointer hover:bg-stone-50", g.garron === garronActual && "bg-amber-50 border-l-2 border-amber-500")}>
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className="font-bold text-amber-600">#{g.garron}</span>
                           <div className="flex items-center gap-1">
+                            <span className="font-bold text-amber-600">#{g.garron}</span>
+                            {asignacion?.tropaCodigo && <span className="text-[9px] text-stone-400 font-mono">{asignacion.tropaCodigo}</span>}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {totalKg > 0 && <span className="text-[9px] text-stone-600 font-bold">{totalKg.toFixed(1)}kg</span>}
                             {asignacion?.rinde != null && <span className="text-[9px] text-stone-400">{asignacion.rinde.toFixed(1)}%</span>}
                             {g.completo && <CheckCircle className="w-3 h-3 text-green-500" />}
                           </div>
@@ -1622,7 +1627,17 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                             variant="outline" 
                             size="sm" 
                             className={cn("h-6 py-0 px-1 justify-start text-xs", g.der?.decomisada ? "bg-red-50 border-red-200" : g.der ? "bg-blue-50 border-blue-200" : isPendienteDer ? "border-dashed" : "opacity-50")} 
-                            onClick={() => handleSeleccionarGarron(g.garron, 'DERECHA')}
+                            onClick={() => {
+                              if (g.der) {
+                                // Media ya pesada: seleccionar para edición/reimpresión
+                                setGarronActual(g.garron)
+                                setLadoActual('DERECHA')
+                                setAsignacionActual(asignacion || null)
+                                setPesoBalanza(g.der.peso.toFixed(1))
+                              } else {
+                                handleSeleccionarGarron(g.garron, 'DERECHA')
+                              }
+                            }}
                           >
                             <span className="font-medium">DER</span>
                             {g.der ? <span className="ml-auto">{g.der.peso.toFixed(0)}kg</span> : isPendienteDer ? <span className="ml-auto text-stone-400">.</span> : null}
@@ -1633,7 +1648,17 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                             variant="outline" 
                             size="sm" 
                             className={cn("h-6 py-0 px-1 justify-start text-xs", g.izq?.decomisada ? "bg-red-50 border-red-200" : g.izq ? "bg-pink-50 border-pink-200" : isPendienteIzq ? "border-dashed" : "opacity-50")} 
-                            onClick={() => handleSeleccionarGarron(g.garron, 'IZQUIERDA')}
+                            onClick={() => {
+                              if (g.izq) {
+                                // Media ya pesada: seleccionar para edición/reimpresión
+                                setGarronActual(g.garron)
+                                setLadoActual('IZQUIERDA')
+                                setAsignacionActual(asignacion || null)
+                                setPesoBalanza(g.izq.peso.toFixed(1))
+                              } else {
+                                handleSeleccionarGarron(g.garron, 'IZQUIERDA')
+                              }
+                            }}
                           >
                             <span className="font-medium">IZQ</span>
                             {g.izq ? <span className="ml-auto">{g.izq.peso.toFixed(0)}kg</span> : isPendienteIzq ? <span className="ml-auto text-stone-400">.</span> : null}
