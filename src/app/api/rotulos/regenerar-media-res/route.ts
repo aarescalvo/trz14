@@ -69,8 +69,6 @@ export async function GET(request: NextRequest) {
         where: { id: existente.id },
         data: {
           nombre: 'Rótulo Media Res - Zebra ZT230 v2',
-          codigo: 'MEDIA_RES_ZT230_V2',
-          tipo: 'MEDIA_RES',
           tipoImpresora: 'ZEBRA',
           ancho: 100,
           alto: 150,
