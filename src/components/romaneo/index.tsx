@@ -473,7 +473,8 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
           esDecomiso,
           kgDecomiso: kgDecomisoValor,
           kgRestantes: parseFloat(pesoBalanza),
-          sobrescribir: modoEdicion // Permitir sobrescribir en modo edición
+          sobrescribir: modoEdicion, // Permitir sobrescribir en modo edición
+          listaFaenaId: listaFaenaId
         })
       })
       

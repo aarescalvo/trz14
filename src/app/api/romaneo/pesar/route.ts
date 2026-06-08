@@ -21,11 +21,12 @@ export async function POST(request: NextRequest) {
       camaraId, 
       operadorId,
       sobrescribir = false, // Nuevo parámetro para modo edición
-      fecha // Permite post-datado (simulación)
+      fecha, // Permite post-datado (simulación)
+      listaFaenaId // ID de lista de faena para buscar asignación correcta
     } = body
 
     log.info('=== INICIO PESAJE ===')
-    log.info('Datos recibidos:', { garron, lado, peso, camaraId, denticion, tipificadorId, operadorId, fecha })
+    log.info('Datos recibidos:', { garron, lado, peso, camaraId, denticion, tipificadorId, operadorId, fecha, listaFaenaId })
 
     if (!garron || !lado || !peso || !camaraId) {
       log.info('Error: Faltan datos requeridos')
@@ -76,27 +77,49 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Buscar la asignación del garrón para la fecha indicada (o hoy)
+      // Buscar la asignación del garrón
       const fechaRef = fecha ? new Date(fecha) : new Date()
       fechaRef.setHours(0, 0, 0, 0)
 
-      const asignacion = await tx.asignacionGarron.findFirst({
-        where: {
-          garron: parseInt(garron),
-          horaIngreso: {
-            gte: fechaRef,
-            lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
-          }
-        },
-        include: {
-          animal: {
-            include: {
-              tropa: true,
-              pesajeIndividual: true
+      let asignacion
+      if (listaFaenaId) {
+        // Si hay listaFaenaId, buscar por lista + garron (sin filtro de fecha)
+        asignacion = await tx.asignacionGarron.findFirst({
+          where: {
+            listaFaenaId,
+            garron: parseInt(garron)
+          },
+          include: {
+            animal: {
+              include: {
+                tropa: true,
+                pesajeIndividual: true
+              }
             }
           }
-        }
-      })
+        })
+        log.info(`Asignación por listaFaenaId=${listaFaenaId}, garron=${garron}: ${asignacion ? 'ENCONTRADA' : 'NO ENCONTRADA'}`)
+      } else {
+        // Sin listaFaenaId, buscar por fecha (comportamiento original)
+        asignacion = await tx.asignacionGarron.findFirst({
+          where: {
+            garron: parseInt(garron),
+            horaIngreso: {
+              gte: fechaRef,
+              lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
+            }
+          },
+          include: {
+            animal: {
+              include: {
+                tropa: true,
+                pesajeIndividual: true
+              }
+            }
+          }
+        })
+        log.info(`Asignación por fecha, garron=${garron}: ${asignacion ? 'ENCONTRADA' : 'NO ENCONTRADA'}`)
+      }
 
       log.info(`Asignación encontrada: ${asignacion ? `ID: ${asignacion.id}` : 'No encontrada'}`)
 
@@ -111,18 +134,30 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Verificar si ya existe romaneo para este garrón de la fecha indicada
-      // Filtrar por fecha para no encontrar romaneos de días anteriores
-      let romaneo = await tx.romaneo.findFirst({
-        where: { 
-          garron: parseInt(garron),
-          createdAt: {
-            gte: fechaRef,
-            lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
-          }
-        },
-        include: { mediasRes: true }
-      })
+      // Verificar si ya existe romaneo para este garrón
+      let romaneo
+      if (listaFaenaId) {
+        // Buscar por lista + garron
+        romaneo = await tx.romaneo.findFirst({
+          where: { 
+            garron: parseInt(garron),
+            listaFaenaId
+          },
+          include: { mediasRes: true }
+        })
+      } else {
+        // Buscar por fecha (comportamiento original)
+        romaneo = await tx.romaneo.findFirst({
+          where: { 
+            garron: parseInt(garron),
+            createdAt: {
+              gte: fechaRef,
+              lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
+            }
+          },
+          include: { mediasRes: true }
+        })
+      }
 
       if (!romaneo) {
         // Crear nuevo romaneo
@@ -133,7 +168,7 @@ export async function POST(request: NextRequest) {
           tropaCodigo: animal?.tropa?.codigo || asignacion?.tropaCodigo,
           numeroAnimal: animal?.numero || asignacion?.animalNumero,
           pesoVivo: animal?.pesoVivo || animal?.pesajeIndividual?.peso || asignacion?.pesoVivo,
-          listaFaenaId: asignacion?.listaFaenaId || null
+          listaFaenaId: listaFaenaId || asignacion?.listaFaenaId || null
         })
 
         romaneo = await tx.romaneo.create({
@@ -146,7 +181,7 @@ export async function POST(request: NextRequest) {
             denticion: denticion || null,
             tipificadorId: validTipificadorId,
             operadorId: validOperadorId,
-            listaFaenaId: asignacion?.listaFaenaId || null,
+            listaFaenaId: listaFaenaId || asignacion?.listaFaenaId || null,
             estado: 'PENDIENTE'
           },
           include: { mediasRes: true }
