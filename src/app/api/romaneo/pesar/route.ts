@@ -124,12 +124,33 @@ export async function POST(request: NextRequest) {
       log.info(`Asignación encontrada: ${asignacion ? `ID: ${asignacion.id}` : 'No encontrada'}`)
 
       // IMPORTANTE: Verificar si la asignación YA tiene esta media pesada
-      // Si sobrescribir es true, permitimos editar medias existentes
-      if (!sobrescribir && asignacion) {
-        if (lado === 'DERECHA' && asignacion.tieneMediaDer) {
-          throw new Error(`MEDIA_YA_EXISTE:${lado}:${garron}`)
-        }
-        if (lado === 'IZQUIERDA' && asignacion.tieneMediaIzq) {
+      // Verificar consistencia: si el flag dice "ya pesada" pero no hay media real, permitir
+      if (asignacion) {
+        const flagLado = lado === 'DERECHA' ? asignacion.tieneMediaDer : asignacion.tieneMediaIzq
+        
+        // Buscar romaneo temporal para verificar si realmente tiene la media
+        const romaneoCheck = await tx.romaneo.findFirst({
+          where: {
+            garron: parseInt(garron),
+            ...(listaFaenaId ? { listaFaenaId } : {
+              createdAt: {
+                gte: fechaRef,
+                lt: new Date(fechaRef.getTime() + 24 * 60 * 60 * 1000)
+              }
+            })
+          },
+          include: { mediasRes: true }
+        })
+        const tieneMediaReal = romaneoCheck?.mediasRes.some(m => m.lado === lado)
+        
+        if (flagLado && !tieneMediaReal) {
+          // Flag inconsistente: dice que tiene media pero no existe realmente
+          log.warn(`Flag inconsistente en asignacion garron ${garron} ${lado}: flag=true pero no hay MediaRes. Resetenando flag.`)
+          await tx.asignacionGarron.update({
+            where: { id: asignacion.id },
+            data: lado === 'DERECHA' ? { tieneMediaDer: false, completado: false } : { tieneMediaIzq: false, completado: false }
+          })
+        } else if (flagLado && tieneMediaReal && !sobrescribir) {
           throw new Error(`MEDIA_YA_EXISTE:${lado}:${garron}`)
         }
       }
@@ -145,6 +166,31 @@ export async function POST(request: NextRequest) {
           },
           include: { mediasRes: true }
         })
+
+        // Si no existe con listaFaenaId, buscar sin él (romaneo viejo sin vincular)
+        // y actualizarle el listaFaenaId para reutilizarlo
+        if (!romaneo) {
+          romaneo = await tx.romaneo.findFirst({
+            where: { 
+              garron: parseInt(garron),
+              listaFaenaId: null
+            },
+            include: { mediasRes: true },
+            orderBy: { createdAt: 'desc' }
+          })
+          if (romaneo) {
+            log.info(`Romaneo existente sin listaFaenaId encontrado (${romaneo.id}), actualizando con listaFaenaId=${listaFaenaId}`)
+            await tx.romaneo.update({
+              where: { id: romaneo.id },
+              data: { listaFaenaId }
+            })
+            // Re-cargar con medias
+            romaneo = await tx.romaneo.findFirst({
+              where: { id: romaneo.id },
+              include: { mediasRes: true }
+            })
+          }
+        }
       } else {
         // Buscar por fecha (comportamiento original)
         romaneo = await tx.romaneo.findFirst({
@@ -246,19 +292,40 @@ export async function POST(request: NextRequest) {
       // Generar código para la media (usar fecha indicada o actual)
       const fechaCodigo = fecha ? new Date(fecha) : new Date()
       const codigoBase = `${fechaCodigo.getFullYear().toString().slice(-2)}${(fechaCodigo.getMonth() + 1).toString().padStart(2, '0')}${fechaCodigo.getDate().toString().padStart(2, '0')}-${garron.toString().padStart(4, '0')}-${lado.charAt(0)}`
+      const codigoMedia = `${codigoBase}-A`
 
-      // Crear la media res
-      const mediaRes = await tx.mediaRes.create({
-        data: {
-          romaneoId: romaneo.id,
-          lado: lado as 'IZQUIERDA' | 'DERECHA',
-          sigla: 'A', // Por defecto A
-          peso: pesoNum,
-          codigo: `${codigoBase}-A`,
-          estado: 'EN_CAMARA',
-          camaraId
-        }
+      // Verificar que no exista una MediaRes con ese codigo en OTRO romaneo
+      // (puede pasar con romaneos viejos sin listaFaenaId)
+      let mediaRes
+      const codigoExistente = await tx.mediaRes.findFirst({
+        where: { codigo: codigoMedia }
       })
+
+      if (codigoExistente && codigoExistente.romaneoId !== romaneo.id) {
+        log.info(`Codigo ${codigoMedia} ya existe en romaneo ${codigoExistente.romaneoId}, reasignando a romaneo ${romaneo.id}`)
+        // Reasignar al romaneo actual
+        mediaRes = await tx.mediaRes.update({
+          where: { id: codigoExistente.id },
+          data: {
+            romaneoId: romaneo.id,
+            peso: pesoNum,
+            camaraId
+          }
+        })
+      } else {
+        // Crear la media res (codigo no existe o pertenece a este romaneo)
+        mediaRes = await tx.mediaRes.create({
+          data: {
+            romaneoId: romaneo.id,
+            lado: lado as 'IZQUIERDA' | 'DERECHA',
+            sigla: 'A',
+            peso: pesoNum,
+            codigo: codigoMedia,
+            estado: 'EN_CAMARA',
+            camaraId
+          }
+        })
+      }
 
       log.info(`MediaRes creada: ${mediaRes.id}`)
 
