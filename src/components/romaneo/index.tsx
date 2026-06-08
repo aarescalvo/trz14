@@ -62,6 +62,14 @@ interface AsignacionGarron {
   productorNombre?: string
   productorCuit?: string
   productorMatricula?: string
+  // Datos del romaneo existente
+  pesoMediaDer?: number | null
+  pesoMediaIzq?: number | null
+  pesoTotal?: number | null
+  rinde?: number | null
+  romaneoId?: string | null
+  romaneoEstado?: string | null
+  romaneoDenticion?: string | null
 }
 
 interface Operador {
@@ -474,7 +482,8 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
           kgDecomiso: kgDecomisoValor,
           kgRestantes: parseFloat(pesoBalanza),
           sobrescribir: modoEdicion, // Permitir sobrescribir en modo edición
-          listaFaenaId: listaFaenaId
+          listaFaenaId: listaFaenaId,
+          fecha: listaFaenaFecha // Usar fecha de la lista para post-datado
         })
       })
       
@@ -1109,10 +1118,18 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
   const garronesAgrupados = useCallback(() => {
     const grupos: Record<number, { der: MediaPesada | null, izq: MediaPesada | null }> = {}
     
+    // Inicializar con todos los garrones asignados (incluye datos de romaneos existentes)
     garronesAsignados.forEach(g => {
-      grupos[g.garron] = { der: null, izq: null }
+      const der: MediaPesada | null = g.pesoMediaDer
+        ? { id: `existing-der-${g.garron}`, garron: g.garron, lado: 'DERECHA', peso: g.pesoMediaDer, siglas: [], fecha: new Date(), tropaCodigo: g.tropaCodigo, tipoAnimal: g.tipoAnimal }
+        : null
+      const izq: MediaPesada | null = g.pesoMediaIzq
+        ? { id: `existing-izq-${g.garron}`, garron: g.garron, lado: 'IZQUIERDA', peso: g.pesoMediaIzq, siglas: [], fecha: new Date(), tropaCodigo: g.tropaCodigo, tipoAnimal: g.tipoAnimal }
+        : null
+      grupos[g.garron] = { der, izq }
     })
     
+    // Sobreescribir con medias pesadas en la sesión actual (tienen prioridad)
     mediasPesadas.forEach(m => {
       if (!grupos[m.garron]) {
         grupos[m.garron] = { der: null, izq: null }
@@ -1209,7 +1226,16 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
     }
   }, [mediasPesadas, garronesAgrupados])
 
-  const getTotalKg = () => mediasPesadas.reduce((acc, m) => acc + m.peso, 0)
+  const getTotalKg = () => {
+    // Sumar medias de la sesión actual
+    const kgSesion = mediasPesadas.reduce((acc, m) => acc + m.peso, 0)
+    // Sumar medias existentes de romaneos (que no están en la sesión)
+    const idsSesion = new Set(mediasPesadas.map(m => m.garron))
+    const kgExistentes = garronesAsignados
+      .filter(g => !idsSesion.has(g.garron))
+      .reduce((acc, g) => acc + (g.pesoMediaDer || 0) + (g.pesoMediaIzq || 0), 0)
+    return kgSesion + kgExistentes
+  }
 
   if (loading) {
     return (
@@ -1578,40 +1604,41 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
               ) : (
                 <div className="divide-y">
                   {garronesLista.map((g) => {
-                    const isPendienteDer = !g.der && garronesAsignados.find(ga => ga.garron === g.garron)
-                    const isPendienteIzq = g.der && !g.izq && garronesAsignados.find(ga => ga.garron === g.garron && ga.tieneMediaDer && !ga.tieneMediaIzq)
+                    const asignacion = garronesAsignados.find(ga => ga.garron === g.garron)
+                    const isPendienteDer = !g.der && !!asignacion
+                    const isPendienteIzq = !!g.der && !g.izq && !!asignacion
                     
                     return (
                       <div key={g.garron} id={`garron-${g.garron}`} className={cn("p-1.5 cursor-pointer hover:bg-stone-50", g.garron === garronActual && "bg-amber-50 border-l-2 border-amber-500")}>
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="font-bold text-amber-600">#{g.garron}</span>
-                          {g.completo && !modoEdicion && <CheckCircle className="w-3 h-3 text-green-500" />}
-                          {g.completo && modoEdicion && <Edit className="w-3 h-3 text-amber-500" />}
+                          <div className="flex items-center gap-1">
+                            {asignacion?.rinde != null && <span className="text-[9px] text-stone-400">{asignacion.rinde.toFixed(1)}%</span>}
+                            {g.completo && <CheckCircle className="w-3 h-3 text-green-500" />}
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-1">
                           <Button 
                             variant="outline" 
                             size="sm" 
                             className={cn("h-6 py-0 px-1 justify-start text-xs", g.der?.decomisada ? "bg-red-50 border-red-200" : g.der ? "bg-blue-50 border-blue-200" : isPendienteDer ? "border-dashed" : "opacity-50")} 
-                            onClick={() => handleSeleccionarGarron(g.garron, 'DERECHA')} 
-                            disabled={!modoEdicion && !!g.der}
+                            onClick={() => handleSeleccionarGarron(g.garron, 'DERECHA')}
                           >
                             <span className="font-medium">DER</span>
                             {g.der ? <span className="ml-auto">{g.der.peso.toFixed(0)}kg</span> : isPendienteDer ? <span className="ml-auto text-stone-400">.</span> : null}
                             {g.der?.decomisada && <AlertOctagon className="w-2 h-2 ml-0.5 text-red-500" />}
-                            {modoEdicion && g.der && <Edit className="w-2 h-2 ml-0.5 text-amber-500" />}
+                            {g.der && <Printer className="w-2 h-2 ml-0.5 text-stone-400" />}
                           </Button>
                           <Button 
                             variant="outline" 
                             size="sm" 
                             className={cn("h-6 py-0 px-1 justify-start text-xs", g.izq?.decomisada ? "bg-red-50 border-red-200" : g.izq ? "bg-pink-50 border-pink-200" : isPendienteIzq ? "border-dashed" : "opacity-50")} 
-                            onClick={() => handleSeleccionarGarron(g.garron, 'IZQUIERDA')} 
-                            disabled={!modoEdicion && !!g.izq}
+                            onClick={() => handleSeleccionarGarron(g.garron, 'IZQUIERDA')}
                           >
                             <span className="font-medium">IZQ</span>
                             {g.izq ? <span className="ml-auto">{g.izq.peso.toFixed(0)}kg</span> : isPendienteIzq ? <span className="ml-auto text-stone-400">.</span> : null}
                             {g.izq?.decomisada && <AlertOctagon className="w-2 h-2 ml-0.5 text-red-500" />}
-                            {modoEdicion && g.izq && <Edit className="w-2 h-2 ml-0.5 text-amber-500" />}
+                            {g.izq && <Printer className="w-2 h-2 ml-0.5 text-stone-400" />}
                           </Button>
                         </div>
                       </div>
@@ -1622,7 +1649,7 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
             </div>
             <div className="p-2 border-t bg-stone-50 flex-shrink-0">
               <div className="flex justify-between text-xs">
-                <span>Total: {mediasPesadas.length} medias</span>
+                <span>Pesados: {garronesLista.filter(g => g.der || g.izq).length}/{garronesLista.length}</span>
                 <span className="font-bold">{getTotalKg().toFixed(1)} kg</span>
               </div>
             </div>

@@ -76,17 +76,63 @@ export async function GET(request: NextRequest) {
     })
 
     // Formatear respuesta usando los campos del schema
+    // Incluir datos de romaneos existentes si los hay
+    const garronesNums = asignaciones.map(a => a.garron as number)
+    const listaIdRef = listaId || asignaciones[0]?.listaFaenaId
+
+    // Buscar romaneos existentes para estos garrones (con o sin listaFaenaId)
+    let romaneosExistentes: Array<{
+      garron: number; pesoMediaDer: number | null; pesoMediaIzq: number | null;
+      pesoTotal: number | null; rinde: number | null; estado: string;
+      denticion: string | null; id: string; tropaCodigo: string | null;
+    }> = []
+    if (garronesNums.length > 0) {
+      const whereRomaneo: any = { garron: { in: garronesNums } }
+      if (listaIdRef) {
+        whereRomaneo.listaFaenaId = listaIdRef
+      }
+      romaneosExistentes = await db.romaneo.findMany({
+        where: whereRomaneo,
+        select: {
+          garron: true,
+          pesoMediaDer: true,
+          pesoMediaIzq: true,
+          pesoTotal: true,
+          rinde: true,
+          estado: true,
+          denticion: true,
+          id: true,
+          tropaCodigo: true,
+        },
+      })
+    }
+
+    // Indexar por garron
+    const romaneoByGarron = new Map<number, typeof romaneosExistentes[0]>()
+    for (const r of romaneosExistentes) {
+      romaneoByGarron.set(r.garron as number, r)
+    }
+
     const data = asignaciones.map(a => {
+      const romaneo = romaneoByGarron.get(a.garron as number)
       return {
         garron: a.garron,
         animalId: a.animalId,
         animalCodigo: a.animal?.codigo || null,
-        tropaCodigo: a.tropaCodigo || a.animal?.tropa?.codigo || null,
+        tropaCodigo: a.tropaCodigo || a.animal?.tropa?.codigo || romaneo?.tropaCodigo || null,
         tipoAnimal: a.tipoAnimal || a.animal?.tipoAnimal?.toString() || null,
         pesoVivo: a.pesoVivo || a.animal?.pesoVivo || a.animal?.pesajeIndividual?.peso || null,
-        tieneMediaDer: a.tieneMediaDer,
-        tieneMediaIzq: a.tieneMediaIzq,
-        completado: a.completado
+        tieneMediaDer: a.tieneMediaDer || !!romaneo?.pesoMediaDer,
+        tieneMediaIzq: a.tieneMediaIzq || !!romaneo?.pesoMediaIzq,
+        completado: a.completado || !!(romaneo?.pesoMediaDer && romaneo?.pesoMediaIzq),
+        // Datos del romaneo existente
+        pesoMediaDer: romaneo?.pesoMediaDer ?? null,
+        pesoMediaIzq: romaneo?.pesoMediaIzq ?? null,
+        pesoTotal: romaneo?.pesoTotal ?? null,
+        rinde: romaneo?.rinde ?? null,
+        romaneoId: romaneo?.id ?? null,
+        romaneoEstado: romaneo?.estado ?? null,
+        romaneoDenticion: romaneo?.denticion ?? null,
       }
     })
 
