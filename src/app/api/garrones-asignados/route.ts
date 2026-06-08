@@ -60,14 +60,14 @@ export async function GET(request: NextRequest) {
       listaFaenaInfo = { id: lf.id, numero: lf.numero, fecha: lf.fecha, estado: lf.estado }
     }
 
-    // Obtener todas las listas disponibles del día para el dropdown
+    // Obtener todas las listas disponibles (últimos 30 días para el dropdown)
     const listasDisponibles = await db.listaFaena.findMany({
       where: {
         estado: { in: ['ABIERTA', 'EN_PROCESO', 'CERRADA'] },
         tropas: { some: {} },
         fecha: {
-          gte: fechaFiltro,
-          lt: new Date(fechaFiltro.getTime() + 7 * 24 * 60 * 60 * 1000)
+          gte: new Date(fechaFiltro.getTime() - 30 * 24 * 60 * 60 * 1000),
+          lt: new Date(fechaFiltro.getTime() + 1 * 24 * 60 * 60 * 1000)
         }
       },
       select: { id: true, numero: true, fecha: true, estado: true },

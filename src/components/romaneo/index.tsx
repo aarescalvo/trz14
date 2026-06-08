@@ -113,6 +113,10 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
   const [faenaTerminada, setFaenaTerminada] = useState(false)
   const [modoEdicion, setModoEdicion] = useState(false)
   const [fechaFaena, setFechaFaena] = useState(new Date().toLocaleDateString('es-AR'))
+  const [fechaFaenaPicker, setFechaFaenaPicker] = useState(() => {
+    const hoy = new Date()
+    return hoy.toISOString().split('T')[0]
+  })
   const [listaFaenaNumero, setListaFaenaNumero] = useState<number | null>(null)
   const [listaFaenaFecha, setListaFaenaFecha] = useState<string | null>(null)
   const [listaFaenaId, setListaFaenaId] = useState<string | null>(null)
@@ -245,13 +249,100 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
     fetchData()
   }, [])
 
+  // Manejar cambio de fecha de faena
+  const handleFechaFaenaChange = (nuevaFecha: string) => {
+    setFechaFaenaPicker(nuevaFecha)
+    const fechaObj = new Date(nuevaFecha + 'T12:00:00')
+    setFechaFaena(fechaObj.toLocaleDateString('es-AR'))
+    // Limpiar lista seleccionada y recargar con la nueva fecha
+    setListaFaenaId(null)
+    setListaFaenaNumero(null)
+    setListaFaenaFecha(null)
+    fetchDataWithFecha(nuevaFecha)
+  }
+
+  // Fetch con parámetro de fecha
+  const fetchDataWithFecha = async (fecha: string) => {
+    setLoading(true)
+    try {
+      const [tipRes, camRes, garronesRes] = await Promise.all([
+        fetch('/api/tipificadores'),
+        fetch('/api/camaras'),
+        fetch(`/api/garrones-asignados?fecha=${fecha}`)
+      ])
+      
+      const tipData = await tipRes.json()
+      const camData = await camRes.json()
+      const garronesData = await garronesRes.json()
+      
+      if (tipData.success) {
+        setTipificadores(tipData.data || [])
+        if (tipData.data?.length > 0 && !tipificadorId) {
+          setTipificadorId(tipData.data[0].id)
+        }
+      }
+      
+      if (camData.success) {
+        const camarasFaena = (camData.data || []).filter((c: Camara) => c.tipo === 'FAENA')
+        setCamaras(camarasFaena)
+        if (camarasFaena.length > 0 && !camaraId) {
+          setCamaraId(camarasFaena[0].id)
+        }
+      }
+      
+      if (garronesData.success) {
+        setGarronesAsignados(garronesData.data || [])
+        setFaenaTerminada(false)
+        
+        // Info de lista de faena
+        if (garronesData.listaFaena) {
+          setListaFaenaNumero(garronesData.listaFaena.numero)
+          setListaFaenaFecha(garronesData.listaFaena.fecha)
+          setListaFaenaId(garronesData.listaFaena.id)
+        } else {
+          setListaFaenaNumero(null)
+          setListaFaenaFecha(null)
+          setListaFaenaId(null)
+        }
+        
+        // Listas disponibles para dropdown
+        if (garronesData.listasDisponibles) {
+          setListasDisponibles(garronesData.listasDisponibles.map((l: any) => ({
+            id: l.id,
+            numero: l.numero,
+            fecha: l.fecha,
+            estado: l.estado
+          })))
+        }
+        
+        const pendientes = (garronesData.data || []).filter((g: AsignacionGarron) => 
+          !g.tieneMediaDer || !g.tieneMediaIzq
+        )
+        
+        if (pendientes.length > 0) {
+          const primero = pendientes[0]
+          setGarronActual(primero.garron)
+          setAsignacionActual(primero)
+          setLadoActual(primero.tieneMediaDer ? 'IZQUIERDA' : 'DERECHA')
+        } else if (garronesData.data?.length > 0) {
+          setFaenaTerminada(true)
+          setAsignacionActual(null)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchData = async (listaIdOverride?: string | null) => {
     setLoading(true)
     try {
       const listaParam = listaIdOverride || listaFaenaId
       const garronesUrl = listaParam
         ? `/api/garrones-asignados?listaId=${listaParam}`
-        : '/api/garrones-asignados'
+        : `/api/garrones-asignados?fecha=${fechaFaenaPicker}`
       const [tipRes, camRes, garronesRes] = await Promise.all([
         fetch('/api/tipificadores'),
         fetch('/api/camaras'),
@@ -286,6 +377,10 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
           setListaFaenaNumero(garronesData.listaFaena.numero)
           setListaFaenaFecha(garronesData.listaFaena.fecha)
           setListaFaenaId(garronesData.listaFaena.id)
+          // Sincronizar el picker de fecha con la fecha de la lista
+          const fechaLista = new Date(garronesData.listaFaena.fecha)
+          setFechaFaenaPicker(fechaLista.toISOString().split('T')[0])
+          setFechaFaena(fechaLista.toLocaleDateString('es-AR'))
         } else {
           setListaFaenaNumero(null)
           setListaFaenaFecha(null)
@@ -1123,23 +1218,31 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-stone-800">Romaneo - Pesaje de Medias</h1>
-            <div className="flex items-center gap-2 flex-wrap">
-              {listaFaenaNumero !== null && (
-                <>
-                  <Badge variant="outline" className="text-xs px-2 py-0.5">
-                    Lista N° <span className="font-bold">{String(listaFaenaNumero).padStart(4, '0')}</span>
-                  </Badge>
-                  <span className="text-stone-500 text-xs">
-                    Faena: {listaFaenaFecha ? new Date(listaFaenaFecha).toLocaleDateString('es-AR') : fechaFaena}
-                  </span>
-                </>
-              )}
-              {listasDisponibles.length > 1 && (
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              {/* Selector de Fecha de Faena */}
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-stone-500 whitespace-nowrap">Fecha faena:</Label>
+                <Input
+                  type="date"
+                  value={fechaFaenaPicker}
+                  onChange={(e) => handleFechaFaenaChange(e.target.value)}
+                  className="h-7 w-[140px] text-xs"
+                />
+              </div>
+
+              {/* Selector de Lista de Faena */}
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-stone-500 whitespace-nowrap">Lista:</Label>
                 <Select value={listaFaenaId || ''} onValueChange={(id) => fetchData(id)}>
-                  <SelectTrigger className="w-[160px] h-7 text-xs">
-                    <SelectValue placeholder="Cambiar lista" />
+                  <SelectTrigger className="w-[200px] h-7 text-xs">
+                    <SelectValue placeholder="Seleccionar lista" />
                   </SelectTrigger>
                   <SelectContent>
+                    {listasDisponibles.length === 0 && (
+                      <SelectItem value="__sin_lista" disabled className="text-xs text-stone-400">
+                        No hay listas para esta fecha
+                      </SelectItem>
+                    )}
                     {listasDisponibles.map((lista) => (
                       <SelectItem key={lista.id} value={lista.id} className="text-xs">
                         N° {String(lista.numero).padStart(4, '0')} — {new Date(lista.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })} ({lista.estado})
@@ -1147,6 +1250,12 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {listaFaenaNumero !== null && (
+                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                  Lista N° <span className="font-bold">{String(listaFaenaNumero).padStart(4, '0')}</span>
+                </Badge>
               )}
             </div>
           </div>
