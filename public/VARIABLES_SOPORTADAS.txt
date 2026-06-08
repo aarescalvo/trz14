@@ -237,12 +237,32 @@ Ejemplo:
 - `{{CODIGO_BARRAS}}`, `{{CODIGO}}`
 - `{{USUARIO_FAENA}}`, `{{ESTABLECIMIENTO}}`
 
-#### Romaneo (MEDIA_RES)
-- `{{GARRON}}`, `{{TROPA}}`, `{{PESO}}`
-- `{{LADO}}` (I/D), `{{SIGLA}}` (A/T/D)
-- `{{RINDE}}`, `{{RINDE_PCT}}`
-- `{{TIPIFICADOR}}`, `{{TIPIFICADOR_MAT}}`
-- `{{DENTICION}}`, `{{CALIDAD}}`
+#### Romaneo Media Res (MEDIA_RES)
+Variables enviadas desde el módulo de Romaneo al imprimir rótulo:
+
+| Variable | Ejemplo | Descripción |
+|----------|---------|--------------|
+| `{{USUARIO_FAENA}}` | Productor S.A. | Titular de faena / productor |
+| `{{CUIT_USUARIO}}` | 20-12345678-9 | CUIT del titular de faena |
+| `{{MATRICULA_USUARIO_FAENA}}` | 67890 | Matrícula del titular de faena |
+| `{{FECHA_FAENA}}` | 08/06/2026 | Fecha de faena (DD/MM/YYYY) |
+| `{{FECHA_VENCIMIENTO}}` | 21/06/2026 | Fecha de vencimiento |
+| `{{TROPA}}` | 123 | Código de tropa |
+| `{{TROPA_CODIGO}}` | 123 | Código de tropa (alias) |
+| `{{GARRON}}` | 045 | Número de garrón (3 dígitos) |
+| `{{LADO}}` | D | Lado (D=DERECHA, I=IZQUIERDA) |
+| `{{LADO_MEDIA}}` | DERECHA | Lado completo |
+| `{{SIGLA}}` | A | Clasificación del cuarto (A=Asado, T=Trasero, D=Delantero) |
+| `{{PESO}}` | 350.5 | Peso en kg (solo número) |
+| `{{PESO_KG}}` | 350.5 KG | Peso con unidad |
+| `{{PESO_VIVO}}` | 420 | Peso vivo del animal |
+| `{{TIPO_ANIMAL}}` | NOVILLON | Tipo de animal |
+| `{{DENTICION}}` | 0-2 | Dentición |
+| `{{TIPIFICADOR}}` | Juan Perez | Nombre del tipificador |
+| `{{MATRICULA_TIPIFICADOR}}` | 12345 | Matrícula del tipificador |
+| `{{CAMARA}}` | Camara 1 | Nombre de cámara |
+| `{{CODIGO_BARRAS}}` | 260608-0045-D-A | Código de barras (YYMMDD-GARRON-LADO-SIGLA) |
+| `{{DECOMISADO}}` | SI / NO | Indicador de decomiso |
 
 #### Menudencias (MENUDENCIA)
 - `{{MENUDENCIA}}`, `{{TIPO_MENUDENCIA}}`
