@@ -132,7 +132,8 @@ export async function POST(request: NextRequest) {
           garron: parseInt(garron),
           tropaCodigo: animal?.tropa?.codigo || asignacion?.tropaCodigo,
           numeroAnimal: animal?.numero || asignacion?.animalNumero,
-          pesoVivo: animal?.pesoVivo || animal?.pesajeIndividual?.peso || asignacion?.pesoVivo
+          pesoVivo: animal?.pesoVivo || animal?.pesajeIndividual?.peso || asignacion?.pesoVivo,
+          listaFaenaId: asignacion?.listaFaenaId || null
         })
 
         romaneo = await tx.romaneo.create({
@@ -145,6 +146,7 @@ export async function POST(request: NextRequest) {
             denticion: denticion || null,
             tipificadorId: validTipificadorId,
             operadorId: validOperadorId,
+            listaFaenaId: asignacion?.listaFaenaId || null,
             estado: 'PENDIENTE'
           },
           include: { mediasRes: true }
