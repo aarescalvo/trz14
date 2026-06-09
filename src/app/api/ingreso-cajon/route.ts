@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 import { checkPermission } from '@/lib/auth-helpers'
+import { generarCodigoMediaRes } from '@/lib/codigo-media-res'
 interface AnimalIngreso {
   id: string
   codigo: string
@@ -239,14 +240,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate barcodes for each media
-    const generarCodigo = (garron: number, lado: string, sigla: string) => {
-      const fecha = new Date()
-      const año = fecha.getFullYear().toString().slice(-2)
-      const mes = (fecha.getMonth() + 1).toString().padStart(2, '0')
-      const dia = fecha.getDate().toString().padStart(2, '0')
-      return `${año}${mes}${dia}-${garron.toString().padStart(4, '0')}-${lado.charAt(0)}-${sigla}`
-    }
+    // Generar códigos unificados para cada media
 
     const mediasCreadas: Awaited<ReturnType<typeof db.mediaRes.create>>[] = []
     // Track medias reassigned from a different camera (for stock decrement)
@@ -255,7 +249,11 @@ export async function POST(request: NextRequest) {
     // Media Izquierda
     if (romaneo.pesoMediaIzq) {
       const siglaIzq = siglas?.izquierda || 'A'
-      const codigoIzq = generarCodigo(romaneo.garron, 'IZQUIERDA', siglaIzq)
+      const codigoIzq = generarCodigoMediaRes({
+        tropaCodigo: romaneo.tropaCodigo,
+        garron: romaneo.garron,
+        lado: 'IZQUIERDA'
+      })
 
       // Check if media already exists
       const existingMediaIzq = await db.mediaRes.findFirst({
@@ -299,7 +297,11 @@ export async function POST(request: NextRequest) {
     // Media Derecha
     if (romaneo.pesoMediaDer) {
       const siglaDer = siglas?.derecha || 'A'
-      const codigoDer = generarCodigo(romaneo.garron, 'DERECHA', siglaDer)
+      const codigoDer = generarCodigoMediaRes({
+        tropaCodigo: romaneo.tropaCodigo,
+        garron: romaneo.garron,
+        lado: 'DERECHA'
+      })
 
       // Check if media already exists
       const existingMediaDer = await db.mediaRes.findFirst({

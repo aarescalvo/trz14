@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { TipoAnimal } from '@prisma/client'
 import { checkPermission } from '@/lib/auth-helpers'
 import { createLogger } from '@/lib/logger'
+import { generarCodigoMediaRes } from '@/lib/codigo-media-res'
 const log = createLogger('app.api.romaneo.pesar.route')
 
 // POST - Registrar pesaje de media res (con transacción para multi-usuario)
@@ -268,10 +269,14 @@ export async function POST(request: NextRequest) {
         throw new Error(`MEDIA_YA_EXISTE:${lado}:${garron}`)
       }
 
-      // Generar código para la media (usar fecha indicada o actual)
-      const fechaCodigo = fecha ? new Date(fecha) : new Date()
-      const codigoBase = `${fechaCodigo.getFullYear().toString().slice(-2)}${(fechaCodigo.getMonth() + 1).toString().padStart(2, '0')}${fechaCodigo.getDate().toString().padStart(2, '0')}-${garron.toString().padStart(4, '0')}-${lado.charAt(0)}`
-      const codigoMedia = `${codigoBase}-A`
+      // Generar código unificado para la media
+      const especieMedia = asignacion?.animal?.tropa?.especie || 'BOVINO'
+      const codigoMedia = generarCodigoMediaRes({
+        tropaCodigo: romaneo.tropaCodigo,
+        especie: especieMedia,
+        garron: parseInt(garron),
+        lado: lado as 'IZQUIERDA' | 'DERECHA'
+      })
 
       // NUNCA reasignar MediaRes de otros romaneos. Siempre crear nueva.
       // Verificar duplicado SOLO dentro de este romaneo
