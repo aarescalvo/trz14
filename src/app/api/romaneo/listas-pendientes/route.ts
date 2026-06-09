@@ -6,7 +6,7 @@ import { createLogger } from '@/lib/logger'
 const log = createLogger('app.api.romaneo.listas-pendientes.route')
 
 // GET - Listas de faena con resumen de estado de romaneo
-// Cuenta pesados reales: garrones que tienen AMBAS medias en MediaRes vinculadas a la lista
+// Usa flags de AsignacionGarron (tieneMediaDer/izq) que siempre estan vinculados a la lista
 export async function GET(request: NextRequest) {
   const authError = await checkPermission(request, 'puedeRomaneo')
   if (authError) return authError
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     fechaLimite.setDate(fechaLimite.getDate() - dias)
     fechaLimite.setHours(0, 0, 0, 0)
 
-    // Obtener listas de faena con asignaciones y tropas
+    // Obtener listas de faena con asignaciones (flags de pesaje) y tropas
     const listas = await db.listaFaena.findMany({
       where: {
         fecha: { gte: fechaLimite },
@@ -35,9 +35,9 @@ export async function GET(request: NextRequest) {
         },
         asignaciones: {
           select: {
-            id: true,
             garron: true,
-            completado: true,
+            tieneMediaDer: true,
+            tieneMediaIzq: true,
             tropaCodigo: true
           }
         }
@@ -45,54 +45,43 @@ export async function GET(request: NextRequest) {
       orderBy: { numero: 'desc' }
     })
 
-    // Para cada lista, contar pesados reales buscando romaneos + MediaRes
-    // Hacemos una consulta por lista para obtener datos reales
+    // Obtener cantidad de cabezas por lista (animales unicos en las tropas)
+    // Las cabezas = cantidad de animales asignados a garrones en la lista
     const listaIds = listas.map(l => l.id)
 
-    // Un bulk query: todos los romaneos vinculados a estas listas con sus medias
-    const romaneosConMedias = await db.romaneo.findMany({
-      where: {
-        listaFaenaId: { in: listaIds }
-      },
-      include: {
-        mediasRes: {
-          select: { lado: true }
-        }
-      }
-    })
-
-    // Agrupar por listaFaenaId: contar garrones que tienen ambas medias
-    const completadosPorLista = new Map<string, number>()
-    const pesadosParcialPorLista = new Map<string, number>()
-
-    for (const rom of romaneosConMedias) {
-      if (!rom.listaFaenaId) continue
-      const medias = rom.mediasRes
-      const tieneDer = medias.some(m => m.lado === 'DERECHA')
-      const tieneIzq = medias.some(m => m.lado === 'IZQUIERDA')
-
-      if (tieneDer && tieneIzq) {
-        completadosPorLista.set(
-          rom.listaFaenaId,
-          (completadosPorLista.get(rom.listaFaenaId) || 0) + 1
-        )
-      } else if (tieneDer || tieneIzq) {
-        pesadosParcialPorLista.set(
-          rom.listaFaenaId,
-          (pesadosParcialPorLista.get(rom.listaFaenaId) || 0) + 1
+    // Contar cabezas reales: animales distintos en las tropas de cada lista
+    const cabezasPorLista = new Map<string, number>()
+    if (listaIds.length > 0) {
+      const tropasDeListas = await db.listaFaenaTropa.findMany({
+        where: { listaFaenaId: { in: listaIds } },
+        select: { listaFaenaId: true, cantidad: true }
+      })
+      for (const tl of tropasDeListas) {
+        cabezasPorLista.set(
+          tl.listaFaenaId,
+          (cabezasPorLista.get(tl.listaFaenaId) || 0) + (tl.cantidad || 0)
         )
       }
     }
 
     const result = listas.map(lista => {
-      const totalGarrones = lista.asignaciones.length
-      const completados = completadosPorLista.get(lista.id) || 0
-      const pesadosParcial = pesadosParcialPorLista.get(lista.id) || 0
-      const pendientes = totalGarrones - completados - pesadosParcial
+      const asignaciones = lista.asignaciones
+      const totalGarrones = asignaciones.length
+
+      // Contar usando los flags de AsignacionGarron (siempre vinculados a la lista correcta)
+      const completados = asignaciones.filter(a => a.tieneMediaDer && a.tieneMediaIzq).length
+      const pesadosParcial = asignaciones.filter(a =>
+        (a.tieneMediaDer && !a.tieneMediaIzq) || (!a.tieneMediaDer && a.tieneMediaIzq)
+      ).length
+      const sinPesar = asignaciones.filter(a => !a.tieneMediaDer && !a.tieneMediaIzq).length
+      const pendientes = sinPesar + pesadosParcial
       const porcentaje = totalGarrones > 0 ? Math.round((completados / totalGarrones) * 100) : 0
 
+      // Cabezas de la lista
+      const cabezas = cabezasPorLista.get(lista.id) || 0
+
       // Obtener tropas unicas
-      const tropasFromAsignaciones = lista.asignaciones
+      const tropasFromAsignaciones = asignaciones
         .map(a => a.tropaCodigo)
         .filter((c): c is string => !!c)
       const tropasFromRelaciones = lista.tropas.map(t => t.tropa.codigoSimplificado || t.tropa.codigo)
@@ -105,9 +94,11 @@ export async function GET(request: NextRequest) {
         fecha: lista.fecha.toISOString(),
         estado: lista.estado,
         totalGarrones,
+        cabezas,
         completados,
         pesadosParcial,
-        pendientes: Math.max(0, pendientes),
+        sinPesar,
+        pendientes,
         porcentaje,
         tropas
       }
@@ -115,7 +106,7 @@ export async function GET(request: NextRequest) {
 
     const listasConPendientes = result.filter(l => l.pendientes > 0).length
 
-    log.info('Listas pendientes consultadas', { total: result.length, conPendientes: listasConPendientes, dias })
+    log.info('Listas pendientes', { total: result.length, conPendientes: listasConPendientes, dias })
 
     return NextResponse.json({
       success: true,

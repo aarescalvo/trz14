@@ -121,8 +121,9 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
   const [listasPendientesOpen, setListasPendientesOpen] = useState(false)
   const [listasPendientesData, setListasPendientesData] = useState<{
     id: string; numero: number; fecha: string; estado: string;
-    totalGarrones: number; completados: number; pesadosParcial?: number; pendientes: number; porcentaje: number; tropas: string[]
+    totalGarrones: number; cabezas: number; completados: number; pesadosParcial: number; sinPesar: number; pendientes: number; porcentaje: number; tropas: string[]
   }[]>([])
+  const [listasPendientesExpanded, setListasPendientesExpanded] = useState(false)
   const [loadingListasPendientes, setLoadingListasPendientes] = useState(false)
 
   // Estado de faena terminada
@@ -1866,13 +1867,35 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
       </Dialog>
 
       {/* Dialog: Listas de Faena con Estado de Romaneo */}
-      <Dialog open={listasPendientesOpen} onOpenChange={setListasPendientesOpen}>
-        <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
+      <Dialog open={listasPendientesOpen} onOpenChange={(open) => {
+        setListasPendientesOpen(open)
+        if (!open) setListasPendientesExpanded(false)
+      }}>
+        <DialogContent className={cn(
+          "flex flex-col transition-all duration-200",
+          listasPendientesExpanded
+            ? "max-w-[95vw] w-[95vw] max-h-[95vh] h-[95vh]"
+            : "max-w-5xl max-h-[85vh]"
+        )}>
           <DialogHeader className="flex-shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <ClipboardList className="w-5 h-5" />
-              Listas de Faena - Estado de Romaneo
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                Listas de Faena - Estado de Romaneo
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setListasPendientesExpanded(!listasPendientesExpanded)}
+                className="h-7 w-7 p-0"
+                title={listasPendientesExpanded ? 'Reducir' : 'Expandir'}
+              >
+                {listasPendientesExpanded
+                  ? <Minimize2 className="w-4 h-4" />
+                  : <Maximize2 className="w-4 h-4" />
+                }
+              </Button>
+            </div>
             <DialogDescription>
               Haga clic en una lista para cargar sus garrones en el pesaje
             </DialogDescription>
@@ -1889,18 +1912,19 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                 <p>No hay listas de faena en los ultimos 90 dias</p>
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden h-full">
+              <div className="border rounded-lg overflow-auto h-full">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-white z-10">
                     <TableRow>
                       <TableHead className="w-20">Lista</TableHead>
                       <TableHead className="w-24">Fecha</TableHead>
                       <TableHead className="w-24">Estado</TableHead>
+                      <TableHead className="text-center w-16">Cabezas</TableHead>
+                      <TableHead className="text-center w-16">Garrones</TableHead>
                       <TableHead>Tropas</TableHead>
-                      <TableHead className="text-center w-16">Total</TableHead>
                       <TableHead className="text-center w-16">Listos</TableHead>
                       <TableHead className="text-center w-16">Parcial</TableHead>
-                      <TableHead className="text-center w-16">Pendiente</TableHead>
+                      <TableHead className="text-center w-16">Sin pesar</TableHead>
                       <TableHead className="w-36">% Avance</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1921,7 +1945,7 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                         <TableCell className="font-bold">
                           N{String(lista.numero).padStart(4, '0')}
                         </TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-xs whitespace-nowrap">
                           {new Date(lista.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </TableCell>
                         <TableCell>
@@ -1937,23 +1961,26 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                             {lista.estado}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-stone-600 max-w-[200px] truncate" title={lista.tropas.join(', ')}>
-                          {lista.tropas.length > 0 ? lista.tropas.join(', ') : '-'}
+                        <TableCell className="text-center font-medium text-stone-700">
+                          {lista.cabezas}
                         </TableCell>
                         <TableCell className="text-center font-medium">
                           {lista.totalGarrones}
+                        </TableCell>
+                        <TableCell className="text-xs text-stone-600 max-w-[250px] truncate" title={lista.tropas.join(', ')}>
+                          {lista.tropas.length > 0 ? lista.tropas.join(', ') : '-'}
                         </TableCell>
                         <TableCell className="text-center font-medium text-green-600">
                           {lista.completados}
                         </TableCell>
                         <TableCell className="text-center font-medium text-amber-600">
-                          {lista.pesadosParcial || 0}
+                          {lista.pesadosParcial}
                         </TableCell>
                         <TableCell className={cn(
                           "text-center font-bold",
-                          lista.pendientes > 0 ? "text-red-600" : "text-stone-400"
+                          lista.sinPesar > 0 ? "text-red-600" : "text-stone-400"
                         )}>
-                          {lista.pendientes}
+                          {lista.sinPesar}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
