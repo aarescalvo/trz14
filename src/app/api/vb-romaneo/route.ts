@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const tipo = searchParams.get('tipo') || 'pendientes'
     const fecha = searchParams.get('fecha')
+    const listaFaenaId = searchParams.get('listaFaenaId')
+    const tropaCodigo = searchParams.get('tropaCodigo')
     const fechaDesde = searchParams.get('fechaDesde')
     const fechaHasta = searchParams.get('fechaHasta')
 
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
       case 'pendientes':
         return await getPendientesAsignacion(fecha)
       case 'revision':
-        return await getTablaRevision(fecha)
+        return await getTablaRevision(fecha, listaFaenaId, tropaCodigo)
       case 'fechas':
         return await getFechasFaena(fechaDesde, fechaHasta)
       default:
@@ -139,57 +141,88 @@ async function getPendientesAsignacion(fecha?: string | null) {
   })
 }
 
-// Obtener tabla de revisión
-async function getTablaRevision(fecha?: string | null) {
-  const fechaFiltro = fecha ? new Date(fecha) : new Date()
-  fechaFiltro.setHours(0, 0, 0, 0)
-  const fechaFin = new Date(fechaFiltro)
-  fechaFin.setHours(23, 59, 59, 999)
+// Obtener tabla de revisión por lista de faena
+async function getTablaRevision(fecha?: string | null, listaFaenaId?: string | null, tropaCodigo?: string | null) {
+  // Si se pasa listaFaenaId, usar ese; si no, buscar listas del día
+  let targetListaIds: string[] = []
 
-  // Buscar romaneos del día
+  if (listaFaenaId) {
+    targetListaIds = [listaFaenaId]
+  } else {
+    const fechaFiltro = fecha ? new Date(fecha) : new Date()
+    fechaFiltro.setHours(0, 0, 0, 0)
+    const fechaFin = new Date(fechaFiltro)
+    fechaFin.setHours(23, 59, 59, 999)
+
+    const listas = await db.listaFaena.findMany({
+      where: { fecha: { gte: fechaFiltro, lte: fechaFin } },
+      select: { id: true }
+    })
+    targetListaIds = listas.map(l => l.id)
+  }
+
+  if (targetListaIds.length === 0) {
+    return NextResponse.json({ success: true, data: [], tropas: [] })
+  }
+
+  // Buscar asignaciones de esas listas
+  const asignaciones = await db.asignacionGarron.findMany({
+    where: { listaFaenaId: { in: targetListaIds } },
+    orderBy: { garron: 'asc' }
+  })
+
+  // Filtrar por tropa si se especifica
+  const asignacionesFiltradas = tropaCodigo
+    ? asignaciones.filter(a => a.tropaCodigo === tropaCodigo)
+    : asignaciones
+
+  // Obtener romaneos vinculados (por listaFaenaId + garron)
   const romaneos = await db.romaneo.findMany({
     where: {
-      fecha: { gte: fechaFiltro, lte: fechaFin }
+      listaFaenaId: { in: targetListaIds }
     },
     orderBy: { garron: 'asc' }
   })
 
-  // Obtener asignaciones para datos adicionales
-  const garrones = romaneos.map(r => r.garron)
-  const asignaciones = await db.asignacionGarron.findMany({
-    where: {
-      garron: { in: garrones }
+  // Mapa: romaneo por (listaFaenaId + garron)
+  const romaneoMap = new Map<string, typeof romaneos[0]>()
+  for (const r of romaneos) {
+    if (r.listaFaenaId) {
+      romaneoMap.set(`${r.listaFaenaId}|${r.garron}`, r)
     }
-  })
+  }
 
-  const asignacionesMap = new Map(asignaciones.map(a => [a.garron, a]))
+  // Obtener tropas distintas para el filtro
+  const tropasDistintas = [...new Set(asignaciones.map(a => a.tropaCodigo).filter(Boolean))].sort()
 
-  const tabla = romaneos.map(r => {
-    const asig = asignacionesMap.get(r.garron)
-    const pesoTotal = (r.pesoMediaDer || 0) + (r.pesoMediaIzq || 0)
-    const rinde = r.pesoVivo && r.pesoVivo > 0 ? (pesoTotal / r.pesoVivo) * 100 : null
+  const tabla = asignacionesFiltradas.map(asig => {
+    const romaneo = asig.listaFaenaId ? romaneoMap.get(`${asig.listaFaenaId}|${asig.garron}`) : null
+    const pesoTotal = (romaneo?.pesoMediaDer || 0) + (romaneo?.pesoMediaIzq || 0)
+    const pesoVivo = romaneo?.pesoVivo || asig.pesoVivo
+    const rinde = pesoVivo && pesoVivo > 0 ? (pesoTotal / pesoVivo) * 100 : null
 
     return {
-      id: r.id,
-      garron: r.garron,
-      numeroAnimal: r.numeroAnimal || asig?.animalNumero,
-      tropaCodigo: r.tropaCodigo,
-      denticion: r.denticion,
-      tipoAnimal: r.tipoAnimal || asig?.tipoAnimal,
-      kgIngreso: r.pesoVivo || asig?.pesoVivo,
-      kgMediaDer: r.pesoMediaDer,
-      kgMediaIzq: r.pesoMediaIzq,
+      id: asig.id,
+      garron: asig.garron,
+      numeroAnimal: asig.animalNumero,
+      tropaCodigo: asig.tropaCodigo,
+      denticion: romaneo?.denticion || null,
+      tipoAnimal: asig.tipoAnimal || romaneo?.tipoAnimal || null,
+      kgIngreso: pesoVivo,
+      kgMediaDer: romaneo?.pesoMediaDer || null,
+      kgMediaIzq: romaneo?.pesoMediaIzq || null,
       kgTotal: pesoTotal,
-      rinde: rinde,
+      rinde,
       rindeAlto: rinde !== null && rinde > 70,
-      animalId: asig?.animalId,
-      listaFaenaId: asig?.listaFaenaId
+      animalId: asig.animalId,
+      listaFaenaId: asig.listaFaenaId
     }
   })
 
   return NextResponse.json({
     success: true,
-    data: tabla
+    data: tabla,
+    tropas: tropasDistintas
   })
 }
 

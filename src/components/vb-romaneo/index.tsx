@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { 
   FileText, Loader2, RefreshCw, CheckCircle, XCircle, Clock,
-  ArrowRightLeft, Calendar, Search, AlertTriangle, Link2
+  ArrowRightLeft, Calendar, Search, AlertTriangle, Link2, Filter
 } from 'lucide-react'
 
 interface Operador {
@@ -69,7 +69,9 @@ interface FechaFaena {
     numero: number
     cantidadTotal: number
     fecha: Date
+    estado: string
     vbRomaneo: boolean
+    supervisor: string | null
     tropas: Array<{ codigo: string; especie: string }>
   }>
   listaIds: string[]
@@ -80,7 +82,7 @@ interface Props {
 }
 
 export function VBRomaneoModule({ operador }: Props) {
-  const [activeTab, setActiveTab] = useState('asignacion')
+  const [activeTab, setActiveTab] = useState('revision')
   
   // Pestaña 1: Asignación
   const [garronesSinAsignar, setGarronesSinAsignar] = useState<GarronSinAsignar[]>([])
@@ -92,9 +94,12 @@ export function VBRomaneoModule({ operador }: Props) {
   
   // Pestaña 2: Revisión
   const [filasRevision, setFilasRevision] = useState<FilaRevision[]>([])
+  const [tropasRevision, setTropasRevision] = useState<string[]>([])
   const [selectedFilas, setSelectedFilas] = useState<FilaRevision[]>([])
-  const [loadingRevision, setLoadingRevision] = useState(true)
+  const [loadingRevision, setLoadingRevision] = useState(false)
   const [intercambiando, setIntercambiando] = useState(false)
+  const [revisionListaId, setRevisionListaId] = useState<string>('')
+  const [revisionTropa, setRevisionTropa] = useState<string>('')
   
   // Pestaña 3: VB
   const [fechasFaena, setFechasFaena] = useState<FechaFaena[]>([])
@@ -108,7 +113,7 @@ export function VBRomaneoModule({ operador }: Props) {
     if (activeTab === 'asignacion') {
       fetchPendientes()
     } else if (activeTab === 'revision') {
-      fetchRevision()
+      fetchFechasParaRevision()
     } else if (activeTab === 'vb') {
       fetchFechas()
     }
@@ -131,19 +136,58 @@ export function VBRomaneoModule({ operador }: Props) {
     }
   }
 
-  const fetchRevision = async () => {
+  // Cargar fechas/listas para el selector de revisión (reusa el endpoint fechas)
+  const fetchFechasParaRevision = async () => {
     setLoadingRevision(true)
     try {
-      const res = await fetch('/api/vb-romaneo?tipo=revision')
+      const res = await fetch('/api/vb-romaneo?tipo=fechas')
+      const data = await res.json()
+      if (data.success) {
+        setFechasFaena(data.data)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Error al cargar fechas')
+    } finally {
+      setLoadingRevision(false)
+    }
+  }
+
+  // Cargar tabla de revisión cuando se selecciona una lista
+  const fetchRevision = async (listaId?: string, tropa?: string) => {
+    setLoadingRevision(true)
+    try {
+      let url = `/api/vb-romaneo?tipo=revision`
+      if (listaId) url += `&listaFaenaId=${listaId}`
+      if (tropa) url += `&tropaCodigo=${encodeURIComponent(tropa)}`
+      
+      const res = await fetch(url)
       const data = await res.json()
       if (data.success) {
         setFilasRevision(data.data)
+        setTropasRevision(data.tropas || [])
+        setSelectedFilas([])
       }
     } catch (error) {
       console.error('Error:', error)
       toast.error('Error al cargar revisión')
     } finally {
       setLoadingRevision(false)
+    }
+  }
+
+  // Cuando cambia la lista seleccionada, cargar revisión
+  useEffect(() => {
+    if (revisionListaId) {
+      fetchRevision(revisionListaId, revisionTropa || undefined)
+    }
+  }, [revisionListaId])
+
+  // Cuando cambia el filtro de tropa (sin recargar fechas)
+  const handleTropaChange = (tropa: string) => {
+    setRevisionTropa(tropa)
+    if (revisionListaId) {
+      fetchRevision(revisionListaId, tropa || undefined)
     }
   }
 
@@ -174,7 +218,6 @@ export function VBRomaneoModule({ operador }: Props) {
       return
     }
 
-    // Verificar que no crucen tropas (si el garrón tiene tropa asignada)
     if (selectedGarron.tropaCodigo && selectedGarron.tropaCodigo !== selectedAnimal.tropaCodigo) {
       toast.error('No se puede asignar un animal de otra tropa')
       return
@@ -216,7 +259,6 @@ export function VBRomaneoModule({ operador }: Props) {
       return
     }
 
-    // Verificar misma tropa
     const tropa1 = selectedFilas[0].tropaCodigo
     const tropa2 = selectedFilas[1].tropaCodigo
     if (tropa1 !== tropa2) {
@@ -239,7 +281,7 @@ export function VBRomaneoModule({ operador }: Props) {
       if (data.success) {
         toast.success('Garrones intercambiados correctamente')
         setSelectedFilas([])
-        fetchRevision()
+        fetchRevision(revisionListaId, revisionTropa || undefined)
       } else {
         toast.error(data.error || 'Error al intercambiar')
       }
@@ -279,7 +321,7 @@ export function VBRomaneoModule({ operador }: Props) {
     }
   }
 
-  // Quitar visto bueno (editar)
+  // Quitar visto bueno
   const handleQuitarVb = async (fecha: FechaFaena) => {
     try {
       const res = await fetch('/api/vb-romaneo', {
@@ -322,6 +364,16 @@ export function VBRomaneoModule({ operador }: Props) {
   const animalesFiltrados = selectedGarron?.tropaCodigo
     ? animalesSinAsignar.filter(a => a.tropaCodigo === selectedGarron.tropaCodigo)
     : animalesSinAsignar
+
+  // Agrupar filas por tropa
+  const filasAgrupadas = tropasRevision.length > 0 && revisionTropa
+    ? { [revisionTropa]: filasRevision }
+    : filasRevision.reduce((acc, fila) => {
+        const tropa = fila.tropaCodigo || 'Sin tropa'
+        if (!acc[tropa]) acc[tropa] = []
+        acc[tropa].push(fila)
+        return acc
+      }, {} as Record<string, FilaRevision[]>)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 p-4 md:p-6">
@@ -391,7 +443,6 @@ export function VBRomaneoModule({ operador }: Props) {
               </Card>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Columna Garrones */}
                 <Card className="border-0 shadow-md">
                   <CardHeader className="bg-amber-50 rounded-t-lg py-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -426,7 +477,6 @@ export function VBRomaneoModule({ operador }: Props) {
                   </CardContent>
                 </Card>
 
-                {/* Columna Animales */}
                 <Card className="border-0 shadow-md">
                   <CardHeader className="bg-blue-50 rounded-t-lg py-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -478,7 +528,6 @@ export function VBRomaneoModule({ operador }: Props) {
               </div>
             )}
 
-            {/* Botón asignar */}
             {garronesSinAsignar.length > 0 && (
               <div className="flex justify-center">
                 <Button
@@ -499,108 +548,175 @@ export function VBRomaneoModule({ operador }: Props) {
 
           {/* Pestaña 2: Revisión y Corrección */}
           <TabsContent value="revision" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <Badge variant="outline">
-                  {filasRevision.length} registros
-                </Badge>
-                <Badge variant="outline" className="text-red-600 border-red-300">
-                  <AlertTriangle className="w-3 h-3 mr-1" />
-                  {filasRevision.filter(f => f.rindeAlto).length} con rinde alto (&gt;70%)
-                </Badge>
-              </div>
-              <div className="flex gap-2">
-                {selectedFilas.length === 2 && (
-                  <Button
-                    onClick={handleIntercambiar}
-                    disabled={intercambiando}
-                    variant="outline"
-                    className="border-amber-300 text-amber-600"
-                  >
-                    {intercambiando ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <ArrowRightLeft className="w-4 h-4 mr-2" />
-                    )}
-                    Intercambiar ({selectedFilas[0].garron} ↔ {selectedFilas[1].garron})
-                  </Button>
-                )}
-                <Button onClick={fetchRevision} variant="outline" size="sm">
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Actualizar
-                </Button>
-              </div>
-            </div>
+            {/* Selector de Lista */}
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="flex-1 min-w-[250px]">
+                    <Label className="mb-1 block">Lista de Faena</Label>
+                    <select
+                      className="w-full h-9 rounded-md border border-stone-300 bg-white px-3 text-sm"
+                      value={revisionListaId}
+                      onChange={(e) => {
+                        setRevisionListaId(e.target.value)
+                        setRevisionTropa('')
+                      }}
+                    >
+                      <option value="">-- Seleccionar lista --</option>
+                      {fechasFaena.map((fecha, idx) => (
+                        <optgroup key={idx} label={fecha.fechaStr}>
+                          {fecha.listas.map((lista) => (
+                            <option key={lista.id} value={lista.id}>
+                              N{String(lista.numero).padStart(4, '0')} ({fecha.fechaStr}) — {lista.tropas.map(t => t.codigo).join(', ')}
+                              {lista.vbRomaneo ? ' ✓ VB' : ''}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-[150px]">
+                    <Label className="mb-1 block">Filtrar Tropa</Label>
+                    <select
+                      className="w-full h-9 rounded-md border border-stone-300 bg-white px-3 text-sm"
+                      value={revisionTropa}
+                      onChange={(e) => handleTropaChange(e.target.value)}
+                    >
+                      <option value="">Todas</option>
+                      {tropasRevision.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {revisionListaId && (
+                    <Button onClick={() => fetchRevision(revisionListaId, revisionTropa || undefined)} variant="outline" size="sm">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Actualizar
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
             {loadingRevision ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
               </div>
+            ) : !revisionListaId ? (
+              <Card className="border-0 shadow-md">
+                <CardContent className="py-12 text-center">
+                  <Filter className="w-16 h-16 mx-auto mb-4 text-stone-300" />
+                  <p className="text-lg text-stone-600">Seleccione una lista de faena para revisar</p>
+                  <p className="text-sm text-stone-400 mt-1">Elija una lista del selector arriba para ver los romaneos y poder corregir</p>
+                </CardContent>
+              </Card>
             ) : filasRevision.length === 0 ? (
               <Card className="border-0 shadow-md">
                 <CardContent className="py-12 text-center">
                   <FileText className="w-16 h-16 mx-auto mb-4 text-stone-300" />
-                  <p className="text-lg text-stone-600">No hay datos de romaneo para revisar</p>
-                  <p className="text-sm text-stone-400 mt-1">Los romaneos aparecerán aquí una vez procesados</p>
+                  <p className="text-lg text-stone-600">No hay datos para esta lista</p>
+                  <p className="text-sm text-stone-400 mt-1">No se encontraron asignaciones de garrón</p>
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-0 overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-10"></TableHead>
-                        <TableHead className="w-16">Garrón</TableHead>
-                        <TableHead className="w-16">N° Animal</TableHead>
-                        <TableHead>Tropa</TableHead>
-                        <TableHead>Dent.</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead className="text-right">Kg Ingreso</TableHead>
-                        <TableHead className="text-right">Kg Der</TableHead>
-                        <TableHead className="text-right">Kg Izq</TableHead>
-                        <TableHead className="text-right">Kg Total</TableHead>
-                        <TableHead className="text-right">% Rinde</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filasRevision.map((fila) => (
-                        <TableRow 
-                          key={fila.id}
-                          className={`cursor-pointer hover:bg-stone-50 ${selectedFilas.find(f => f.id === fila.id) ? 'bg-amber-50' : ''} ${fila.rindeAlto ? 'bg-red-50' : ''}`}
-                          onClick={() => toggleFilaSeleccion(fila)}
-                        >
-                          <TableCell>
-                            <Checkbox 
-                              checked={!!selectedFilas.find(f => f.id === fila.id)}
-                              onCheckedChange={() => toggleFilaSeleccion(fila)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono font-bold">{fila.garron}</TableCell>
-                          <TableCell className="font-mono">{fila.numeroAnimal || '-'}</TableCell>
-                          <TableCell>{fila.tropaCodigo || '-'}</TableCell>
-                          <TableCell>{fila.denticion || '-'}</TableCell>
-                          <TableCell>{fila.tipoAnimal || '-'}</TableCell>
-                          <TableCell className="text-right">{fila.kgIngreso?.toFixed(1) || '-'}</TableCell>
-                          <TableCell className="text-right">{fila.kgMediaDer?.toFixed(1) || '-'}</TableCell>
-                          <TableCell className="text-right">{fila.kgMediaIzq?.toFixed(1) || '-'}</TableCell>
-                          <TableCell className="text-right font-medium">{fila.kgTotal.toFixed(1)}</TableCell>
-                          <TableCell className={`text-right font-bold ${fila.rindeAlto ? 'text-red-600' : fila.rinde && fila.rinde > 50 ? 'text-emerald-600' : ''}`}>
-                            {fila.rinde !== null ? `${fila.rinde.toFixed(1)}%` : '-'}
-                            {fila.rindeAlto && <AlertTriangle className="w-4 h-4 inline ml-1" />}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
+              <>
+                {/* Contadores */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <Badge variant="outline">
+                      {filasRevision.length} registros
+                    </Badge>
+                    <Badge variant="outline" className="text-red-600 border-red-300">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      {filasRevision.filter(f => f.rindeAlto).length} con rinde alto (&gt;70%)
+                    </Badge>
+                    {tropasRevision.length > 1 && (
+                      <Badge variant="outline" className="text-blue-600 border-blue-300">
+                        {tropasRevision.length} tropas
+                      </Badge>
+                    )}
+                  </div>
+                  {selectedFilas.length === 2 && (
+                    <Button
+                      onClick={handleIntercambiar}
+                      disabled={intercambiando}
+                      variant="outline"
+                      className="border-amber-300 text-amber-600"
+                    >
+                      {intercambiando ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <ArrowRightLeft className="w-4 h-4 mr-2" />
+                      )}
+                      Intercambiar G{selectedFilas[0].garron} (A{selectedFilas[0].numeroAnimal || '?'}) ↔ G{selectedFilas[1].garron} (A{selectedFilas[1].numeroAnimal || '?'})
+                    </Button>
+                  )}
+                </div>
 
-            {selectedFilas.length > 0 && selectedFilas.length !== 2 && (
-              <p className="text-sm text-stone-500 text-center">
-                Seleccione exactamente 2 filas para intercambiar (deben ser de la misma tropa)
-              </p>
+                {/* Tabla agrupada por tropa */}
+                {Object.entries(filasAgrupadas).map(([tropa, filas]) => (
+                  <Card key={tropa} className="border-0 shadow-md">
+                    <CardHeader className="bg-stone-50 rounded-t-lg py-2 px-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Badge variant="outline">{tropa}</Badge>
+                        <span className="text-stone-500">{filas.length} garrones</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10"></TableHead>
+                            <TableHead className="w-16">Garrón</TableHead>
+                            <TableHead className="w-16">N° Animal</TableHead>
+                            <TableHead>Dent.</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead className="text-right">Kg Ingreso</TableHead>
+                            <TableHead className="text-right">Kg Der</TableHead>
+                            <TableHead className="text-right">Kg Izq</TableHead>
+                            <TableHead className="text-right">Kg Total</TableHead>
+                            <TableHead className="text-right">% Rinde</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filas.map((fila) => (
+                            <TableRow 
+                              key={fila.id}
+                              className={`cursor-pointer hover:bg-stone-50 ${selectedFilas.find(f => f.id === fila.id) ? 'bg-amber-50' : ''} ${fila.rindeAlto ? 'bg-red-50' : ''}`}
+                              onClick={() => toggleFilaSeleccion(fila)}
+                            >
+                              <TableCell>
+                                <Checkbox 
+                                  checked={!!selectedFilas.find(f => f.id === fila.id)}
+                                  onCheckedChange={() => toggleFilaSeleccion(fila)}
+                                />
+                              </TableCell>
+                              <TableCell className="font-mono font-bold">{fila.garron}</TableCell>
+                              <TableCell className="font-mono">{fila.numeroAnimal || '-'}</TableCell>
+                              <TableCell>{fila.denticion || '-'}</TableCell>
+                              <TableCell>{fila.tipoAnimal || '-'}</TableCell>
+                              <TableCell className="text-right">{fila.kgIngreso?.toFixed(1) || '-'}</TableCell>
+                              <TableCell className="text-right">{fila.kgMediaDer?.toFixed(1) || '-'}</TableCell>
+                              <TableCell className="text-right">{fila.kgMediaIzq?.toFixed(1) || '-'}</TableCell>
+                              <TableCell className="text-right font-medium">{fila.kgTotal.toFixed(1)}</TableCell>
+                              <TableCell className={`text-right font-bold ${fila.rindeAlto ? 'text-red-600' : fila.rinde && fila.rinde > 50 ? 'text-emerald-600' : ''}`}>
+                                {fila.rinde !== null ? `${fila.rinde.toFixed(1)}%` : '-'}
+                                {fila.rindeAlto && <AlertTriangle className="w-4 h-4 inline ml-1" />}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {selectedFilas.length > 0 && selectedFilas.length !== 2 && (
+                  <p className="text-sm text-stone-500 text-center">
+                    Seleccione exactamente 2 filas para intercambiar (deben ser de la misma tropa)
+                  </p>
+                )}
+              </>
             )}
           </TabsContent>
 
