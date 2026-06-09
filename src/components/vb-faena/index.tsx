@@ -378,7 +378,7 @@ export function VBFaenaModule({ operador }: { operador: Operador }) {
                                 {g.animalId ? (
                                   <>
                                     <p className="font-medium">{g.animalCodigo}</p>
-                                    <p className="text-xs text-stone-500">{g.tropaCodigo} • {g.tipoAnimal}</p>
+                                    <p className="text-xs text-stone-500">{g.tropaCodigo} • {g.tipoAnimal}{romaneo?.denticion ? ` • D:${romaneo.denticion}` : ''}</p>
                                   </>
                                 ) : (
                                   <Badge variant="outline" className="text-orange-600">
@@ -437,7 +437,7 @@ export function VBFaenaModule({ operador }: { operador: Operador }) {
                 ) : (
                   <div className="space-y-4">
                     {/* Datos del animal */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                       <div className="p-3 bg-stone-50 rounded-lg">
                         <p className="text-xs text-stone-500">
                           <TextoEditable id="vbfaena-label-garron" original="Garrón" tag="span" />
@@ -461,6 +461,14 @@ export function VBFaenaModule({ operador }: { operador: Operador }) {
                           <TextoEditable id="vbfaena-label-pvivo" original="P. Vivo" tag="span" />
                         </p>
                         <p className="font-medium">{selectedGarron.pesoVivo?.toFixed(0) || '-'} kg</p>
+                      </div>
+                      <div className="p-3 bg-purple-50 rounded-lg">
+                        <p className="text-xs text-purple-600">
+                          <TextoEditable id="vbfaena-label-denticion" original="Dentición" tag="span" />
+                        </p>
+                        <p className="text-lg font-bold text-purple-700">
+                          {romaneos.get(selectedGarron.garron)?.denticion || '-'}
+                        </p>
                       </div>
                     </div>
 
