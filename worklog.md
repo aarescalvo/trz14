@@ -115,3 +115,23 @@ Stage Summary:
 - Scripts creados: consistencia-simulacion.ts, importar-pesaje-camion.ts, diagnostic-pesaje-camion.ts
 - Script mejorado: actualizar-estado-faenados.ts (ahora recalcula stock corrales)
 
+
+---
+Task ID: 2
+Agent: Super Z (main)
+Task: Corregir datos falsos de kg en listado de garrones del Romaneo
+
+Work Log:
+- Analicé el flujo completo: API garrones-asignados → romaneo/pesar → MediaRes
+- Encontré CAUSA RAÍZ en romaneo/pesar/route.ts líneas 170-193: al pesar con listaFaenaId, si no encontraba romaneo con esa lista, buscaba romaneos con listaFaenaId=null y LES REESCRIBÍA el listaFaenaId al actual. Esto contaminaba listas con datos de otras faenas.
+- Encontré segundo bug: líneas 297-314 reasignaban MediaRes de otros romaneos si compartían código
+- Corregí garrones-asignados/route.ts: ahora usa triple match (listaFaenaId + garron + tropaCodigo) para buscar romaneos. Filtra romaneos que no coincidan en garron+tropa con las asignaciones
+- Corregido romaneo/pesar/route.ts: ya NUNCA reutiliza romaneos viejos (eliminado fallback a listaFaenaId=null). Siempre crea romaneo nuevo con listaFaenaId correcta. Ya NUNCA reasigna MediaRes entre romaneos.
+- Creado endpoint /api/romaneo/limpiar-vinculos para desvincular romaneos contaminados
+- Corregidos errores de tipo en next.config.ts para permitir build
+- Build exitoso
+
+Stage Summary:
+- Archivos modificados: garrones-asignados/route.ts, romaneo/pesar/route.ts, next.config.ts
+- Archivos creados: api/romaneo/limpiar-vinculos/route.ts
+- Para limpiar datos contaminados existentes: POST /api/romaneo/limpiar-vinculos con { listaFaenaId }

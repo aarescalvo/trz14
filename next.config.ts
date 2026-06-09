@@ -38,7 +38,7 @@ const getDevOrigins = (): string[] => {
     const interfaces = os.networkInterfaces();
     for (const name of Object.keys(interfaces)) {
       for (const iface of interfaces[name] || []) {
-        const isIPv4 = iface.family === 'IPv4' || iface.family === 4;
+        const isIPv4 = iface.family === 'IPv4';
         if (isIPv4 && !iface.internal) {
           origins.add(`http://${iface.address}:3000`);
           origins.add(`http://${iface.address}:3001`);
@@ -52,7 +52,7 @@ const getDevOrigins = (): string[] => {
   // Fuente 3: DNS lookup del hostname local
   try {
     const hostname = os.hostname();
-    const addresses = dns.lookupSync(hostname, { all: true });
+    const addresses = (dns as any).lookupSync(hostname, { all: true });
     for (const addr of addresses) {
       if (addr.family === 4 && addr.address !== '127.0.0.1') {
         origins.add(`http://${addr.address}:3000`);

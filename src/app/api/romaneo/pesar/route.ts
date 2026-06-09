@@ -155,42 +155,21 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Verificar si ya existe romaneo para este garrón
+      // Verificar si ya existe romaneo para este garrón en ESTA lista
       let romaneo
       if (listaFaenaId) {
-        // Buscar por lista + garron
+        // Buscar SOLO por lista + garron + tropaCodigo (triple match)
+        // NUNCA reutilizar romaneos de otras listas ni sin listaFaenaId
+        const tropaRef = asignacion?.tropaCodigo || null
         romaneo = await tx.romaneo.findFirst({
           where: { 
             garron: parseInt(garron),
-            listaFaenaId
+            listaFaenaId,
+            ...(tropaRef ? { tropaCodigo: tropaRef } : {})
           },
           include: { mediasRes: true }
         })
-
-        // Si no existe con listaFaenaId, buscar sin él (romaneo viejo sin vincular)
-        // y actualizarle el listaFaenaId para reutilizarlo
-        if (!romaneo) {
-          romaneo = await tx.romaneo.findFirst({
-            where: { 
-              garron: parseInt(garron),
-              listaFaenaId: null
-            },
-            include: { mediasRes: true },
-            orderBy: { createdAt: 'desc' }
-          })
-          if (romaneo) {
-            log.info(`Romaneo existente sin listaFaenaId encontrado (${romaneo.id}), actualizando con listaFaenaId=${listaFaenaId}`)
-            await tx.romaneo.update({
-              where: { id: romaneo.id },
-              data: { listaFaenaId }
-            })
-            // Re-cargar con medias
-            romaneo = await tx.romaneo.findFirst({
-              where: { id: romaneo.id },
-              include: { mediasRes: true }
-            })
-          }
-        }
+        log.info(`Romaneo buscado (listaFaenaId=${listaFaenaId}, garron=${garron}, tropa=${tropaRef}): ${romaneo ? 'ENCONTRADO ' + romaneo.id : 'NO ENCONTRADO - se creará nuevo'}`)
       } else {
         // Buscar por fecha (comportamiento original)
         romaneo = await tx.romaneo.findFirst({
@@ -294,26 +273,25 @@ export async function POST(request: NextRequest) {
       const codigoBase = `${fechaCodigo.getFullYear().toString().slice(-2)}${(fechaCodigo.getMonth() + 1).toString().padStart(2, '0')}${fechaCodigo.getDate().toString().padStart(2, '0')}-${garron.toString().padStart(4, '0')}-${lado.charAt(0)}`
       const codigoMedia = `${codigoBase}-A`
 
-      // Verificar que no exista una MediaRes con ese codigo en OTRO romaneo
-      // (puede pasar con romaneos viejos sin listaFaenaId)
+      // NUNCA reasignar MediaRes de otros romaneos. Siempre crear nueva.
+      // Verificar duplicado SOLO dentro de este romaneo
       let mediaRes
-      const codigoExistente = await tx.mediaRes.findFirst({
-        where: { codigo: codigoMedia }
+      const codigoDuplicado = await tx.mediaRes.findFirst({
+        where: { 
+          codigo: codigoMedia,
+          romaneoId: romaneo.id 
+        }
       })
 
-      if (codigoExistente && codigoExistente.romaneoId !== romaneo.id) {
-        log.info(`Codigo ${codigoMedia} ya existe en romaneo ${codigoExistente.romaneoId}, reasignando a romaneo ${romaneo.id}`)
-        // Reasignar al romaneo actual
+      if (codigoDuplicado && !sobrescribir) {
+        throw new Error(`MEDIA_YA_EXISTE:${lado}:${garron}`)
+      } else if (codigoDuplicado && sobrescribir) {
         mediaRes = await tx.mediaRes.update({
-          where: { id: codigoExistente.id },
-          data: {
-            romaneoId: romaneo.id,
-            peso: pesoNum,
-            camaraId
-          }
+          where: { id: codigoDuplicado.id },
+          data: { peso: pesoNum, camaraId }
         })
       } else {
-        // Crear la media res (codigo no existe o pertenece a este romaneo)
+        // Crear la media res nueva
         mediaRes = await tx.mediaRes.create({
           data: {
             romaneoId: romaneo.id,

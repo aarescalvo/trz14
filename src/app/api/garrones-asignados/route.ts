@@ -75,24 +75,32 @@ export async function GET(request: NextRequest) {
       orderBy: { numero: 'desc' }
     })
 
-    // Formatear respuesta usando los campos del schema
-    // Incluir datos de romaneos existentes si los hay
-    const garronesNums = asignaciones.map(a => a.garron as number)
+    // ============================================================================
+    // DATOS REALES SOLAMENTE: buscar romaneos vinculados a ESTA lista
+    // Triple match: listaFaenaId + garron + tropaCodigo
+    // Si no hay romaneo que coincida en los 3, mostrar null (0 kg)
+    // ============================================================================
     const listaIdRef = listaId || asignaciones[0]?.listaFaenaId
+    log.info('[garrones-asignados]', { listaIdRef, asignaciones: asignaciones.length })
 
-    // Buscar SOLO romaneos vinculados a esta lista (sin fallbacks ni linking automático)
+    // Construir mapa esperado: (garron, tropaCodigo) => asignacion
+    // Esto es lo que la lista de faena dice que deberia existir
+    const asignacionesByKey = new Map<string, typeof asignaciones[0]>()
+    for (const a of asignaciones) {
+      const key = `${a.garron}|${a.tropaCodigo || ''}`
+      asignacionesByKey.set(key, a)
+    }
+
     let romaneosExistentes: Array<{
       garron: number; pesoMediaDer: number | null; pesoMediaIzq: number | null;
       pesoTotal: number | null; rinde: number | null; estado: string;
       denticion: string | null; id: string; tropaCodigo: string | null;
     }> = []
-    if (garronesNums.length > 0) {
-      const whereRomaneo: any = { garron: { in: garronesNums } }
-      if (listaIdRef) {
-        whereRomaneo.listaFaenaId = listaIdRef
-      }
-      romaneosExistentes = await db.romaneo.findMany({
-        where: whereRomaneo,
+
+    if (listaIdRef && asignaciones.length > 0) {
+      // Buscar TODOS los romaneos que tengan listaFaenaId = esta lista
+      const todosRomaneosDeLista = await db.romaneo.findMany({
+        where: { listaFaenaId: listaIdRef },
         select: {
           garron: true,
           pesoMediaDer: true,
@@ -105,9 +113,23 @@ export async function GET(request: NextRequest) {
           tropaCodigo: true,
         },
       })
+      log.info('[garrones-asignados] romaneos con listaFaenaId', { listaIdRef, total: todosRomaneosDeLista.length })
+
+      // FILTRAR: solo conservar los que coincidan en garron + tropaCodigo con las asignaciones
+      for (const r of todosRomaneosDeLista) {
+        const key = `${r.garron}|${r.tropaCodigo || ''}`
+        if (asignacionesByKey.has(key)) {
+          romaneosExistentes.push(r)
+        } else {
+          log.warn('[garrones-asignados] ROMANEO DESCARTADO (no coincide garron+tropa)', {
+            garron: r.garron, tropa: r.tropaCodigo, romaneoId: r.id
+          })
+        }
+      }
+      log.info('[garrones-asignados] romaneos validados', { total: romaneosExistentes.length })
     }
 
-    // Buscar MediaRes para los romaneos encontrados
+    // Buscar MediaRes SOLO para los romaneos validados
     const romaneoIds = romaneosExistentes.map(r => r.id)
     const mediaResPesoByGarron = new Map<number, { der: number | null; izq: number | null; romaneoId: string | null }>()
 
@@ -130,28 +152,49 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Indexar romaneos por garron para datos complementarios (rinde, denticion, etc.)
+    // Indexar romaneos validados por clave compuesta garron|tropaCodigo
+    const romaneoByKey = new Map<string, typeof romaneosExistentes[0]>()
+    for (const r of romaneosExistentes) {
+      const key = `${r.garron}|${r.tropaCodigo || ''}`
+      romaneoByKey.set(key, r)
+    }
+    // También por garron solo (para compatibilidad, pero el compuesto tiene prioridad)
     const romaneoByGarron = new Map<number, typeof romaneosExistentes[0]>()
     for (const r of romaneosExistentes) {
-      romaneoByGarron.set(r.garron as number, r)
+      if (!romaneoByGarron.has(r.garron as number)) {
+        romaneoByGarron.set(r.garron as number, r)
+      }
     }
 
     const data = asignaciones.map(a => {
-      const romaneo = romaneoByGarron.get(a.garron as number)
+      const compKey = `${a.garron}|${a.tropaCodigo || ''}`
+      // Priorizar match por clave compuesta (garron + tropa)
+      const romaneo = romaneoByKey.get(compKey) || romaneoByGarron.get(a.garron as number) || null
       const mediaResPesos = mediaResPesoByGarron.get(a.garron as number)
+
+      const pesoDer = romaneo?.pesoMediaDer ?? mediaResPesos?.der ?? null
+      const pesoIzq = romaneo?.pesoMediaIzq ?? mediaResPesos?.izq ?? null
+
+      // Log si hay kg para depuración
+      if (pesoDer !== null || pesoIzq !== null) {
+        log.info('[garrones-asignados] kg encontrado', {
+          garron: a.garron, tropa: a.tropaCodigo, der: pesoDer, izq: pesoIzq, romaneoId: romaneo?.id || 'none'
+        })
+      }
+
       return {
         garron: a.garron,
         animalId: a.animalId,
         animalCodigo: a.animal?.codigo || null,
-        tropaCodigo: a.tropaCodigo || a.animal?.tropa?.codigo || romaneo?.tropaCodigo || null,
+        tropaCodigo: a.tropaCodigo || a.animal?.tropa?.codigo || null,
         tipoAnimal: a.tipoAnimal || a.animal?.tipoAnimal?.toString() || null,
         pesoVivo: a.pesoVivo || a.animal?.pesoVivo || a.animal?.pesajeIndividual?.peso || null,
         tieneMediaDer: a.tieneMediaDer || !!romaneo?.pesoMediaDer || !!mediaResPesos?.der,
         tieneMediaIzq: a.tieneMediaIzq || !!romaneo?.pesoMediaIzq || !!mediaResPesos?.izq,
         completado: a.completado || !!(romaneo?.pesoMediaDer && romaneo?.pesoMediaIzq) || !!(mediaResPesos?.der && mediaResPesos?.izq),
-        // Datos del romaneo existente (priorizar romaneo, fallback a MediaRes)
-        pesoMediaDer: romaneo?.pesoMediaDer ?? mediaResPesos?.der ?? null,
-        pesoMediaIzq: romaneo?.pesoMediaIzq ?? mediaResPesos?.izq ?? null,
+        // Datos del romaneo existente - SOLO si el romaneo pertenece a ESTA lista
+        pesoMediaDer: pesoDer,
+        pesoMediaIzq: pesoIzq,
         pesoTotal: romaneo?.pesoTotal ?? (
           mediaResPesos?.der && mediaResPesos?.izq ? mediaResPesos.der + mediaResPesos.izq : null
         ),
