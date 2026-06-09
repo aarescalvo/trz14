@@ -36,7 +36,8 @@ interface FilaGarron {
 
 // Detectar en qué fila está el header "GARRON"
 function detectarHeaderRow(ws: XLSX.WorkSheet): number | null {
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+  if (!ws || !ws['!ref']) return null
+  const range = XLSX.utils.decode_range(ws['!ref'])
   for (let r = range.s.r; r <= Math.min(range.e.r, 30); r++) {
     for (let c = range.s.c; c <= range.e.c; c++) {
       const cell = ws[XLSX.utils.encode_cell({ r, c })]
@@ -155,7 +156,12 @@ async function main() {
   let erroresHoja = 0
 
   for (const nombre of hojasTropa) {
-    const ws = wb[nombre] as XLSX.WorkSheet
+    const ws = wb.Sheets[nombre]
+    if (!ws) {
+      console.error(`  ✗ ${nombre}: hoja no encontrada en workbook`)
+      erroresHoja++
+      continue
+    }
     try {
       const headerRow = detectarHeaderRow(ws)
       if (!headerRow) {
