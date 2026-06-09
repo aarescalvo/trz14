@@ -109,11 +109,22 @@ export async function GET(request: NextRequest) {
 
       // Fallback: buscar romaneos SIN listaFaenaId para garrones que no se encontraron
       // (romaneos viejos que nunca se vincularon a una lista)
+      // IMPORTANTE: cruzar por tropaCodigo para no mezclar garrones de otras listas
       if (listaIdRef && romaneosExistentes.length < garronesNums.length) {
         const garronesEncontrados = new Set(romaneosExistentes.map(r => r.garron as number))
         const garronesFaltantes = garronesNums.filter(g => !garronesEncontrados.has(g))
         
         if (garronesFaltantes.length > 0) {
+          // Obtener tropa de cada asignación faltante para validar
+          const tropaPorGarron = new Map<number, string>()
+          for (const a of asignaciones) {
+            const gn = a.garron as number
+            if (garronesFaltantes.includes(gn) && a.tropaCodigo) {
+              tropaPorGarron.set(gn, a.tropaCodigo)
+            }
+          }
+          
+          // Buscar romaneos viejos sin listaFaenaId para esos garrones
           const romaneosViejos = await db.romaneo.findMany({
             where: {
               garron: { in: garronesFaltantes },
@@ -133,16 +144,20 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: 'desc' }
           })
           
-          // Vincular los romaneos viejos a esta lista y agregarlos
-          if (romaneosViejos.length > 0) {
-            // Actualizar listaFaenaId en los romaneos viejos (background, no bloquear)
-            for (const rv of romaneosViejos) {
+          // Vincular SOLO los que coinciden en tropa (evitar mezclar listas)
+          const romaneosValidos = romaneosViejos.filter(rv => {
+            const tropaAsig = tropaPorGarron.get(rv.garron as number)
+            return tropaAsig && rv.tropaCodigo === tropaAsig
+          })
+          
+          if (romaneosValidos.length > 0) {
+            for (const rv of romaneosValidos) {
               db.romaneo.update({
                 where: { id: rv.id },
                 data: { listaFaenaId: listaIdRef }
-              }).catch(() => {}) // fire and forget
+              }).catch(() => {})
             }
-            romaneosExistentes = [...romaneosExistentes, ...romaneosViejos]
+            romaneosExistentes = [...romaneosExistentes, ...romaneosValidos]
           }
         }
       }
