@@ -79,9 +79,97 @@ export async function GET(request: NextRequest) {
     // Incluir datos de romaneos existentes si los hay
     const garronesNums = asignaciones.map(a => a.garron as number)
     const listaIdRef = listaId || asignaciones[0]?.listaFaenaId
-    const listaFecha = listaFaenaInfo?.fecha ? new Date(listaFaenaInfo.fecha) : null
 
-    // 1) Buscar romaneos vinculados a esta lista
+    // Para garrones sin romaneo vinculado, hacer linking por garron + tropa
+    // Esto es para romaneos viejos creados antes de que exista listaFaenaId
+    if (listaIdRef && garronesNums.length > 0) {
+      const garronesSinRomaneo: number[] = []
+      
+      // Verificar cuales garrones ya tienen romaneo vinculado a esta lista
+      const romaneosVinculados = await db.romaneo.findMany({
+        where: {
+          listaFaenaId: listaIdRef,
+          garron: { in: garronesNums }
+        },
+        select: { garron: true }
+      })
+      const garronesConRomaneo = new Set(romaneosVinculados.map(r => r.garron as number))
+      
+      for (const a of asignaciones) {
+        const gn = a.garron as number
+        if (!garronesConRomaneo.has(gn) && a.tropaCodigo) {
+          garronesSinRomaneo.push(gn)
+        }
+      }
+      
+      // Para cada garron faltante, buscar romaneo sin listaFaenaId que coincida en tropa
+      if (garronesSinRomaneo.length > 0) {
+        // Obtener las tropas de los garrones faltantes
+        const tropaPorGarron = new Map<number, string>()
+        for (const a of asignaciones) {
+          const gn = a.garron as number
+          if (garronesSinRomaneo.includes(gn) && a.tropaCodigo) {
+            tropaPorGarron.set(gn, a.tropaCodigo)
+          }
+        }
+        
+        // Buscar romaneos candidatos: garron SIN listaFaenaId + tropa que coincida
+        // Agrupar por (garron, tropa) para buscar en batch
+        const paresGarronTropa = Array.from(tropaPorGarron.entries())
+        const tropasUnicas = [...new Set(paresGarronTropa.map(([, t]) => t))]
+        
+        const romaneosCandidatos = await db.romaneo.findMany({
+          where: {
+            garron: { in: garronesSinRomaneo },
+            listaFaenaId: null,
+            tropaCodigo: { in: tropasUnicas }
+          },
+          include: {
+            mediasRes: { select: { lado: true, peso: true } }
+          },
+          orderBy: { createdAt: 'desc' }
+        })
+        
+        // Vincular los que coinciden en garron + tropa Y tienen MediaRes
+        for (const rc of romaneosCandidatos) {
+          const tropaEsperada = tropaPorGarron.get(rc.garron as number)
+          if (tropaEsperada !== rc.tropaCodigo) continue
+          if (rc.mediasRes.length === 0) continue
+          
+          // Verificar que este garron no tenga YA un romaneo vinculado (por si acaso)
+          const yaVinculado = await db.romaneo.findFirst({
+            where: { listaFaenaId: listaIdRef, garron: rc.garron }
+          })
+          if (yaVinculado) continue
+          
+          // Vincular y actualizar flags de la asignación
+          await db.romaneo.update({
+            where: { id: rc.id },
+            data: { listaFaenaId: listaIdRef }
+          })
+          
+          // Actualizar pesos en el romaneo si tiene ambas medias
+          const mediaDer = rc.mediasRes.find(m => m.lado === 'DERECHA')
+          const mediaIzq = rc.mediasRes.find(m => m.lado === 'IZQUIERDA')
+          if (mediaDer && mediaIzq) {
+            const pesoTotal = mediaDer.peso + mediaIzq.peso
+            const asignacion = asignaciones.find(a => a.garron === rc.garron)
+            const pesoVivo = asignacion?.pesoVivo || asignacion?.animal?.pesoVivo || asignacion?.animal?.pesajeIndividual?.peso || null
+            await db.romaneo.update({
+              where: { id: rc.id },
+              data: {
+                pesoMediaDer: mediaDer.peso,
+                pesoMediaIzq: mediaIzq.peso,
+                pesoTotal,
+                rinde: pesoVivo ? (pesoTotal / pesoVivo) * 100 : null
+              }
+            })
+          }
+        }
+      }
+    }
+
+    // Ahora buscar todos los romaneos vinculados (incluidos los recién vinculados)
     let romaneosExistentes: Array<{
       garron: number; pesoMediaDer: number | null; pesoMediaIzq: number | null;
       pesoTotal: number | null; rinde: number | null; estado: string;
@@ -108,7 +196,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 2) Buscar MediaRes para los romaneos encontrados
+    // Buscar MediaRes para los romaneos encontrados
     const romaneoIds = romaneosExistentes.map(r => r.id)
     const mediaResPesoByGarron = new Map<number, { der: number | null; izq: number | null; romaneoId: string | null }>()
 
@@ -128,85 +216,6 @@ export async function GET(request: NextRequest) {
         if (m.lado === 'DERECHA') existing.der = m.peso
         else if (m.lado === 'IZQUIERDA') existing.izq = m.peso
         mediaResPesoByGarron.set(gn, existing)
-      }
-    }
-
-    // 3) Fallback: para garrones sin romaneo vinculado, buscar MediaRes por código
-    //    El código tiene formato YYMMDD-GGGG-L-A, extraemos el garrón del código
-    if (listaIdRef && garronesNums.length > 0) {
-      const garronesConDatos = new Set(mediaResPesoByGarron.keys())
-      const garronesFaltantes = garronesNums.filter(g => !garronesConDatos.has(g))
-
-      if (garronesFaltantes.length > 0) {
-        // Construir patrones de código para cada garrón faltante
-        // Formato: YYMMDD-GGGG-L-A  (GGGG = garron padded a 4)
-        const patrones = garronesFaltantes.map(g => {
-          const gStr = String(g).padStart(4, '0')
-          return { garron: g, patron: `-${gStr}-` }
-        })
-
-        // Buscar MediaRes que puedan corresponder
-        // Si tenemos fecha de lista, priorizar por esa fecha
-        
-        if (listaFecha) {
-          // Buscar por fecha de la lista en el código (YYMMDD)
-          const yy = listaFecha.getFullYear().toString().slice(-2)
-          const mm = (listaFecha.getMonth() + 1).toString().padStart(2, '0')
-          const dd = listaFecha.getDate().toString().padStart(2, '0')
-          const prefijoFecha = `${yy}${mm}${dd}`
-          
-          // Para cada garrón faltante, buscar el MediaRes con fecha de la lista
-          for (const { garron, patron } of patrones) {
-            const codigosEsperados = [
-              `${prefijoFecha}${patron}D`, // lado DERECHA (cualquier sigla)
-              `${prefijoFecha}${patron}I`, // lado IZQUIERDA (cualquier sigla)
-            ]
-            
-            const medias = await db.mediaRes.findMany({
-              where: {
-                OR: codigosEsperados.map(codigo => ({ codigo: { startsWith: codigo } }))
-              },
-              select: { id: true, romaneoId: true, codigo: true, lado: true, peso: true, createdAt: true }
-            })
-            
-            for (const m of medias) {
-              const existing = mediaResPesoByGarron.get(garron) || { der: null, izq: null, romaneoId: m.romaneoId }
-              if (m.lado === 'DERECHA') existing.der = m.peso
-              else if (m.lado === 'IZQUIERDA') existing.izq = m.peso
-              existing.romaneoId = m.romaneoId
-              mediaResPesoByGarron.set(garron, existing)
-            }
-          }
-        }
-
-        // Si aún faltan garrones, buscar por patrón de garrón sin fecha (último recurso)
-        const garronesTodaviaFaltantes = garronesFaltantes.filter(g => {
-          const datos = mediaResPesoByGarron.get(g)
-          return !datos?.der && !datos?.izq
-        })
-        
-        if (garronesTodaviaFaltantes.length > 0) {
-          for (const g of garronesTodaviaFaltantes) {
-            const gStr = String(g).padStart(4, '0')
-            const patron = `-${gStr}-`
-            
-            // Buscar el MediaRes más reciente para este garrón
-            const medias = await db.mediaRes.findMany({
-              where: { codigo: { contains: patron } },
-              select: { id: true, romaneoId: true, codigo: true, lado: true, peso: true, createdAt: true },
-              orderBy: { createdAt: 'desc' },
-              take: 2 // DER e IZQ como máximo
-            })
-            
-            for (const m of medias) {
-              const existing = mediaResPesoByGarron.get(g) || { der: null, izq: null, romaneoId: m.romaneoId }
-              if (m.lado === 'DERECHA' && !existing.der) existing.der = m.peso
-              else if (m.lado === 'IZQUIERDA' && !existing.izq) existing.izq = m.peso
-              existing.romaneoId = existing.romaneoId || m.romaneoId
-              mediaResPesoByGarron.set(g, existing)
-            }
-          }
-        }
       }
     }
 
