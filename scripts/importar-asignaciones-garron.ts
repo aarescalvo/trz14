@@ -170,7 +170,12 @@ async function main() {
         continue
       }
 
-      const tropaNumero = obtenerTropaNumero(ws, headerRow)
+      let tropaNumero = obtenerTropaNumero(ws, headerRow)
+      // Fallback: extraer número de tropa del nombre de la hoja (ej: "T 18" → 18, "T 30 B" → 30)
+      if (!tropaNumero) {
+        const match = nombre.match(/T\s+(\d+)/)
+        if (match) tropaNumero = parseInt(match[1], 10)
+      }
       if (!tropaNumero) {
         console.log(`  ⚠ ${nombre}: no se pudo determinar número de tropa, saltando`)
         erroresHoja++
