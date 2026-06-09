@@ -117,10 +117,7 @@ export async function GET(request: NextRequest) {
           const romaneosViejos = await db.romaneo.findMany({
             where: {
               garron: { in: garronesFaltantes },
-              OR: [
-                { listaFaenaId: null },
-                { listaFaenaId: { isEmpty: true } }
-              ]
+              listaFaenaId: null
             },
             select: {
               garron: true,
