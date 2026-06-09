@@ -121,7 +121,7 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
   const [listasPendientesOpen, setListasPendientesOpen] = useState(false)
   const [listasPendientesData, setListasPendientesData] = useState<{
     id: string; numero: number; fecha: string; estado: string;
-    totalGarrones: number; completados: number; pendientes: number; porcentaje: number; tropas: string[]
+    totalGarrones: number; completados: number; pesadosParcial?: number; pendientes: number; porcentaje: number; tropas: string[]
   }[]>([])
   const [loadingListasPendientes, setLoadingListasPendientes] = useState(false)
 
@@ -1867,8 +1867,8 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
 
       {/* Dialog: Listas de Faena con Estado de Romaneo */}
       <Dialog open={listasPendientesOpen} onOpenChange={setListasPendientesOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <ClipboardList className="w-5 h-5" />
               Listas de Faena - Estado de Romaneo
@@ -1877,19 +1877,19 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
               Haga clic en una lista para cargar sus garrones en el pesaje
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
+          <div className="flex-1 overflow-hidden">
             {loadingListasPendientes ? (
-              <div className="flex items-center justify-center py-8 text-stone-500">
+              <div className="flex items-center justify-center py-12 text-stone-500">
                 <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
                 Cargando listas...
               </div>
             ) : listasPendientesData.length === 0 ? (
-              <div className="text-center py-8 text-stone-500">
+              <div className="text-center py-12 text-stone-500">
                 <ClipboardList className="w-8 h-8 mx-auto mb-2 text-stone-300" />
-                <p>No hay listas de faena en los ultimos 30 dias</p>
+                <p>No hay listas de faena en los ultimos 90 dias</p>
               </div>
             ) : (
-              <div className="border rounded-lg max-h-[500px] overflow-y-auto">
+              <div className="border rounded-lg overflow-hidden h-full">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1897,10 +1897,11 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                       <TableHead className="w-24">Fecha</TableHead>
                       <TableHead className="w-24">Estado</TableHead>
                       <TableHead>Tropas</TableHead>
-                      <TableHead className="text-center w-20">Total</TableHead>
-                      <TableHead className="text-center w-20">Pesados</TableHead>
-                      <TableHead className="text-center w-20">Pendientes</TableHead>
-                      <TableHead className="w-32">% Avance</TableHead>
+                      <TableHead className="text-center w-16">Total</TableHead>
+                      <TableHead className="text-center w-16">Listos</TableHead>
+                      <TableHead className="text-center w-16">Parcial</TableHead>
+                      <TableHead className="text-center w-16">Pendiente</TableHead>
+                      <TableHead className="w-36">% Avance</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1936,7 +1937,7 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                             {lista.estado}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-stone-600">
+                        <TableCell className="text-xs text-stone-600 max-w-[200px] truncate" title={lista.tropas.join(', ')}>
                           {lista.tropas.length > 0 ? lista.tropas.join(', ') : '-'}
                         </TableCell>
                         <TableCell className="text-center font-medium">
@@ -1944,6 +1945,9 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
                         </TableCell>
                         <TableCell className="text-center font-medium text-green-600">
                           {lista.completados}
+                        </TableCell>
+                        <TableCell className="text-center font-medium text-amber-600">
+                          {lista.pesadosParcial || 0}
                         </TableCell>
                         <TableCell className={cn(
                           "text-center font-bold",
@@ -1975,7 +1979,10 @@ export function RomaneoModule({ operador }: { operador: Operador }) {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-2 border-t">
+            <div className="text-xs text-stone-400 mr-auto">
+              {listasPendientesData.length} listas encontradas
+            </div>
             <Button variant="outline" onClick={() => setListasPendientesOpen(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>

@@ -2,21 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { checkPermission } from '@/lib/auth-helpers'
 import { createLogger } from '@/lib/logger'
-import { Prisma } from '@prisma/client'
 
 const log = createLogger('app.api.romaneo.listas-pendientes.route')
 
-// GET - Listas de faena con resumen de estado de romaneo (últimos 30 días)
+// GET - Listas de faena con resumen de estado de romaneo
+// Cuenta pesados reales: garrones que tienen AMBAS medias en MediaRes vinculadas a la lista
 export async function GET(request: NextRequest) {
   const authError = await checkPermission(request, 'puedeRomaneo')
   if (authError) return authError
 
   try {
+    const { searchParams } = new URL(request.url)
+    const dias = parseInt(searchParams.get('dias') || '90')
+
     const fechaLimite = new Date()
-    fechaLimite.setDate(fechaLimite.getDate() - 30)
+    fechaLimite.setDate(fechaLimite.getDate() - dias)
     fechaLimite.setHours(0, 0, 0, 0)
 
-    // Obtener listas de faena de los últimos 30 días (ABIERTA, EN_PROCESO, CERRADA)
+    // Obtener listas de faena con asignaciones y tropas
     const listas = await db.listaFaena.findMany({
       where: {
         fecha: { gte: fechaLimite },
@@ -32,6 +35,8 @@ export async function GET(request: NextRequest) {
         },
         asignaciones: {
           select: {
+            id: true,
+            garron: true,
             completado: true,
             tropaCodigo: true
           }
@@ -40,13 +45,53 @@ export async function GET(request: NextRequest) {
       orderBy: { numero: 'desc' }
     })
 
+    // Para cada lista, contar pesados reales buscando romaneos + MediaRes
+    // Hacemos una consulta por lista para obtener datos reales
+    const listaIds = listas.map(l => l.id)
+
+    // Un bulk query: todos los romaneos vinculados a estas listas con sus medias
+    const romaneosConMedias = await db.romaneo.findMany({
+      where: {
+        listaFaenaId: { in: listaIds }
+      },
+      include: {
+        mediasRes: {
+          select: { lado: true }
+        }
+      }
+    })
+
+    // Agrupar por listaFaenaId: contar garrones que tienen ambas medias
+    const completadosPorLista = new Map<string, number>()
+    const pesadosParcialPorLista = new Map<string, number>()
+
+    for (const rom of romaneosConMedias) {
+      if (!rom.listaFaenaId) continue
+      const medias = rom.mediasRes
+      const tieneDer = medias.some(m => m.lado === 'DERECHA')
+      const tieneIzq = medias.some(m => m.lado === 'IZQUIERDA')
+
+      if (tieneDer && tieneIzq) {
+        completadosPorLista.set(
+          rom.listaFaenaId,
+          (completadosPorLista.get(rom.listaFaenaId) || 0) + 1
+        )
+      } else if (tieneDer || tieneIzq) {
+        pesadosParcialPorLista.set(
+          rom.listaFaenaId,
+          (pesadosParcialPorLista.get(rom.listaFaenaId) || 0) + 1
+        )
+      }
+    }
+
     const result = listas.map(lista => {
       const totalGarrones = lista.asignaciones.length
-      const completados = lista.asignaciones.filter(a => a.completado).length
-      const pendientes = totalGarrones - completados
+      const completados = completadosPorLista.get(lista.id) || 0
+      const pesadosParcial = pesadosParcialPorLista.get(lista.id) || 0
+      const pendientes = totalGarrones - completados - pesadosParcial
       const porcentaje = totalGarrones > 0 ? Math.round((completados / totalGarrones) * 100) : 0
 
-      // Obtener tropas únicas (usar tropaCodigo de asignaciones, o tropas relacionadas)
+      // Obtener tropas unicas
       const tropasFromAsignaciones = lista.asignaciones
         .map(a => a.tropaCodigo)
         .filter((c): c is string => !!c)
@@ -61,16 +106,16 @@ export async function GET(request: NextRequest) {
         estado: lista.estado,
         totalGarrones,
         completados,
-        pendientes,
+        pesadosParcial,
+        pendientes: Math.max(0, pendientes),
         porcentaje,
         tropas
       }
     })
 
-    // Contar cuántas listas tienen pendientes
     const listasConPendientes = result.filter(l => l.pendientes > 0).length
 
-    log.info('Listas pendientes consultadas', { total: result.length, conPendientes: listasConPendientes })
+    log.info('Listas pendientes consultadas', { total: result.length, conPendientes: listasConPendientes, dias })
 
     return NextResponse.json({
       success: true,
