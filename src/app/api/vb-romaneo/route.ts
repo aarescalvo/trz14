@@ -176,39 +176,47 @@ async function getTablaRevision(fecha?: string | null, listaFaenaId?: string | n
     ? asignaciones.filter(a => a.tropaCodigo === tropaCodigo)
     : asignaciones
 
-  // Obtener la fecha de la lista para buscar romaneos por fecha (los viejos no tienen listaFaenaId)
-  const listaInfo = await db.listaFaena.findMany({
-    where: { id: { in: targetListaIds } },
-    select: { id: true, fecha: true }
-  })
-  const listaFechas = new Map(listaInfo.map(l => [l.id, l.fecha]))
-  
-  // Rango de fechas de las listas seleccionadas
-  const fechas = listaInfo.map(l => l.fecha)
-  const fechaMin = new Date(Math.min(...fechas.map(f => f.getTime())))
-  fechaMin.setHours(0, 0, 0, 0)
-  const fechaMax = new Date(Math.max(...fechas.map(f => f.getTime())))
-  fechaMax.setHours(23, 59, 59, 999)
-
-  // Buscar romaneos por fecha (cubre viejos sin listaFaenaId y nuevos con)
+  // Buscar romaneos por garron y tropaCodigo (sin filtro de fecha para evitar problemas de timezone)
   const garronesSet = [...new Set(asignacionesFiltradas.map(a => a.garron))]
+  const tropasSet = [...new Set(asignacionesFiltradas.map(a => a.tropaCodigo).filter(Boolean))] as string[]
+
+  log.info('[getTablaRevision] Buscando romaneos:', { 
+    totalAsignaciones: asignacionesFiltradas.length,
+    garrones: garronesSet.length,
+    tropas: tropasSet.length 
+  } as Record<string, unknown>)
+
+  // Consultar romaneos sin filtro de fecha — usar garron + opcionalmente tropaCodigo
   const romaneos = await db.romaneo.findMany({
     where: {
-      fecha: { gte: fechaMin, lte: fechaMax },
       garron: { in: garronesSet }
     },
     orderBy: { garron: 'asc' }
   })
 
-  // Mapa: romaneo por (listaFaenaId + garron) — prioridad alta
-  // Mapa fallback: romaneo por garron — para romaneos viejos sin listaFaenaId
+  log.info('[getTablaRevision] Romaneos encontrados:', { total: romaneos.length } as Record<string, unknown>)
+
+  // Construir mapas de búsqueda con diferentes niveles de especificidad
+  // 1) listaFaenaId + garron (más específico, romaneos nuevos)
+  // 2) tropaCodigo + garron (específico, romaneos viejos con tropa)
+  // 3) garron solo (último recurso)
   const romaneoByListaGarron = new Map<string, typeof romaneos[0]>()
+  const romaneoByTropaGarron = new Map<string, typeof romaneos[0]>()
   const romaneoByGarron = new Map<number, typeof romaneos[0]>()
+
   for (const r of romaneos) {
+    // Nivel 1: por listaFaenaId + garron
     if (r.listaFaenaId) {
       romaneoByListaGarron.set(`${r.listaFaenaId}|${r.garron}`, r)
     }
-    // Si ya hay uno con listaFaenaId para ese garron, no sobreescribir el fallback
+    // Nivel 2: por tropaCodigo + garron
+    if (r.tropaCodigo) {
+      const key = `${r.tropaCodigo}|${r.garron}`
+      if (!romaneoByTropaGarron.has(key) || r.listaFaenaId) {
+        romaneoByTropaGarron.set(key, r)
+      }
+    }
+    // Nivel 3: por garron solo (último recurso)
     if (!romaneoByGarron.has(r.garron) || r.listaFaenaId) {
       romaneoByGarron.set(r.garron, r)
     }
@@ -218,10 +226,16 @@ async function getTablaRevision(fecha?: string | null, listaFaenaId?: string | n
   const tropasDistintas = [...new Set(asignaciones.map(a => a.tropaCodigo).filter(Boolean))].sort()
 
   const tabla = asignacionesFiltradas.map(asig => {
-    // Primero intentar match por listaFaenaId + garron, luego fallback por garron solo
+    // Buscar romaneo con 3 niveles de prioridad:
+    // 1) listaFaenaId + garron (más específico)
+    // 2) tropaCodigo + garron (específico para romaneos viejos)
+    // 3) garron solo (último recurso)
     let romaneo: typeof romaneos[0] | undefined
     if (asig.listaFaenaId) {
       romaneo = romaneoByListaGarron.get(`${asig.listaFaenaId}|${asig.garron}`)
+    }
+    if (!romaneo && asig.tropaCodigo) {
+      romaneo = romaneoByTropaGarron.get(`${asig.tropaCodigo}|${asig.garron}`)
     }
     if (!romaneo) {
       romaneo = romaneoByGarron.get(asig.garron)
