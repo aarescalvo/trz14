@@ -219,6 +219,67 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fallback: para garrones que aún no tienen datos de KG,
+    // buscar CUALQUIER romaneo que coincida en garron + tropa (sin filtrar listaFaenaId)
+    // y traer sus MediaRes. Esto cubre romaneos vinculados a otra lista incorrectamente.
+    if (garronesNums.length > 0) {
+      const garronesSinDatos = garronesNums.filter(g => {
+        const datos = mediaResPesoByGarron.get(g)
+        return !datos?.der && !datos?.izq
+      })
+
+      if (garronesSinDatos.length > 0) {
+        // Obtener tropas esperadas para estos garrones
+        const tropaPorGarron = new Map<number, string>()
+        for (const a of asignaciones) {
+          const gn = a.garron as number
+          if (garronesSinDatos.includes(gn) && a.tropaCodigo) {
+            tropaPorGarron.set(gn, a.tropaCodigo)
+          }
+        }
+        const tropasUnicas = [...new Set(tropaPorGarron.values())]
+
+        // Buscar romaneos por garron + tropa SIN filtro de listaFaenaId
+        const romaneosExtras = await db.romaneo.findMany({
+          where: {
+            garron: { in: garronesSinDatos },
+            tropaCodigo: { in: tropasUnicas }
+          },
+          select: { id: true, garron: true, tropaCodigo: true, listaFaenaId: true },
+        })
+
+        // Filtrar los que coinciden en garron + tropa
+        const romaneoIdsExtras = romaneosExtras
+          .filter(r => {
+            const tropaEsperada = tropaPorGarron.get(r.garron as number)
+            return tropaEsperada === r.tropaCodigo
+          })
+          .map(r => r.id)
+
+        if (romaneoIdsExtras.length > 0) {
+          const mediasExtras = await db.mediaRes.findMany({
+            where: { romaneoId: { in: romaneoIdsExtras } },
+            select: { romaneoId: true, lado: true, peso: true }
+          })
+          
+          const romIdToGarron = new Map<string, number>()
+          for (const r of romaneosExtras) {
+            romIdToGarron.set(r.id, r.garron as number)
+          }
+          
+          for (const m of mediasExtras) {
+            const gn = romIdToGarron.get(m.romaneoId)
+            if (gn === undefined) continue
+            const existing = mediaResPesoByGarron.get(gn) || { der: null, izq: null, romaneoId: m.romaneoId }
+            if (m.lado === 'DERECHA' && !existing.der) existing.der = m.peso
+            else if (m.lado === 'IZQUIERDA' && !existing.izq) existing.izq = m.peso
+            existing.romaneoId = existing.romaneoId || m.romaneoId
+            mediaResPesoByGarron.set(gn, existing)
+          }
+        }
+      }
+    }
+
     // Indexar romaneos por garron para datos complementarios (rinde, denticion, etc.)
     const romaneoByGarron = new Map<number, typeof romaneosExistentes[0]>()
     for (const r of romaneosExistentes) {
