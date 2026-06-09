@@ -263,6 +263,7 @@ async function main() {
   let saltadosSinAnimal = 0
   let saltadosDuplicado = 0
   let saltadosAnimalOcupado = 0
+  const animalesFaltantes: string[] = []
   const detalles: string[] = []
 
   // Agrupar tropas procesadas para resumen
@@ -310,6 +311,7 @@ async function main() {
       const animal = tropa.animales.find(a => a.numero === fila.animalNumero)
       if (!animal) {
         saltadosSinAnimal++
+        animalesFaltantes.push(`  Tropa ${tropaNumero}, garron ${fila.garron}, animal Nº ${fila.animalNumero} (caravana: ${fila.caravana || 'sin dato'}, raza: ${fila.raza || 'sin dato'})`)
         continue
       }
 
@@ -355,30 +357,142 @@ async function main() {
     }
   }
 
-  // Resumen
-  console.log('\n========================================')
-  console.log('RESUMEN FINAL')
-  console.log('========================================')
-  console.log(`Asignaciones CREADAS:  ${creados}`)
-  console.log(`Saltados (sin lista):   ${saltadosSinLista}`)
-  console.log(`Saltados (sin tropa DB): ${saltadosSinTropa}`)
-  console.log(`Saltados (sin animal):  ${saltadosSinAnimal}`)
-  console.log(`Saltados (duplicado):   ${saltadosDuplicado}`)
-  console.log(`Saltados (animal ocupado): ${saltadosAnimalOcupado}`)
-  console.log(`\nTropas procesadas: ${tropasProcesadas.size}`)
-  console.log(`Listas afectadas: ${listasProcesadas.size}`)
-
-  // Detalle por lista
-  console.log('\n--- Detalle por lista ---')
+  // Detalle por lista (Fase 1)
+  console.log('\n--- Detalle por lista (Fase 1) ---')
   for (const [listaId, info] of listasProcesadas) {
     const count = todasLasFilas.filter(f => listaByTropaNumero.get(f.tropaNumero) === listaId).length
     console.log(`  Lista N${String(info.numero).padStart(4, '0')} (${info.fecha.toLocaleDateString('es-AR')}): ${info.tropas.join(', ')} — ${count} garrones en planilla`)
   }
 
-  if (saltadosSinLista > 0) {
+  // Tropas sin lista
+  const tropasSinLista = [...porTropa.keys()].filter(n => !listaByTropaNumero.has(n))
+  if (tropasSinLista.length > 0) {
     console.log(`\n⚠ Tropas sin lista de faena (no se crearon asignaciones):`)
-    const sinLista = [...porTropa.keys()].filter(n => !listaByTropaNumero.has(n))
-    console.log(`  ${sinLista.join(', ')}`)
+    console.log(`  ${tropasSinLista.join(', ')}`)
+  }
+
+  // ============================================
+  // FASE 2: Crear listas faltantes y re-procesar
+  // ============================================
+  if (tropasSinLista.length > 0) {
+    console.log('\n========================================')
+    console.log('FASE 2: CREAR LISTAS FALTANTES')
+    console.log('========================================\n')
+
+    // Mapeo de tropas → fecha de lista (según datos del usuario)
+    const listasFaltantes = [
+      { fecha: '2026-05-22', tropas: [200, 201] },
+      { fecha: '2026-05-26', tropas: [202, 203] },
+    ]
+
+    for (const config of listasFaltantes) {
+      const tropasACrear = config.tropas.filter(t => tropasSinLista.includes(t))
+      if (tropasACrear.length === 0) continue
+
+      const maxResult = await db.listaFaena.aggregate({ _max: { numero: true } })
+      const nuevoNumero = (maxResult._max.numero || 0) + 1
+      const fechaLista = new Date(config.fecha + 'T12:00:00-03:00')
+
+      // Calcular cantidad total de cabezas
+      let totalCabezas = 0
+      for (const tn of tropasACrear) {
+        const filasTropa = porTropa.get(tn)
+        if (filasTropa) totalCabezas += filasTropa.length
+      }
+
+      const nuevaLista = await db.listaFaena.create({
+        data: {
+          numero: nuevoNumero,
+          fecha: fechaLista,
+          estado: 'ABIERTA',
+          cantidadTotal: totalCabezas,
+        }
+      })
+      console.log(`  ✓ Lista N${String(nuevoNumero).padStart(4, '0')} creada (${config.fecha}) — ${tropasACrear.length} tropas, ${totalCabezas} cabezas`)
+
+      // Vincular tropas
+      for (const tn of tropasACrear) {
+        const tropa = tropaByNumero.get(tn)
+        if (!tropa) continue
+        const cantidad = porTropa.get(tn)?.length || 0
+        await db.listaFaenaTropa.create({
+          data: {
+            listaFaenaId: nuevaLista.id,
+            tropaId: tropa.id,
+            cantidad,
+          }
+        })
+        // Registrar en mapa para re-procesar
+        listaByTropaNumero.set(tn, nuevaLista.id)
+        console.log(`    → T${tn} vinculada (${cantidad} garrones)`)
+      }
+    }
+
+    // Re-procesar las tropas que ahora tienen lista
+    console.log('\n--- Re-procesando tropas con nuevas listas ---')
+    let creadosFase2 = 0
+    for (const tn of tropasSinLista) {
+      const listaFaenaId = listaByTropaNumero.get(tn)
+      if (!listaFaenaId) continue
+      const tropa = tropaByNumero.get(tn)
+      if (!tropa) continue
+      const filas = porTropa.get(tn) || []
+
+      for (const fila of filas) {
+        const key = `${listaFaenaId}|${fila.garron}`
+        if (existentesKey.has(key)) { saltadosDuplicado++; continue }
+
+        const animal = tropa.animales.find(a => a.numero === fila.animalNumero)
+        if (!animal) {
+          animalesFaltantes.push(`  Tropa ${tn}, garron ${fila.garron}, animal Nº ${fila.animalNumero} (caravana: ${fila.caravana || 'sin dato'}, raza: ${fila.raza || 'sin dato'})`)  
+          saltadosSinAnimal++
+          continue
+        }
+        if (animalesYaAsignados.has(animal.id)) { saltadosAnimalOcupado++; continue }
+
+        try {
+          await db.asignacionGarron.create({
+            data: {
+              listaFaenaId,
+              garron: fila.garron,
+              animalId: animal.id,
+              tropaCodigo: tropa.codigoSimplificado || tropa.codigo,
+              animalNumero: fila.animalNumero,
+              tipoAnimal: animal.tipoAnimal || fila.tipoAnimal || null,
+              pesoVivo: animal.pesoVivo || fila.pesoVivo || null,
+              tieneMediaDer: false,
+              tieneMediaIzq: false,
+              completado: false,
+              horaIngreso: new Date(),
+            }
+          })
+          existentesKey.add(key)
+          existentesKey.add(`animal|${animal.id}`)
+          animalesYaAsignados.add(animal.id)
+          creadosFase2++
+          creados++
+        } catch (err: any) {
+          if (err?.code === 'P2002') { saltadosDuplicado++ }
+          else console.error(`  ✗ Error Fase2 T${tn} G${fila.garron}:`, err.message)
+        }
+      }
+    }
+    console.log(`\n  Asignaciones creadas en Fase 2: ${creadosFase2}`)
+  }
+
+  // Resumen final actualizado
+  console.log('\n========================================')
+  console.log('RESUMEN FINAL (incluye Fase 2)')
+  console.log('========================================')
+  console.log(`Asignaciones TOTALES:    ${creados}`)
+  console.log(`Saltados (sin lista):   0`)
+  console.log(`Saltados (sin tropa DB): ${saltadosSinTropa}`)
+  console.log(`Saltados (sin animal):  ${saltadosSinAnimal}`)
+  console.log(`Saltados (duplicado):   ${saltadosDuplicado}`)
+  console.log(`Saltados (animal ocupado): ${saltadosAnimalOcupado}`)
+  if (animalesFaltantes.length > 0) {
+    console.log(`\n--- Animales no encontrados en DB ---`)
+    for (const a of animalesFaltantes) console.log(a)
   }
 
   console.log('\n✓ Proceso finalizado.')
